@@ -8,7 +8,7 @@ import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, Skeleton, Modal, Input, Select } from '@/components/ui'
 import { getClient, updateClient, deleteClient, getClientInvoices, getServices } from '@/lib/db'
-import { formatCents, getPackageFee, getFeeDescription, buildInvoiceLineItems } from '@/lib/fee'
+import { formatCents, getPackageFee, getFeeDescription, buildInvoiceLineItems, getAddonFee } from '@/lib/fee'
 import { Phone, MapPin, Mail, CalendarDays, DollarSign, Pencil, FileText, CheckCircle2, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
@@ -54,22 +54,28 @@ export default function ClientDetailPage() {
   ]
 
   const BILLING_OPTIONS = [
-    { value: 'upfront',   label: lang === 'es' ? 'Por adelantado (antes de la visita)' : 'Upfront (before visit)'    },
-    { value: 'postvisit', label: lang === 'es' ? 'Después de la visita'                : 'Post-visit (after visit)'  },
+    { value: 'upfront',   label: lang === 'es' ? 'Por adelantado (antes de la visita)' : 'Upfront (before visit)'   },
+    { value: 'postvisit', label: lang === 'es' ? 'Después de la visita'                : 'Post-visit (after visit)' },
   ]
 
   const RECURRENCE_LABELS = lang === 'es' ? RECURRENCE_LABELS_ES : RECURRENCE_LABELS_EN
 
-  const [client,     setClient]     = useState(null)
-  const [invoices,   setInvoices]   = useState([])
-  const [services,   setServices]   = useState([])
-  const [loading,    setLoading]    = useState(true)
-  const [showEdit,   setShowEdit]   = useState(false)
-  const [showDelete, setShowDelete] = useState(false)
-  const [form,       setForm]       = useState({})
-  const [saving,     setSaving]     = useState(false)
-  const [deleting,   setDeleting]   = useState(false)
-  const [invoicing,  setInvoicing]  = useState(false)
+  const [client,        setClient]        = useState(null)
+  const [invoices,      setInvoices]      = useState([])
+  const [services,      setServices]      = useState([])
+  const [addonServices, setAddonServices] = useState([])
+  const [loading,       setLoading]       = useState(true)
+  const [showEdit,      setShowEdit]      = useState(false)
+  const [showDelete,    setShowDelete]    = useState(false)
+  const [showInvoice,   setShowInvoice]   = useState(false) // ← new invoice modal
+  const [form,          setForm]          = useState({})
+  const [saving,        setSaving]        = useState(false)
+  const [deleting,      setDeleting]      = useState(false)
+  const [invoicing,     setInvoicing]     = useState(false)
+
+  // Add-on state for invoice modal
+  const [selectedAddons,  setSelectedAddons]  = useState([]) // fixed addons
+  const [variableInputs,  setVariableInputs]  = useState({}) // {serviceId: dollarString}
 
   useEffect(() => {
     if (!id || !user) return
@@ -87,6 +93,7 @@ export default function ClientDetailPage() {
       setClient(c)
       setInvoices(inv)
       setServices(svc.filter(s => s.serviceType === 'base'))
+      setAddonServices(svc.filter(s => s.serviceType === 'addon'))
       if (c) {
         setForm({
           name:        c.name        || '',
@@ -111,6 +118,51 @@ export default function ClientDetailPage() {
   }
 
   const selectedService = services.find(s => s.id === form.serviceId)
+
+  // Toggle fixed add-on
+  function toggleAddon(service) {
+    setSelectedAddons(prev => {
+      const exists = prev.find(a => a.id === service.id)
+      if (exists) return prev.filter(a => a.id !== service.id)
+      return [...prev, { id: service.id, label: service.label, amountCents: service.priceCents }]
+    })
+  }
+
+  // Build final addons including variable ones
+  function buildFinalAddons() {
+    const result = [...selectedAddons]
+    addonServices
+      .filter(s => s.pricingType === 'variable')
+      .forEach(s => {
+        const val = variableInputs[s.id]
+        if (val && parseFloat(val) > 0) {
+          result.push({
+            id:          s.id,
+            label:       s.label,
+            amountCents: Math.round(parseFloat(val) * 100),
+          })
+        }
+      })
+    return result
+  }
+
+  // Calculate add-on subtotal for display
+  function getAddonSubtotal() {
+    const fixed = selectedAddons.reduce((s, a) => s + (a.amountCents || 0), 0)
+    const variable = addonServices
+      .filter(s => s.pricingType === 'variable')
+      .reduce((s, svc) => {
+        const val = variableInputs[svc.id]
+        return s + (val && parseFloat(val) > 0 ? Math.round(parseFloat(val) * 100) : 0)
+      }, 0)
+    return fixed + variable
+  }
+
+  function openInvoiceModal() {
+    setSelectedAddons([])
+    setVariableInputs({})
+    setShowInvoice(true)
+  }
 
   async function handleSave() {
     setSaving(true)
@@ -166,10 +218,11 @@ export default function ClientDetailPage() {
   async function handleSendInvoice() {
     setInvoicing(true)
     try {
+      const finalAddons = buildFinalAddons()
       const { lineItems, totalCents } = buildInvoiceLineItems({
         baseAmountCents: client.basePriceCents || 6500,
         packageType:     client.packageType,
-        addons:          [],
+        addons:          finalAddons,
       })
       const res = await fetch('/api/square/invoice', {
         method:  'POST',
@@ -188,8 +241,14 @@ export default function ClientDetailPage() {
       if (!res.ok) throw new Error(data.error || 'Invoice failed')
       toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent via Square!')
       if (data.invoiceUrl) {
-        toast.success(lang === 'es' ? 'URL lista — el cliente puede pagar en línea' : 'Invoice URL ready — client can pay online', { duration: 5000 })
+        toast.success(
+          lang === 'es'
+            ? 'URL lista — el cliente puede pagar en línea'
+            : 'Invoice URL ready — client can pay online',
+          { duration: 5000 }
+        )
       }
+      setShowInvoice(false)
       loadData()
     } catch (err) {
       toast.error(err.message || translate('common', 'error'))
@@ -214,7 +273,9 @@ export default function ClientDetailPage() {
       <AppShell>
         <PageHeader title={lang === 'es' ? 'Cliente no encontrado' : 'Client not found'} back />
         <div className="px-4 py-8 text-center">
-          <p className="text-gray-400">{lang === 'es' ? 'Este cliente ya no existe.' : 'This client no longer exists.'}</p>
+          <p className="text-gray-400">
+            {lang === 'es' ? 'Este cliente ya no existe.' : 'This client no longer exists.'}
+          </p>
         </div>
       </AppShell>
     )
@@ -235,6 +296,11 @@ export default function ClientDetailPage() {
         ? ` · ${client.preferredDay.charAt(0).toUpperCase() + client.preferredDay.slice(1)}s`
         : '')
     : null
+
+  // Live invoice total preview
+  const addonSubtotal  = getAddonSubtotal()
+  const addonFee       = addonSubtotal > 0 ? Math.round(addonSubtotal * 0.10) : 0
+  const invoiceTotal   = totalCharge + addonSubtotal + addonFee
 
   return (
     <AppShell>
@@ -353,8 +419,7 @@ export default function ClientDetailPage() {
               fullWidth
               className="mt-4"
               icon={isOnetime ? DollarSign : RefreshCw}
-              loading={invoicing}
-              onClick={handleSendInvoice}
+              onClick={openInvoiceModal}
             >
               {isOnetime
                 ? translate('client_detail', 'send_invoice_one')
@@ -363,7 +428,9 @@ export default function ClientDetailPage() {
 
             {isOnetime && (
               <p className="text-[11px] text-center text-gray-400 mt-2">
-                {lang === 'es' ? 'Trabajo único — factura se envía una vez' : 'One-time job — invoice sends once'}
+                {lang === 'es'
+                  ? 'Trabajo único — factura se envía una vez'
+                  : 'One-time job — invoice sends once'}
               </p>
             )}
           </Card>
@@ -414,7 +481,156 @@ export default function ClientDetailPage() {
         </div>
       </div>
 
-      {/* Edit modal */}
+      {/* ── Invoice modal with add-ons ── */}
+      <Modal
+        open={showInvoice}
+        onClose={() => setShowInvoice(false)}
+        title={lang === 'es' ? `Factura — ${client.name}` : `Invoice — ${client.name}`}
+        footer={
+          <>
+            <Button variant="secondary" fullWidth onClick={() => setShowInvoice(false)}>
+              {translate('common', 'cancel')}
+            </Button>
+            <Button fullWidth loading={invoicing} onClick={handleSendInvoice}>
+              {lang === 'es'
+                ? `Enviar · ${formatCents(invoiceTotal)}`
+                : `Send · ${formatCents(invoiceTotal)}`}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+
+          {/* Base summary */}
+          <div className="bg-gray-50 rounded-xl p-3 space-y-1.5">
+            <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-2">
+              {lang === 'es' ? 'Resumen base' : 'Base summary'}
+            </p>
+            <div className="flex justify-between text-[13px]">
+              <span className="text-gray-600">{client.packageLabel || client.packageType}</span>
+              <span className="font-medium">{formatCents(baseCents)}</span>
+            </div>
+            <div className="flex justify-between text-[12px]">
+              <span className="text-gray-400">YardSync fee</span>
+              <span className="text-brand-600">+{formatCents(packageFee)}</span>
+            </div>
+            <div className="flex justify-between text-[13px] border-t border-gray-200 pt-1.5">
+              <span className="font-medium text-gray-700">
+                {lang === 'es' ? 'Subtotal base' : 'Base subtotal'}
+              </span>
+              <span className="font-semibold">{formatCents(totalCharge)}</span>
+            </div>
+          </div>
+
+          {/* Add-on selector */}
+          {addonServices.length > 0 && (
+            <div>
+              <p className="text-[13px] font-medium text-gray-700 mb-2">
+                {lang === 'es' ? 'Servicios adicionales' : 'Add-on services'}
+                <span className="text-[11px] text-gray-400 font-normal ml-1">
+                  {lang === 'es' ? '(opcional)' : '(optional)'}
+                </span>
+              </p>
+              <div className="space-y-2">
+                {addonServices.map(service => {
+                  const isFixed   = service.pricingType === 'fixed'
+                  const isChecked = selectedAddons.find(a => a.id === service.id)
+                  return (
+                    <div key={service.id} className="bg-gray-50 rounded-xl p-3">
+                      {isFixed ? (
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={!!isChecked}
+                            onChange={() => toggleAddon(service)}
+                            className="w-4 h-4 rounded accent-brand-600"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[13px] font-medium text-gray-800">{service.label}</p>
+                            {service.description && (
+                              <p className="text-[11px] text-gray-400">{service.description}</p>
+                            )}
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="text-[13px] font-semibold text-brand-600">
+                              {formatCents(service.priceCents)}
+                            </p>
+                            <p className="text-[10px] text-gray-400">
+                              +{formatCents(Math.round(service.priceCents * 0.10))} fee
+                            </p>
+                          </div>
+                        </label>
+                      ) : (
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div>
+                              <p className="text-[13px] font-medium text-gray-800">{service.label}</p>
+                              {service.description && (
+                                <p className="text-[11px] text-gray-400">{service.description}</p>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-gray-400 ml-2">
+                              {lang === 'es' ? 'Cotizado · +10%' : 'Variable · +10%'}
+                            </span>
+                          </div>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                            <input
+                              type="number"
+                              placeholder="0.00"
+                              value={variableInputs[service.id] || ''}
+                              onChange={e => setVariableInputs(prev => ({ ...prev, [service.id]: e.target.value }))}
+                              className="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-200 text-[13px] focus:outline-none focus:ring-2 focus:ring-brand-500"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Live invoice total */}
+          <div className="bg-brand-50 border border-brand-100 rounded-xl p-4 space-y-1.5">
+            <p className="text-[11px] font-medium text-brand-700 uppercase tracking-wide mb-2">
+              {lang === 'es' ? 'Total de factura' : 'Invoice total'}
+            </p>
+            <div className="flex justify-between text-[13px]">
+              <span className="text-brand-700">
+                {lang === 'es' ? 'Subtotal base' : 'Base subtotal'}
+              </span>
+              <span className="font-medium text-brand-900">{formatCents(totalCharge)}</span>
+            </div>
+            {addonSubtotal > 0 && (
+              <>
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-brand-700">
+                    {lang === 'es' ? 'Adicionales' : 'Add-ons'}
+                  </span>
+                  <span className="font-medium text-brand-900">{formatCents(addonSubtotal)}</span>
+                </div>
+                <div className="flex justify-between text-[12px]">
+                  <span className="text-brand-600">
+                    {lang === 'es' ? 'Tarifa adicionales (+10%)' : 'Add-on fee (+10%)'}
+                  </span>
+                  <span className="text-brand-600">+{formatCents(addonFee)}</span>
+                </div>
+              </>
+            )}
+            <div className="flex justify-between text-[15px] border-t border-brand-200 pt-2 mt-1">
+              <span className="font-bold text-brand-900">
+                {lang === 'es' ? 'Cliente paga' : 'Client pays'}
+              </span>
+              <span className="font-bold text-brand-900">{formatCents(invoiceTotal)}</span>
+            </div>
+          </div>
+
+        </div>
+      </Modal>
+
+      {/* ── Edit modal ── */}
       <Modal
         open={showEdit}
         onClose={() => setShowEdit(false)}
@@ -431,10 +647,10 @@ export default function ClientDetailPage() {
         }
       >
         <div className="space-y-4">
-          <Input label={translate('clients', 'full_name')}  value={form.name}    onChange={e => setField('name', e.target.value)}    />
-          <Input label={translate('clients', 'phone')}      value={form.phone}   onChange={e => setField('phone', e.target.value)}   type="tel" />
-          <Input label={translate('clients', 'email')}      value={form.email}   onChange={e => setField('email', e.target.value)}   type="email" />
-          <Input label={translate('clients', 'address')}    value={form.address} onChange={e => setField('address', e.target.value)} />
+          <Input label={translate('clients', 'full_name')} value={form.name}    onChange={e => setField('name', e.target.value)}    />
+          <Input label={translate('clients', 'phone')}     value={form.phone}   onChange={e => setField('phone', e.target.value)}   type="tel" />
+          <Input label={translate('clients', 'email')}     value={form.email}   onChange={e => setField('email', e.target.value)}   type="email" />
+          <Input label={translate('clients', 'address')}   value={form.address} onChange={e => setField('address', e.target.value)} />
 
           {services.length > 0 ? (
             <>
@@ -442,7 +658,9 @@ export default function ClientDetailPage() {
                 label={translate('client_detail', 'package')}
                 value={form.serviceId}
                 onChange={e => setField('serviceId', e.target.value)}
-                hint={lang === 'es' ? 'Cambiar el paquete actualiza el precio automáticamente' : 'Changing the package updates pricing automatically'}
+                hint={lang === 'es'
+                  ? 'Cambiar el paquete actualiza el precio automáticamente'
+                  : 'Changing the package updates pricing automatically'}
               >
                 <option value="">{translate('client_detail', 'keep_current')}</option>
                 {services.map(s => (
@@ -484,11 +702,19 @@ export default function ClientDetailPage() {
             </div>
           )}
 
-          <Select label={translate('client_detail', 'billing_mode')} value={form.billingMode} onChange={e => setField('billingMode', e.target.value)}>
+          <Select
+            label={translate('client_detail', 'billing_mode')}
+            value={form.billingMode}
+            onChange={e => setField('billingMode', e.target.value)}
+          >
             {BILLING_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </Select>
 
-          <Select label={translate('client_detail', 'status')} value={form.status} onChange={e => setField('status', e.target.value)}>
+          <Select
+            label={translate('client_detail', 'status')}
+            value={form.status}
+            onChange={e => setField('status', e.target.value)}
+          >
             {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </Select>
 
@@ -501,7 +727,7 @@ export default function ClientDetailPage() {
         </div>
       </Modal>
 
-      {/* Delete confirm */}
+      {/* ── Delete confirm ── */}
       <Modal
         open={showDelete}
         onClose={() => setShowDelete(false)}
