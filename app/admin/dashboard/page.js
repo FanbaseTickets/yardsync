@@ -52,26 +52,41 @@ export default function AdminDashboard() {
         const gInvoices = allInvoices.filter(inv => inv.gardenerUid === d.id)
         const gClients  = allClients.filter(c => c.gardenerUid === d.id)
 
-        // All-time fees from line items
-        const totalFees = gInvoices.reduce((sum, inv) => {
-          const feeLines = inv.lineItems?.filter(l => l.category === 'fee') || []
-          return sum + feeLines.reduce((s, l) => s + (l.amountCents || 0), 0)
-        }, 0)
+        // Helper to split an invoice into gardener earnings vs your fees
+        function splitInvoice(inv) {
+          const feeLines  = inv.lineItems?.filter(l => l.category === 'fee')  || []
+          const baseLines = inv.lineItems?.filter(l => l.category !== 'fee') || []
+          const fees      = feeLines.reduce((s, l)  => s + (l.amountCents || 0), 0)
+          const gardener  = baseLines.reduce((s, l) => s + (l.amountCents || 0), 0)
+          return { fees, gardener }
+        }
 
-        // This month fees
+        // All-time totals
+        const allTimeTotals = gInvoices.reduce((acc, inv) => {
+          const { fees, gardener } = splitInvoice(inv)
+          acc.fees     += fees
+          acc.gardener += gardener
+          acc.total    += (inv.totalCents || 0)
+          return acc
+        }, { fees: 0, gardener: 0, total: 0 })
+
+        // This month totals
         const thisMonthInvoices = gInvoices.filter(inv => {
           const d2 = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
           return d2.getMonth() === now.getMonth() && d2.getFullYear() === now.getFullYear()
         })
-        const thisMonthFees = thisMonthInvoices.reduce((sum, inv) => {
-          const feeLines = inv.lineItems?.filter(l => l.category === 'fee') || []
-          return sum + feeLines.reduce((s, l) => s + (l.amountCents || 0), 0)
-        }, 0)
+        const thisMonthTotals = thisMonthInvoices.reduce((acc, inv) => {
+          const { fees, gardener } = splitInvoice(inv)
+          acc.fees     += fees
+          acc.gardener += gardener
+          acc.total    += (inv.totalCents || 0)
+          return acc
+        }, { fees: 0, gardener: 0, total: 0 })
 
         // Recent invoices sorted newest first
         const recentInvoices = [...gInvoices]
           .sort((a, b) => {
-            const da = a.createdAt?.toDate?.() || new Date(a.createdAt)
+            const da  = a.createdAt?.toDate?.() || new Date(a.createdAt)
             const db2 = b.createdAt?.toDate?.() || new Date(b.createdAt)
             return db2 - da
           })
@@ -81,8 +96,8 @@ export default function AdminDashboard() {
           ...g,
           invoiceCount:  gInvoices.length,
           activeClients: gClients.filter(c => c.status === 'active').length,
-          totalFees,
-          thisMonthFees,
+          allTime:       allTimeTotals,
+          thisMonth:     thisMonthTotals,
           recentInvoices,
         }
       })
@@ -108,8 +123,9 @@ export default function AdminDashboard() {
     router.replace('/admin')
   }
 
-  const totalRevenue     = gardeners.reduce((s, g) => s + g.totalFees, 0)
-  const thisMonthRevenue = gardeners.reduce((s, g) => s + g.thisMonthFees, 0)
+  const totalMyRevenue      = gardeners.reduce((s, g) => s + g.allTime.fees, 0)
+  const thisMonthMyRevenue  = gardeners.reduce((s, g) => s + g.thisMonth.fees, 0)
+  const totalGardenerGross  = gardeners.reduce((s, g) => s + g.allTime.gardener, 0)
 
   if (loading || dataLoading) {
     return (
@@ -166,34 +182,38 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               {
-                label: 'Active Gardeners',
+                label: 'Gardeners',
                 value: gardeners.length,
                 icon:  Users,
                 color: 'text-blue-400',
               },
               {
-                label: 'Total Revenue',
-                value: formatCents(totalRevenue),
+                label: 'Gardeners Grossed',
+                value: formatCents(totalGardenerGross),
                 icon:  TrendingUp,
-                color: 'text-brand-400',
+                color: 'text-gray-400',
+                sub:   'all time client payments',
               },
               {
-                label: 'This Month',
-                value: formatCents(thisMonthRevenue),
+                label: 'My Revenue',
+                value: formatCents(totalMyRevenue),
                 icon:  DollarSign,
-                color: 'text-green-400',
+                color: 'text-brand-400',
+                sub:   'all time fees earned',
               },
               {
-                label: 'Outstanding',
-                value: formatCents(thisMonthRevenue),
+                label: 'My Cut This Month',
+                value: formatCents(thisMonthMyRevenue),
                 icon:  AlertCircle,
-                color: 'text-amber-400',
+                color: 'text-green-400',
+                sub:   'outstanding to collect',
               },
-            ].map(({ label, value, icon: Icon, color }) => (
+            ].map(({ label, value, icon: Icon, color, sub }) => (
               <div key={label} className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
                 <Icon size={16} className={`${color} mb-2`} />
                 <p className="text-[11px] text-gray-500 uppercase tracking-wide">{label}</p>
-                <p className="text-[22px] font-bold text-white mt-0.5">{value}</p>
+                <p className="text-[20px] font-bold text-white mt-0.5">{value}</p>
+                {sub && <p className="text-[10px] text-gray-600 mt-0.5">{sub}</p>}
               </div>
             ))}
           </div>
@@ -213,7 +233,7 @@ export default function AdminDashboard() {
           ) : (
             <div className="space-y-3">
               {[...gardeners]
-                .sort((a, b) => b.thisMonthFees - a.thisMonthFees)
+                .sort((a, b) => b.thisMonth.fees - a.thisMonth.fees)
                 .map(g => {
                   const isExpanded = expanded === g.id
                   const joinDate   = g.createdAt?.toDate?.()
@@ -231,53 +251,41 @@ export default function AdminDashboard() {
                           {g.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2) || '??'}
                         </div>
 
-                        {/* Name + business */}
+                        {/* Name */}
                         <div className="flex-1 min-w-0 text-left">
-                          <p className="text-[14px] font-semibold text-white truncate">
-                            {g.name || 'Unknown'}
-                          </p>
-                          <p className="text-[12px] text-gray-400 truncate">
-                            {g.businessName || g.email}
-                          </p>
+                          <p className="text-[14px] font-semibold text-white truncate">{g.name || 'Unknown'}</p>
+                          <p className="text-[12px] text-gray-400 truncate">{g.businessName || g.email}</p>
                         </div>
 
                         {/* Desktop stats */}
-                        <div className="hidden md:flex items-center gap-8 flex-shrink-0">
+                        <div className="hidden md:flex items-center gap-6 flex-shrink-0">
                           <div className="text-right">
-                            <p className="text-[11px] text-gray-500">Clients</p>
-                            <p className="text-[14px] font-semibold text-white">{g.activeClients}</p>
+                            <p className="text-[10px] text-gray-500">Clients</p>
+                            <p className="text-[13px] font-semibold text-white">{g.activeClients}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-[11px] text-gray-500">Invoices</p>
-                            <p className="text-[14px] font-semibold text-white">{g.invoiceCount}</p>
+                            <p className="text-[10px] text-gray-500">Gardener grossed</p>
+                            <p className="text-[13px] font-semibold text-gray-300">{formatCents(g.allTime.gardener)}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-[11px] text-gray-500">This month</p>
-                            <p className="text-[14px] font-semibold text-green-400">
-                              {formatCents(g.thisMonthFees)}
-                            </p>
+                            <p className="text-[10px] text-gray-500">My cut (month)</p>
+                            <p className="text-[13px] font-semibold text-green-400">{formatCents(g.thisMonth.fees)}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-[11px] text-gray-500">All time</p>
-                            <p className="text-[14px] font-semibold text-brand-400">
-                              {formatCents(g.totalFees)}
-                            </p>
+                            <p className="text-[10px] text-gray-500">My cut (total)</p>
+                            <p className="text-[13px] font-semibold text-brand-400">{formatCents(g.allTime.fees)}</p>
                           </div>
                         </div>
 
                         {/* Mobile stats */}
-                        <div className="flex md:hidden items-center gap-4 flex-shrink-0">
+                        <div className="flex md:hidden items-center gap-3 flex-shrink-0">
                           <div className="text-right">
-                            <p className="text-[11px] text-gray-500">Month</p>
-                            <p className="text-[13px] font-semibold text-green-400">
-                              {formatCents(g.thisMonthFees)}
-                            </p>
+                            <p className="text-[10px] text-gray-500">Their gross</p>
+                            <p className="text-[12px] font-semibold text-gray-300">{formatCents(g.allTime.gardener)}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-[11px] text-gray-500">Total</p>
-                            <p className="text-[13px] font-semibold text-brand-400">
-                              {formatCents(g.totalFees)}
-                            </p>
+                            <p className="text-[10px] text-gray-500">My cut</p>
+                            <p className="text-[12px] font-semibold text-brand-400">{formatCents(g.allTime.fees)}</p>
                           </div>
                         </div>
 
@@ -291,48 +299,53 @@ export default function AdminDashboard() {
                       {isExpanded && (
                         <div className="border-t border-gray-800 px-5 pb-5">
 
-                          {/* Outstanding balance */}
-                          <div className="mt-4 mb-4 bg-amber-950/40 border border-amber-800/40 rounded-xl p-4 flex items-center justify-between">
-                            <div>
-                              <p className="text-[12px] text-amber-400 font-medium">
-                                Outstanding balance
+                          {/* This month breakdown */}
+                          <div className="mt-4 mb-4 grid grid-cols-2 gap-3">
+                            <div className="bg-gray-800 rounded-xl p-4">
+                              <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-1">
+                                Gardener earned this month
                               </p>
-                              <p className="text-[11px] text-amber-600 mt-0.5">
-                                Fees generated this month — not yet collected
+                              <p className="text-[22px] font-bold text-gray-200">
+                                {formatCents(g.thisMonth.gardener)}
                               </p>
+                              <p className="text-[11px] text-gray-500 mt-1">from client invoices</p>
                             </div>
-                            <p className="text-[22px] font-bold text-amber-400">
-                              {formatCents(g.thisMonthFees)}
-                            </p>
+                            <div className="bg-amber-950/40 border border-amber-800/40 rounded-xl p-4">
+                              <p className="text-[11px] text-amber-500 uppercase tracking-wide mb-1">
+                                My cut this month
+                              </p>
+                              <p className="text-[22px] font-bold text-amber-400">
+                                {formatCents(g.thisMonth.fees)}
+                              </p>
+                              <p className="text-[11px] text-amber-700 mt-1">outstanding to collect</p>
+                            </div>
                           </div>
 
-                          {/* Stats grid */}
+                          {/* All time breakdown */}
                           <div className="grid grid-cols-3 gap-3 mb-4">
                             <div className="bg-gray-800 rounded-xl p-3 text-center">
-                              <p className="text-[20px] font-bold text-white">{g.activeClients}</p>
-                              <p className="text-[11px] text-gray-400">Active clients</p>
-                            </div>
-                            <div className="bg-gray-800 rounded-xl p-3 text-center">
-                              <p className="text-[20px] font-bold text-white">{g.invoiceCount}</p>
-                              <p className="text-[11px] text-gray-400">Total invoices</p>
+                              <p className="text-[16px] font-bold text-gray-200">
+                                {formatCents(g.allTime.gardener)}
+                              </p>
+                              <p className="text-[11px] text-gray-400">Gardener all-time</p>
                             </div>
                             <div className="bg-gray-800 rounded-xl p-3 text-center">
                               <p className="text-[16px] font-bold text-brand-400">
-                                {formatCents(g.totalFees)}
+                                {formatCents(g.allTime.fees)}
                               </p>
-                              <p className="text-[11px] text-gray-400">All-time fees</p>
+                              <p className="text-[11px] text-gray-400">My cut all-time</p>
+                            </div>
+                            <div className="bg-gray-800 rounded-xl p-3 text-center">
+                              <p className="text-[16px] font-bold text-white">{g.invoiceCount}</p>
+                              <p className="text-[11px] text-gray-400">Total invoices</p>
                             </div>
                           </div>
 
                           {/* Contact */}
                           <div className="mb-4">
-                            <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">
-                              Contact
-                            </p>
+                            <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">Contact</p>
                             <p className="text-[13px] text-gray-300">{g.email}</p>
-                            {g.phone && (
-                              <p className="text-[13px] text-gray-300 mt-0.5">{g.phone}</p>
-                            )}
+                            {g.phone && <p className="text-[13px] text-gray-300 mt-0.5">{g.phone}</p>}
                             {joinDate && (
                               <p className="text-[12px] text-gray-500 mt-1">
                                 Joined {format(joinDate, 'MMMM d, yyyy')}
@@ -348,29 +361,33 @@ export default function AdminDashboard() {
                               </p>
                               <div className="space-y-2">
                                 {g.recentInvoices.map(inv => {
-                                  const invDate  = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
-                                  const feeLines = inv.lineItems?.filter(l => l.category === 'fee') || []
-                                  const feeAmt   = feeLines.reduce((s, l) => s + (l.amountCents || 0), 0)
+                                  const invDate   = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
+                                  const feeLines  = inv.lineItems?.filter(l => l.category === 'fee')  || []
+                                  const baseLines = inv.lineItems?.filter(l => l.category !== 'fee') || []
+                                  const feeAmt    = feeLines.reduce((s, l)  => s + (l.amountCents || 0), 0)
+                                  const baseAmt   = baseLines.reduce((s, l) => s + (l.amountCents || 0), 0)
                                   return (
                                     <div
                                       key={inv.id}
-                                      className="flex items-center justify-between bg-gray-800 rounded-xl px-4 py-2.5"
+                                      className="bg-gray-800 rounded-xl px-4 py-3"
                                     >
-                                      <div>
-                                        <p className="text-[13px] text-white font-medium">
-                                          {inv.clientName}
-                                        </p>
-                                        <p className="text-[11px] text-gray-400">
-                                          {format(invDate, 'MMM d, yyyy')}
-                                        </p>
+                                      <div className="flex items-center justify-between mb-1.5">
+                                        <p className="text-[13px] text-white font-medium">{inv.clientName}</p>
+                                        <p className="text-[12px] text-gray-400">{format(invDate, 'MMM d, yyyy')}</p>
                                       </div>
-                                      <div className="text-right">
-                                        <p className="text-[13px] text-white">
-                                          {formatCents(inv.totalCents || 0)}
-                                        </p>
-                                        <p className="text-[11px] text-brand-400">
-                                          +{formatCents(feeAmt)} your cut
-                                        </p>
+                                      <div className="flex items-center gap-4">
+                                        <div>
+                                          <p className="text-[10px] text-gray-500">Client paid</p>
+                                          <p className="text-[13px] text-white font-medium">{formatCents(inv.totalCents || 0)}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-[10px] text-gray-500">Gardener kept</p>
+                                          <p className="text-[13px] text-gray-300">{formatCents(baseAmt)}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-[10px] text-gray-500">My cut</p>
+                                          <p className="text-[13px] text-brand-400 font-medium">+{formatCents(feeAmt)}</p>
+                                        </div>
                                       </div>
                                     </div>
                                   )
