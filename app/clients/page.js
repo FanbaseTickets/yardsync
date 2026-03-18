@@ -68,10 +68,27 @@ const DEFAULT_FORM = {
   notes:       '',
 }
 
+// ── Phone validation ──────────────────────────────────────────
+function validatePhone(phone) {
+  const digits = phone.replace(/\D/g, '')
+  return digits.length >= 10
+}
+
+function formatPhone(phone) {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length === 10) {
+    return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`
+  }
+  if (digits.length === 11 && digits[0] === '1') {
+    return `(${digits.slice(1,4)}) ${digits.slice(4,7)}-${digits.slice(7)}`
+  }
+  return phone
+}
+
 export default function ClientsPage() {
-  const { user }        = useAuth()
+  const { user }            = useAuth()
   const { translate, lang } = useLang()
-  const router          = useRouter()
+  const router              = useRouter()
 
   const [clients,  setClients]  = useState([])
   const [services, setServices] = useState([])
@@ -82,8 +99,8 @@ export default function ClientsPage() {
   const [errors,   setErrors]   = useState({})
   const [saving,   setSaving]   = useState(false)
 
-  const BILLING_OPTIONS = lang === 'es' ? BILLING_OPTIONS_ES : BILLING_OPTIONS_EN
-  const RECURRENCE_LABELS = lang === 'es' ? RECURRENCE_LABELS_ES : RECURRENCE_LABELS_EN
+  const BILLING_OPTIONS     = lang === 'es' ? BILLING_OPTIONS_ES : BILLING_OPTIONS_EN
+  const RECURRENCE_LABELS   = lang === 'es' ? RECURRENCE_LABELS_ES : RECURRENCE_LABELS_EN
 
   useEffect(() => {
     if (!user) return
@@ -115,9 +132,15 @@ export default function ClientsPage() {
 
   function validate() {
     const e = {}
-    if (!form.name.trim())    e.name      = translate('clients', 'full_name') + ' *'
-    if (!form.phone.trim())   e.phone     = translate('clients', 'phone') + ' *'
-    if (!form.address.trim()) e.address   = translate('clients', 'address') + ' *'
+    if (!form.name.trim())    e.name      = translate('clients', 'full_name') + ' required'
+    if (!form.phone.trim()) {
+      e.phone = lang === 'es' ? 'Teléfono requerido' : 'Phone required'
+    } else if (!validatePhone(form.phone)) {
+      e.phone = lang === 'es'
+        ? 'Ingresa un número válido (10 dígitos)'
+        : 'Enter a valid phone number (10 digits)'
+    }
+    if (!form.address.trim()) e.address   = translate('clients', 'address') + ' required'
     if (!form.serviceId)      e.serviceId = translate('clients', 'select_package')
     setErrors(e)
     return Object.keys(e).length === 0
@@ -129,7 +152,7 @@ export default function ClientsPage() {
     try {
       await addClient(user.uid, {
         name:            form.name.trim(),
-        phone:           form.phone.trim(),
+        phone:           formatPhone(form.phone.trim()),
         email:           form.email.trim(),
         address:         form.address.trim(),
         notes:           form.notes.trim(),
@@ -279,10 +302,41 @@ export default function ClientsPage() {
             </div>
           )}
 
-          <Input label={translate('clients', 'full_name') + ' *'} placeholder="Sarah Martinez"        value={form.name}    onChange={e => setField('name', e.target.value)}    error={errors.name}     />
-          <Input label={translate('clients', 'phone') + ' *'}     placeholder="(210) 555-0100" type="tel" value={form.phone}   onChange={e => setField('phone', e.target.value)}   error={errors.phone}    />
-          <Input label={translate('clients', 'email')}             placeholder="sarah@example.com"    value={form.email}   onChange={e => setField('email', e.target.value)}   error={errors.email}    />
-          <Input label={translate('clients', 'address') + ' *'}    placeholder="4821 Maple Dr..."     value={form.address} onChange={e => setField('address', e.target.value)} error={errors.address}  />
+          <Input
+            label={translate('clients', 'full_name') + ' *'}
+            placeholder="Sarah Martinez"
+            value={form.name}
+            onChange={e => setField('name', e.target.value)}
+            error={errors.name}
+          />
+          <div>
+            <Input
+              label={translate('clients', 'phone') + ' *'}
+              placeholder="(210) 555-0100"
+              type="tel"
+              value={form.phone}
+              onChange={e => setField('phone', e.target.value)}
+              error={errors.phone}
+            />
+            {!errors.phone && form.phone && validatePhone(form.phone) && (
+              <p className="text-[11px] text-brand-600 mt-1">
+                ✓ {formatPhone(form.phone)}
+              </p>
+            )}
+          </div>
+          <Input
+            label={translate('clients', 'email')}
+            placeholder="sarah@example.com"
+            value={form.email}
+            onChange={e => setField('email', e.target.value)}
+          />
+          <Input
+            label={translate('clients', 'address') + ' *'}
+            placeholder="4821 Maple Dr..."
+            value={form.address}
+            onChange={e => setField('address', e.target.value)}
+            error={errors.address}
+          />
 
           <Select
             label={translate('clients', 'package') + ' *'}

@@ -65,8 +65,20 @@ export default function SMSPage() {
     return clients.find(c => c.id === clientId)
   }
 
-  function getClientName(clientId) {
-    return getClient(clientId)?.name || 'Unknown'
+  // ← Fixed: falls back to schedule.clientName for walk-ins
+  function resolveClientName(schedule) {
+    if (schedule.clientId) {
+      return getClient(schedule.clientId)?.name || schedule.clientName || 'there'
+    }
+    return schedule.clientName || 'there'
+  }
+
+  // ← Fixed: gets phone from client profile OR from walk-in schedule
+  function resolveClientPhone(schedule) {
+    if (schedule.clientId) {
+      return getClient(schedule.clientId)?.phone || ''
+    }
+    return schedule.clientPhone || ''
   }
 
   function formatServiceDate(dateStr) {
@@ -78,7 +90,7 @@ export default function SMSPage() {
   }
 
   function buildPreview(schedule) {
-    const clientName = getClientName(schedule.clientId)
+    const clientName = resolveClientName(schedule)
     return template
       .replace('{name}',     clientName.split(' ')[0])
       .replace('{date}',     formatServiceDate(schedule.serviceDate))
@@ -87,15 +99,21 @@ export default function SMSPage() {
   }
 
   async function handleSendSMS(schedule) {
+    const phone = resolveClientPhone(schedule)
+    if (!phone) {
+      toast.error('No phone number on file for this client')
+      return
+    }
     setSending(schedule.id)
     try {
       const res = await fetch('/api/twilio/send', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
-          scheduleId: schedule.id,
-          clientId:   schedule.clientId,
-          message:    buildPreview(schedule),
+          scheduleId:  schedule.id,
+          clientId:    schedule.clientId || null,
+          clientPhone: phone,            // ← always pass phone directly
+          message:     buildPreview(schedule),
         }),
       })
       if (!res.ok) throw new Error()
@@ -207,7 +225,8 @@ export default function SMSPage() {
                     </p>
                     <div className="space-y-2">
                       {daySchedules.map(schedule => {
-                        const client = getClient(schedule.clientId)
+                        const displayName = resolveClientName(schedule)
+                        const hasPhone    = !!resolveClientPhone(schedule)
                         return (
                           <Card key={schedule.id} padding={false}>
                             <div className="p-3 flex items-center gap-3">
@@ -217,12 +236,21 @@ export default function SMSPage() {
                                 <Clock size={18} className="text-amber-400 flex-shrink-0" />
                               )}
                               <div className="flex-1 min-w-0">
-                                <p className="text-[13px] font-medium text-gray-900">
-                                  {client?.name || schedule.clientName}
-                                </p>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-[13px] font-medium text-gray-900">
+                                    {displayName}
+                                  </p>
+                                  {schedule.isWalkIn && (
+                                    <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">
+                                      Walk-in
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="text-[11px] text-gray-400">
                                   {schedule.time || 'TBD'} · {schedule.smsSent
                                     ? translate('sms', 'sms_sent_check')
+                                    : !hasPhone
+                                    ? 'No phone number'
                                     : translate('sms', 'sms_pending')}
                                 </p>
                                 <p className="text-[11px] text-gray-500 mt-0.5 truncate italic">
@@ -235,6 +263,7 @@ export default function SMSPage() {
                                 loading={sending === schedule.id}
                                 onClick={() => handleSendSMS(schedule)}
                                 icon={Send}
+                                disabled={!hasPhone}
                               >
                                 {schedule.smsSent
                                   ? translate('sms', 'resend')

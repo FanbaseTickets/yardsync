@@ -9,14 +9,14 @@ import { Card, Button, Badge, Modal, Select, EmptyState, Skeleton, Input } from 
 import { getClients, getSchedules, addSchedule, updateSchedule, deleteSchedule, getServices } from '@/lib/db'
 import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import { formatCents } from '@/lib/fee'
+import { formatCents, buildInvoiceLineItems } from '@/lib/fee'
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   isToday, isSameDay, addWeeks, addMonths, addDays
 } from 'date-fns'
 import {
   ChevronLeft, ChevronRight, Plus, CalendarDays,
-  Trash2, CheckCircle2, RefreshCw, AlertTriangle, Zap
+  Trash2, CheckCircle2, RefreshCw, AlertTriangle, Zap, DollarSign
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -35,6 +35,23 @@ const OCCURRENCE_OPTIONS = [
   { value: '24', label: '24' },
   { value: '52', label: '52' },
 ]
+
+// ── Phone validation ──────────────────────────────────────────
+function validatePhone(phone) {
+  const digits = phone.replace(/\D/g, '')
+  return digits.length >= 10
+}
+
+function formatPhone(phone) {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length === 10) {
+    return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`
+  }
+  if (digits.length === 11 && digits[0] === '1') {
+    return `(${digits.slice(1,4)}) ${digits.slice(4,7)}-${digits.slice(7)}`
+  }
+  return phone
+}
 
 function generateOccurrences(startDate, recurrence, count) {
   const dates = [startDate]
@@ -83,18 +100,26 @@ export default function CalendarPage() {
   const [occurrences,     setOccurrences]     = useState('8')
   const [saving,          setSaving]          = useState(false)
   const [showPreview,     setShowPreview]     = useState(false)
-  const [selectedAddons,  setSelectedAddons]  = useState([]) // [{id, label, amountCents}]
-  const [variableInputs,  setVariableInputs]  = useState({}) // {serviceId: dollarString}
+  const [selectedAddons,  setSelectedAddons]  = useState([])
+  const [variableInputs,  setVariableInputs]  = useState({})
 
   // Walk-in modal
-  const [showWalkIn,      setShowWalkIn]      = useState(false)
-  const [walkInName,      setWalkInName]      = useState('')
-  const [walkInPhone,     setWalkInPhone]     = useState('')
-  const [walkInPrice,     setWalkInPrice]     = useState('')
-  const [walkInAddons,    setWalkInAddons]    = useState([])
-  const [walkInVariables, setWalkInVariables] = useState({})
-  const [walkInTime,      setWalkInTime]      = useState('9:00 AM')
-  const [savingWalkIn,    setSavingWalkIn]    = useState(false)
+  const [showWalkIn,       setShowWalkIn]       = useState(false)
+  const [walkInName,       setWalkInName]       = useState('')
+  const [walkInPhone,      setWalkInPhone]      = useState('')
+  const [walkInPhoneError, setWalkInPhoneError] = useState('')
+  const [walkInPrice,      setWalkInPrice]      = useState('')
+  const [walkInAddons,     setWalkInAddons]     = useState([])
+  const [walkInVariables,  setWalkInVariables]  = useState({})
+  const [walkInTime,       setWalkInTime]       = useState('9:00 AM')
+  const [savingWalkIn,     setSavingWalkIn]     = useState(false)
+
+  // Walk-in invoice modal
+  const [showWalkInInvoice,    setShowWalkInInvoice]    = useState(false)
+  const [walkInInvoiceTarget,  setWalkInInvoiceTarget]  = useState(null)
+  const [walkInInvAddons,      setWalkInInvAddons]      = useState([])
+  const [walkInInvVariables,   setWalkInInvVariables]   = useState({})
+  const [invoicingWalkIn,      setInvoicingWalkIn]      = useState(false)
 
   // Delete modal
   const [deleteTarget,    setDeleteTarget]    = useState(null)
@@ -173,6 +198,7 @@ export default function CalendarPage() {
     if (!selectedDay) return
     setWalkInName('')
     setWalkInPhone('')
+    setWalkInPhoneError('')
     setWalkInPrice('')
     setWalkInAddons([])
     setWalkInVariables({})
@@ -180,26 +206,24 @@ export default function CalendarPage() {
     setShowWalkIn(true)
   }
 
-  // Toggle fixed add-on checkbox
-  function toggleAddon(service, isWalkIn = false) {
-    const setter = isWalkIn ? setWalkInAddons : setSelectedAddons
-    setter(prev => {
+  function openWalkInInvoice(schedule) {
+    setWalkInInvoiceTarget(schedule)
+    setWalkInInvAddons([])
+    setWalkInInvVariables({})
+    setShowWalkInInvoice(true)
+  }
+
+  function toggleAddon(service, addons, setAddons) {
+    setAddons(prev => {
       const exists = prev.find(a => a.id === service.id)
       if (exists) return prev.filter(a => a.id !== service.id)
       return [...prev, { id: service.id, label: service.label, amountCents: service.priceCents }]
     })
   }
 
-  // Set variable addon amount
-  function setVariableAmount(serviceId, value, isWalkIn = false) {
-    const setter = isWalkIn ? setWalkInVariables : setVariableInputs
-    setter(prev => ({ ...prev, [serviceId]: value }))
-  }
-
-  // Build final addons array including variable ones
-  function buildFinalAddons(fixedAddons, variableVals, services) {
+  function buildFinalAddons(fixedAddons, variableVals) {
     const result = [...fixedAddons]
-    services
+    addonServices
       .filter(s => s.pricingType === 'variable')
       .forEach(s => {
         const val = variableVals[s.id]
@@ -214,14 +238,9 @@ export default function CalendarPage() {
     return result
   }
 
-  const previewDates = selectedDay && repeatMode !== 'none'
-    ? generateOccurrences(selectedDay, repeatMode, occurrences)
-    : selectedDay ? [selectedDay] : []
-
-  // Calculate add-on total for display
-  function getAddonTotal(fixedAddons, variableVals, services) {
+  function getAddonTotal(fixedAddons, variableVals) {
     const fixed    = fixedAddons.reduce((s, a) => s + (a.amountCents || 0), 0)
-    const variable = services
+    const variable = addonServices
       .filter(s => s.pricingType === 'variable')
       .reduce((s, svc) => {
         const val = variableVals[svc.id]
@@ -229,6 +248,10 @@ export default function CalendarPage() {
       }, 0)
     return fixed + variable
   }
+
+  const previewDates = selectedDay && repeatMode !== 'none'
+    ? generateOccurrences(selectedDay, repeatMode, occurrences)
+    : selectedDay ? [selectedDay] : []
 
   async function handleAddSchedule() {
     if (!selectedClient || !selectedDay) return
@@ -238,8 +261,7 @@ export default function CalendarPage() {
       const datesToAdd = repeatMode === 'none'
         ? [selectedDay]
         : generateOccurrences(selectedDay, repeatMode, occurrences)
-
-      const finalAddons = buildFinalAddons(selectedAddons, variableInputs, addonServices)
+      const finalAddons = buildFinalAddons(selectedAddons, variableInputs)
 
       await Promise.all(
         datesToAdd.map(date =>
@@ -272,17 +294,28 @@ export default function CalendarPage() {
 
   async function handleAddWalkIn() {
     if (!walkInName.trim() || !selectedDay) return
+
+    // Phone validation
+    if (walkInPhone.trim() && !validatePhone(walkInPhone)) {
+      setWalkInPhoneError(lang === 'es'
+        ? 'Ingresa un número de teléfono válido (10 dígitos)'
+        : 'Enter a valid phone number (10 digits)')
+      return
+    }
+    setWalkInPhoneError('')
+
     setSavingWalkIn(true)
     try {
-      const finalAddons = buildFinalAddons(walkInAddons, walkInVariables, addonServices)
+      const finalAddons = buildFinalAddons(walkInAddons, walkInVariables)
       const basePrice   = walkInPrice && parseFloat(walkInPrice) > 0
         ? Math.round(parseFloat(walkInPrice) * 100)
         : 0
+      const formattedPhone = walkInPhone.trim() ? formatPhone(walkInPhone) : ''
 
       await addSchedule(user.uid, {
         clientId:    null,
         clientName:  walkInName.trim(),
-        clientPhone: walkInPhone.trim(),
+        clientPhone: formattedPhone,
         serviceDate: format(selectedDay, 'yyyy-MM-dd'),
         time:        walkInTime,
         status:      'scheduled',
@@ -292,13 +325,52 @@ export default function CalendarPage() {
         addons:      finalAddons,
       })
 
-      toast.success(lang === 'es' ? 'Cliente ocasional agregado ✓' : 'Walk-in client added ✓')
+      toast.success(lang === 'es' ? 'Cliente ocasional agregado ✓' : 'Walk-in added ✓')
       setShowWalkIn(false)
       loadData()
     } catch {
       toast.error(translate('common', 'error'))
     } finally {
       setSavingWalkIn(false)
+    }
+  }
+
+  async function handleWalkInInvoice() {
+    if (!walkInInvoiceTarget) return
+    setInvoicingWalkIn(true)
+    try {
+      const basePrice   = walkInInvoiceTarget.basePrice || 0
+      const finalAddons = buildFinalAddons(walkInInvAddons, walkInInvVariables)
+
+      const { lineItems, totalCents } = buildInvoiceLineItems({
+        baseAmountCents: basePrice,
+        packageType:     'onetime',
+        addons:          finalAddons,
+      })
+
+      const res = await fetch('/api/square/invoice', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          clientId:    null,
+          lineItems,
+          totalCents,
+          clientName:  walkInInvoiceTarget.clientName,
+          clientEmail: '',
+          clientPhone: walkInInvoiceTarget.clientPhone || '',
+          gardenerUid: user.uid,
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Invoice failed')
+      toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent ✓')
+      setShowWalkInInvoice(false)
+      loadData()
+    } catch (err) {
+      toast.error(err.message || translate('common', 'error'))
+    } finally {
+      setInvoicingWalkIn(false)
     }
   }
 
@@ -361,10 +433,17 @@ export default function CalendarPage() {
   const selectedClientObj     = clients.find(c => c.id === selectedClient)
   const totalJobsThisMonth    = schedules.length
 
-  // Addon selector component (reusable for both modals)
-  function AddonSelector({ fixed, setFixed, variables, setVariables, isWalkIn = false }) {
+  // Walk-in invoice totals
+  const walkInBase      = walkInInvoiceTarget?.basePrice || 0
+  const walkInBaseFee   = Math.max(Math.round(walkInBase * 0.08), 1000)
+  const walkInInvAddonTotal = getAddonTotal(walkInInvAddons, walkInInvVariables)
+  const walkInInvAddonFee   = Math.round(walkInInvAddonTotal * 0.10)
+  const walkInInvoiceTotal  = walkInBase + walkInBaseFee + walkInInvAddonTotal + walkInInvAddonFee
+
+  // Shared AddonSelector component
+  function AddonSelector({ fixedAddons, setFixedAddons, variables, setVariables }) {
     if (addonServices.length === 0) return null
-    const addonTotal = getAddonTotal(fixed, variables, addonServices)
+    const total = getAddonTotal(fixedAddons, variables)
     return (
       <div>
         <p className="text-[13px] font-medium text-gray-700 mb-2">
@@ -372,8 +451,8 @@ export default function CalendarPage() {
         </p>
         <div className="space-y-2">
           {addonServices.map(service => {
-            const isFixed    = service.pricingType === 'fixed'
-            const isChecked  = fixed.find(a => a.id === service.id)
+            const isFixed   = service.pricingType === 'fixed'
+            const isChecked = fixedAddons.find(a => a.id === service.id)
             return (
               <div key={service.id} className="bg-gray-50 rounded-xl p-3">
                 {isFixed ? (
@@ -381,7 +460,7 @@ export default function CalendarPage() {
                     <input
                       type="checkbox"
                       checked={!!isChecked}
-                      onChange={() => toggleAddon(service, isWalkIn)}
+                      onChange={() => toggleAddon(service, fixedAddons, setFixedAddons)}
                       className="w-4 h-4 rounded accent-brand-600"
                     />
                     <div className="flex-1 min-w-0">
@@ -403,7 +482,7 @@ export default function CalendarPage() {
                           <p className="text-[11px] text-gray-400">{service.description}</p>
                         )}
                       </div>
-                      <span className="text-[11px] text-gray-400">
+                      <span className="text-[11px] text-gray-400 ml-2">
                         {lang === 'es' ? 'Cotizado' : 'Variable'}
                       </span>
                     </div>
@@ -413,7 +492,7 @@ export default function CalendarPage() {
                         type="number"
                         placeholder="0.00"
                         value={variables[service.id] || ''}
-                        onChange={e => setVariableAmount(service.id, e.target.value, isWalkIn)}
+                        onChange={e => setVariables(prev => ({ ...prev, [service.id]: e.target.value }))}
                         className="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-200 text-[13px] focus:outline-none focus:ring-2 focus:ring-brand-500"
                       />
                     </div>
@@ -423,12 +502,10 @@ export default function CalendarPage() {
             )
           })}
         </div>
-        {addonTotal > 0 && (
+        {total > 0 && (
           <div className="mt-2 flex justify-between text-[12px]">
-            <span className="text-gray-500">
-              {lang === 'es' ? 'Total adicionales:' : 'Add-on total:'}
-            </span>
-            <span className="font-semibold text-brand-600">{formatCents(addonTotal)}</span>
+            <span className="text-gray-500">{lang === 'es' ? 'Total adicionales:' : 'Add-on total:'}</span>
+            <span className="font-semibold text-brand-600">{formatCents(total)}</span>
           </div>
         )}
       </div>
@@ -523,20 +600,10 @@ export default function CalendarPage() {
                   {format(selectedDay, 'EEEE, MMMM d')}
                 </h3>
                 <div className="flex items-center gap-2">
-                  <Button
-                    icon={Zap}
-                    size="sm"
-                    variant="secondary"
-                    onClick={openWalkInModal}
-                  >
+                  <Button icon={Zap} size="sm" variant="secondary" onClick={openWalkInModal}>
                     {lang === 'es' ? 'Ocasional' : 'Walk-in'}
                   </Button>
-                  <Button
-                    icon={Plus}
-                    size="sm"
-                    onClick={openAddModal}
-                    disabled={clients.length === 0}
-                  >
+                  <Button icon={Plus} size="sm" onClick={openAddModal} disabled={clients.length === 0}>
                     {translate('calendar', 'add_job')}
                   </Button>
                 </div>
@@ -560,8 +627,8 @@ export default function CalendarPage() {
               ) : (
                 <div className="space-y-2">
                   {selectedDaySchedules.map(schedule => {
-                    const client = clientMap[schedule.clientId]
-                    const done   = schedule.status === 'completed'
+                    const client    = clientMap[schedule.clientId]
+                    const done      = schedule.status === 'completed'
                     const hasAddons = schedule.addons?.length > 0
                     return (
                       <Card key={schedule.id} padding={false}>
@@ -580,6 +647,11 @@ export default function CalendarPage() {
                               <span className="text-[11px] text-gray-400">{schedule.time}</span>
                               {!schedule.isWalkIn && (
                                 <Badge label={client?.packageType || 'monthly'} variant={client?.packageType || 'monthly'} />
+                              )}
+                              {schedule.isWalkIn && schedule.basePrice > 0 && (
+                                <span className="text-[11px] text-brand-600 font-medium">
+                                  {formatCents(schedule.basePrice)}
+                                </span>
                               )}
                               {schedule.isRecurring && (
                                 <div className="flex items-center gap-0.5">
@@ -600,6 +672,16 @@ export default function CalendarPage() {
                             </div>
                           </div>
                           <div className="flex items-center gap-1">
+                            {/* Invoice button for walk-ins */}
+                            {schedule.isWalkIn && !done && (
+                              <button
+                                onClick={() => openWalkInInvoice(schedule)}
+                                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-brand-50 transition-colors"
+                                title={lang === 'es' ? 'Enviar factura' : 'Send invoice'}
+                              >
+                                <DollarSign size={14} className="text-brand-600" />
+                              </button>
+                            )}
                             {!done && (
                               <button
                                 onClick={() => handleComplete(schedule)}
@@ -719,14 +801,12 @@ export default function CalendarPage() {
             </div>
           )}
 
-          {/* Add-on selector */}
           <div className="border-t border-gray-100 pt-3">
             <AddonSelector
-              fixed={selectedAddons}
-              setFixed={setSelectedAddons}
+              fixedAddons={selectedAddons}
+              setFixedAddons={setSelectedAddons}
               variables={variableInputs}
               setVariables={setVariableInputs}
-              isWalkIn={false}
             />
           </div>
         </div>
@@ -736,7 +816,9 @@ export default function CalendarPage() {
       <Modal
         open={showWalkIn}
         onClose={() => setShowWalkIn(false)}
-        title={lang === 'es' ? `Cliente ocasional — ${selectedDay ? format(selectedDay, 'MMM d') : ''}` : `Walk-in client — ${selectedDay ? format(selectedDay, 'MMM d') : ''}`}
+        title={lang === 'es'
+          ? `Cliente ocasional — ${selectedDay ? format(selectedDay, 'MMM d') : ''}`
+          : `Walk-in client — ${selectedDay ? format(selectedDay, 'MMM d') : ''}`}
         footer={
           <>
             <Button variant="secondary" fullWidth onClick={() => setShowWalkIn(false)}>
@@ -752,8 +834,8 @@ export default function CalendarPage() {
           <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
             <p className="text-[12px] text-amber-700">
               {lang === 'es'
-                ? 'Cliente sin perfil — solo para trabajos ocasionales. Para clientes recurrentes, agrégalos en la sección Clientes primero.'
-                : 'No profile needed — for one-off jobs only. For recurring clients, add them in the Clients section first.'}
+                ? 'Cliente sin perfil — solo para trabajos ocasionales. Para clientes recurrentes, agrégalos en Clientes primero.'
+                : 'No profile needed — for one-off jobs only. For recurring clients, add them in Clients first.'}
             </p>
           </div>
 
@@ -763,13 +845,28 @@ export default function CalendarPage() {
             value={walkInName}
             onChange={e => setWalkInName(e.target.value)}
           />
-          <Input
-            label={lang === 'es' ? 'Teléfono (opcional)' : 'Phone (optional)'}
-            placeholder="(210) 555-0100"
-            type="tel"
-            value={walkInPhone}
-            onChange={e => setWalkInPhone(e.target.value)}
-          />
+
+          <div>
+            <Input
+              label={lang === 'es' ? 'Teléfono (opcional)' : 'Phone (optional)'}
+              placeholder="(210) 555-0100"
+              type="tel"
+              value={walkInPhone}
+              onChange={e => {
+                setWalkInPhone(e.target.value)
+                setWalkInPhoneError('')
+              }}
+            />
+            {walkInPhoneError && (
+              <p className="text-[12px] text-red-500 mt-1">{walkInPhoneError}</p>
+            )}
+            <p className="text-[11px] text-gray-400 mt-1">
+              {lang === 'es'
+                ? 'Necesario para enviar SMS o factura'
+                : 'Needed to send SMS or invoice'}
+            </p>
+          </div>
+
           <Input
             label={lang === 'es' ? 'Precio base del trabajo' : 'Base job price'}
             placeholder="65"
@@ -779,6 +876,7 @@ export default function CalendarPage() {
             onChange={e => setWalkInPrice(e.target.value)}
             hint={lang === 'es' ? 'Se aplica tarifa de 8% (mín $10)' : '8% YardSync fee applies (min $10)'}
           />
+
           <Select
             label={translate('calendar', 'time')}
             value={walkInTime}
@@ -787,16 +885,102 @@ export default function CalendarPage() {
             {TIMES.map(t => <option key={t} value={t}>{t}</option>)}
           </Select>
 
-          {/* Add-ons for walk-in */}
           <div className="border-t border-gray-100 pt-3">
             <AddonSelector
-              fixed={walkInAddons}
-              setFixed={setWalkInAddons}
+              fixedAddons={walkInAddons}
+              setFixedAddons={setWalkInAddons}
               variables={walkInVariables}
               setVariables={setWalkInVariables}
-              isWalkIn={true}
             />
           </div>
+        </div>
+      </Modal>
+
+      {/* ── Walk-in invoice modal ── */}
+      <Modal
+        open={showWalkInInvoice}
+        onClose={() => setShowWalkInInvoice(false)}
+        title={lang === 'es'
+          ? `Factura — ${walkInInvoiceTarget?.clientName || ''}`
+          : `Invoice — ${walkInInvoiceTarget?.clientName || ''}`}
+        footer={
+          <>
+            <Button variant="secondary" fullWidth onClick={() => setShowWalkInInvoice(false)}>
+              {translate('common', 'cancel')}
+            </Button>
+            <Button fullWidth loading={invoicingWalkIn} onClick={handleWalkInInvoice}>
+              {lang === 'es'
+                ? `Enviar · ${formatCents(walkInInvoiceTotal)}`
+                : `Send · ${formatCents(walkInInvoiceTotal)}`}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+
+          {/* Base summary */}
+          <div className="bg-gray-50 rounded-xl p-3 space-y-1.5">
+            <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-2">
+              {lang === 'es' ? 'Resumen' : 'Summary'}
+            </p>
+            <div className="flex justify-between text-[13px]">
+              <span className="text-gray-600">{walkInInvoiceTarget?.clientName}</span>
+              <span className="font-medium">{formatCents(walkInBase)}</span>
+            </div>
+            {walkInInvoiceTarget?.clientPhone && (
+              <p className="text-[11px] text-gray-400">{walkInInvoiceTarget.clientPhone}</p>
+            )}
+            <div className="flex justify-between text-[12px]">
+              <span className="text-gray-400">
+                {lang === 'es' ? 'Tarifa YardSync (8%, mín $10)' : 'YardSync fee (8%, min $10)'}
+              </span>
+              <span className="text-brand-600">+{formatCents(walkInBaseFee)}</span>
+            </div>
+            <div className="flex justify-between text-[13px] border-t border-gray-200 pt-1.5">
+              <span className="font-medium text-gray-700">
+                {lang === 'es' ? 'Subtotal base' : 'Base subtotal'}
+              </span>
+              <span className="font-semibold">{formatCents(walkInBase + walkInBaseFee)}</span>
+            </div>
+          </div>
+
+          {/* Add-ons */}
+          <AddonSelector
+            fixedAddons={walkInInvAddons}
+            setFixedAddons={setWalkInInvAddons}
+            variables={walkInInvVariables}
+            setVariables={setWalkInInvVariables}
+          />
+
+          {/* Live total */}
+          <div className="bg-brand-50 border border-brand-100 rounded-xl p-4 space-y-1.5">
+            <p className="text-[11px] font-medium text-brand-700 uppercase tracking-wide mb-2">
+              {lang === 'es' ? 'Total de factura' : 'Invoice total'}
+            </p>
+            <div className="flex justify-between text-[13px]">
+              <span className="text-brand-700">{lang === 'es' ? 'Base' : 'Base'}</span>
+              <span className="font-medium text-brand-900">{formatCents(walkInBase + walkInBaseFee)}</span>
+            </div>
+            {walkInInvAddonTotal > 0 && (
+              <>
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-brand-700">{lang === 'es' ? 'Adicionales' : 'Add-ons'}</span>
+                  <span className="font-medium text-brand-900">{formatCents(walkInInvAddonTotal)}</span>
+                </div>
+                <div className="flex justify-between text-[12px]">
+                  <span className="text-brand-600">{lang === 'es' ? 'Tarifa (+10%)' : 'Add-on fee (+10%)'}</span>
+                  <span className="text-brand-600">+{formatCents(walkInInvAddonFee)}</span>
+                </div>
+              </>
+            )}
+            <div className="flex justify-between text-[15px] border-t border-brand-200 pt-2 mt-1">
+              <span className="font-bold text-brand-900">
+                {lang === 'es' ? 'Cliente paga' : 'Client pays'}
+              </span>
+              <span className="font-bold text-brand-900">{formatCents(walkInInvoiceTotal)}</span>
+            </div>
+          </div>
+
         </div>
       </Modal>
 
