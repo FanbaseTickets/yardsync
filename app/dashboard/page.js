@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import { StatCard, Card, Badge, Button, Skeleton } from '@/components/ui'
 import { getClients, getTodaySchedules, getInvoices, updateSchedule } from '@/lib/db'
@@ -14,6 +15,7 @@ import { useRouter } from 'next/navigation'
 
 export default function DashboardPage() {
   const { user, profile, signOut } = useAuth()
+  const { translate } = useLang()
   const router = useRouter()
 
   const [clients,    setClients]    = useState([])
@@ -25,7 +27,11 @@ export default function DashboardPage() {
   const todayStr    = format(new Date(), 'yyyy-MM-dd')
   const displayDate = format(new Date(), 'EEEE, MMMM d')
   const hour        = new Date().getHours()
-  const greeting    = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  const greeting    = hour < 12
+    ? translate('dashboard', 'greeting_morning')
+    : hour < 17
+    ? translate('dashboard', 'greeting_afternoon')
+    : translate('dashboard', 'greeting_evening')
 
   const firstName = profile?.name
     ? profile.name.split(' ').find(w => w.length > 1) || profile.name.split(' ')[0]
@@ -48,7 +54,7 @@ export default function DashboardPage() {
       setTodayJobs(j)
       setInvoices(inv)
     } catch {
-      toast.error('Failed to load dashboard')
+      toast.error(translate('common', 'error'))
     } finally {
       setLoading(false)
     }
@@ -64,9 +70,9 @@ export default function DashboardPage() {
       setTodayJobs(prev =>
         prev.map(j => j.id === schedule.id ? { ...j, status: 'completed' } : j)
       )
-      toast.success('Job marked complete!')
+      toast.success(translate('dashboard', 'completed'))
     } catch {
-      toast.error('Could not update job')
+      toast.error(translate('common', 'error'))
     } finally {
       setCompleting(null)
     }
@@ -76,7 +82,7 @@ export default function DashboardPage() {
   const completedToday   = todayJobs.filter(j => j.status === 'completed').length
   const thisMonthRevenue = invoices
     .filter(inv => {
-      if (inv.status !== 'paid') return false  // ← only count paid invoices
+      if (inv.status !== 'paid') return false
       const d = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
       return d.getMonth() === new Date().getMonth()
     })
@@ -103,10 +109,11 @@ export default function DashboardPage() {
                 {greeting}, {firstName}
               </h1>
               <p className="text-brand-200 text-[13px] mt-0.5">
-                {displayDate} · {todayJobs.length} job{todayJobs.length !== 1 ? 's' : ''} today
+                {displayDate} · {todayJobs.length} {todayJobs.length !== 1
+                  ? translate('dashboard', 'jobs_today')
+                  : translate('dashboard', 'job_today')}
               </p>
             </div>
-
             <div className="flex items-center gap-2">
               <button
                 onClick={() => router.push('/settings')}
@@ -133,19 +140,21 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 animate-fade-up">
-              <StatCard label="Active clients" value={activeClients}                            icon={Users}         />
-              <StatCard label="This month"     value={formatCents(thisMonthRevenue)}             icon={DollarSign} accent />
-              <StatCard label="Jobs today"     value={`${completedToday}/${todayJobs.length}`}  icon={CalendarCheck} />
-              <StatCard label="SMS sent"       value={smsSentTotal}                              icon={MessageSquare} />
+              <StatCard label={translate('dashboard', 'active_clients')}  value={activeClients}                            icon={Users}         />
+              <StatCard label={translate('dashboard', 'this_month')}      value={formatCents(thisMonthRevenue)}             icon={DollarSign} accent />
+              <StatCard label={translate('dashboard', 'jobs_today_stat')} value={`${completedToday}/${todayJobs.length}`}  icon={CalendarCheck} />
+              <StatCard label={translate('dashboard', 'sms_sent')}        value={smsSentTotal}                              icon={MessageSquare} />
             </div>
           )}
 
           {/* Today's Jobs */}
           <section>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-[14px] font-semibold text-gray-800">Today's schedule</h2>
+              <h2 className="text-[14px] font-semibold text-gray-800">
+                {translate('dashboard', 'todays_schedule')}
+              </h2>
               <Link href="/calendar" className="text-[12px] text-brand-600 font-medium">
-                View calendar
+                {translate('dashboard', 'view_calendar')}
               </Link>
             </div>
 
@@ -156,9 +165,13 @@ export default function DashboardPage() {
             ) : todayJobs.length === 0 ? (
               <Card className="text-center py-8">
                 <CalendarCheck size={28} className="text-gray-300 mx-auto mb-2" />
-                <p className="text-[14px] text-gray-400">No jobs scheduled today</p>
+                <p className="text-[14px] text-gray-400">
+                  {translate('dashboard', 'no_jobs')}
+                </p>
                 <Link href="/calendar">
-                  <Button variant="brand" size="sm" className="mt-3">Add to calendar</Button>
+                  <Button variant="brand" size="sm" className="mt-3">
+                    {translate('dashboard', 'add_to_calendar')}
+                  </Button>
                 </Link>
               </Card>
             ) : (
@@ -194,7 +207,9 @@ export default function DashboardPage() {
                               <span className="text-[11px] text-brand-600 font-medium">SMS ✓</span>
                             )}
                             {done && (
-                              <span className="text-[11px] text-brand-600 font-medium">Completed ✓</span>
+                              <span className="text-[11px] text-brand-600 font-medium">
+                                {translate('dashboard', 'completed')}
+                              </span>
                             )}
                           </div>
                         </div>
@@ -206,7 +221,7 @@ export default function DashboardPage() {
                             onClick={() => markComplete(job)}
                             icon={CheckCircle2}
                           >
-                            Done
+                            {translate('dashboard', 'done')}
                           </Button>
                         ) : (
                           <CheckCircle2 size={20} className="text-brand-500 flex-shrink-0" />
@@ -225,9 +240,13 @@ export default function DashboardPage() {
               <Clock size={18} className="text-amber-600 flex-shrink-0" />
               <div className="flex-1">
                 <p className="text-[13px] font-medium text-amber-800">
-                  {unpaidCount} unpaid invoice{unpaidCount > 1 ? 's' : ''}
+                  {unpaidCount} {unpaidCount > 1
+                    ? translate('dashboard', 'unpaid_invoices_pl')
+                    : translate('dashboard', 'unpaid_invoices')}
                 </p>
-                <p className="text-[12px] text-amber-600">Tap to review</p>
+                <p className="text-[12px] text-amber-600">
+                  {translate('dashboard', 'tap_to_review')}
+                </p>
               </div>
             </Card>
           )}

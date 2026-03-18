@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Badge, Modal, Select, EmptyState, Skeleton } from '@/components/ui'
@@ -25,23 +26,13 @@ const TIMES = [
   '4:00 PM','4:30 PM','5:00 PM',
 ]
 
-const REPEAT_OPTIONS = [
-  { value: 'none',      label: 'Just this once' },
-  { value: 'weekly',    label: 'Every week' },
-  { value: 'biweekly',  label: 'Every 2 weeks' },
-  { value: '3x_month',  label: '3 times per month' },
-  { value: 'monthly',   label: 'Once a month' },
-  { value: 'quarterly', label: 'Once every 3 months' },
-  { value: 'annual',    label: 'Once a year' },
-]
-
 const OCCURRENCE_OPTIONS = [
-  { value: '4',  label: '4 visits' },
-  { value: '6',  label: '6 visits' },
-  { value: '8',  label: '8 visits' },
-  { value: '12', label: '12 visits' },
-  { value: '24', label: '24 visits' },
-  { value: '52', label: '52 visits (1 year weekly)' },
+  { value: '4',  label: '4' },
+  { value: '6',  label: '6' },
+  { value: '8',  label: '8' },
+  { value: '12', label: '12' },
+  { value: '24', label: '24' },
+  { value: '52', label: '52' },
 ]
 
 function generateOccurrences(startDate, recurrence, count) {
@@ -63,25 +54,34 @@ function generateOccurrences(startDate, recurrence, count) {
 }
 
 export default function CalendarPage() {
-  const { user } = useAuth()
+  const { user }            = useAuth()
+  const { translate, lang } = useLang()
 
-  const [currentDate,    setCurrentDate]    = useState(new Date())
-  const [clients,        setClients]        = useState([])
-  const [schedules,      setSchedules]      = useState([])
-  const [loading,        setLoading]        = useState(true)
-  const [selectedDay,    setSelectedDay]    = useState(null)
-  const [showAddModal,   setShowAddModal]   = useState(false)
-  const [selectedClient, setSelectedClient] = useState('')
-  const [selectedTime,   setSelectedTime]   = useState('9:00 AM')
-  const [repeatMode,     setRepeatMode]     = useState('none')
-  const [occurrences,    setOccurrences]    = useState('8')
-  const [saving,         setSaving]         = useState(false)
-  const [showPreview,    setShowPreview]    = useState(false)
+  const REPEAT_OPTIONS = [
+    { value: 'none',      label: lang === 'es' ? 'Solo esta vez'           : 'Just this once' },
+    { value: 'weekly',    label: lang === 'es' ? 'Cada semana'             : 'Every week' },
+    { value: 'biweekly',  label: lang === 'es' ? 'Cada 2 semanas'          : 'Every 2 weeks' },
+    { value: '3x_month',  label: lang === 'es' ? '3 veces al mes'          : '3 times per month' },
+    { value: 'monthly',   label: lang === 'es' ? 'Una vez al mes'          : 'Once a month' },
+    { value: 'quarterly', label: lang === 'es' ? 'Una vez cada 3 meses'    : 'Once every 3 months' },
+    { value: 'annual',    label: lang === 'es' ? 'Una vez al año'          : 'Once a year' },
+  ]
 
-  // Delete confirm state
-  const [deleteTarget,   setDeleteTarget]   = useState(null)
+  const [currentDate,     setCurrentDate]     = useState(new Date())
+  const [clients,         setClients]         = useState([])
+  const [schedules,       setSchedules]       = useState([])
+  const [loading,         setLoading]         = useState(true)
+  const [selectedDay,     setSelectedDay]     = useState(null)
+  const [showAddModal,    setShowAddModal]     = useState(false)
+  const [selectedClient,  setSelectedClient]  = useState('')
+  const [selectedTime,    setSelectedTime]    = useState('9:00 AM')
+  const [repeatMode,      setRepeatMode]      = useState('none')
+  const [occurrences,     setOccurrences]     = useState('8')
+  const [saving,          setSaving]          = useState(false)
+  const [showPreview,     setShowPreview]     = useState(false)
+  const [deleteTarget,    setDeleteTarget]    = useState(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [deleting,       setDeleting]       = useState(false)
+  const [deleting,        setDeleting]        = useState(false)
 
   const monthStart = startOfMonth(currentDate)
   const monthEnd   = endOfMonth(currentDate)
@@ -107,7 +107,7 @@ export default function CalendarPage() {
       setClients(c)
       setSchedules(s)
     } catch {
-      toast.error('Could not load calendar')
+      toast.error(translate('common', 'error'))
     } finally {
       setLoading(false)
     }
@@ -123,10 +123,7 @@ export default function CalendarPage() {
     const client = clients.find(c => c.id === clientId)
     if (client?.recurrence && client.recurrence !== 'onetime') {
       setRepeatMode(client.recurrence)
-      const countMap = {
-        weekly: '12', biweekly: '8', '3x_month': '6',
-        monthly: '6', quarterly: '4', annual: '2',
-      }
+      const countMap = { weekly: '12', biweekly: '8', '3x_month': '6', monthly: '6', quarterly: '4', annual: '2' }
       setOccurrences(countMap[client.recurrence] || '8')
     } else {
       setRepeatMode('none')
@@ -141,10 +138,7 @@ export default function CalendarPage() {
     setShowPreview(false)
     if (firstClient?.recurrence && firstClient.recurrence !== 'onetime') {
       setRepeatMode(firstClient.recurrence)
-      const countMap = {
-        weekly: '12', biweekly: '8', '3x_month': '6',
-        monthly: '6', quarterly: '4', annual: '2',
-      }
+      const countMap = { weekly: '12', biweekly: '8', '3x_month': '6', monthly: '6', quarterly: '4', annual: '2' }
       setOccurrences(countMap[firstClient.recurrence] || '8')
     } else {
       setRepeatMode('none')
@@ -181,11 +175,14 @@ export default function CalendarPage() {
       )
 
       const count = datesToAdd.length
-      toast.success(count === 1 ? 'Job added!' : `${count} visits scheduled!`)
+      toast.success(count === 1
+        ? translate('calendar', 'add_job') + ' ✓'
+        : `${count} ${translate('calendar', 'visits')} ✓`
+      )
       setShowAddModal(false)
       loadData()
     } catch {
-      toast.error('Could not add job')
+      toast.error(translate('common', 'error'))
     } finally {
       setSaving(false)
     }
@@ -194,42 +191,39 @@ export default function CalendarPage() {
   async function handleComplete(schedule) {
     try {
       await updateSchedule(schedule.id, { status: 'completed' })
-      toast.success('Marked complete!')
+      toast.success('✓')
       loadData()
     } catch {
-      toast.error('Could not update')
+      toast.error(translate('common', 'error'))
     }
   }
 
-  // Prompt delete confirmation
   function promptDelete(schedule) {
     setDeleteTarget(schedule)
     setShowDeleteModal(true)
   }
 
-  // Delete just this one visit
   async function handleDeleteOne() {
     if (!deleteTarget) return
     setDeleting(true)
     try {
       await deleteSchedule(deleteTarget.id)
-      toast.success('Visit removed')
+      toast.success(translate('calendar', 'remove_visit') + ' ✓')
       setShowDeleteModal(false)
       setDeleteTarget(null)
       loadData()
     } catch {
-      toast.error('Could not remove visit')
+      toast.error(translate('common', 'error'))
     } finally {
       setDeleting(false)
     }
   }
 
-  // Delete all future recurring visits for this client
   async function handleDeleteAll() {
     if (!deleteTarget) return
     setDeleting(true)
     try {
-      const q = query(
+      const q    = query(
         collection(db, 'schedules'),
         where('gardenerUid', '==', user.uid),
         where('clientId',    '==', deleteTarget.clientId),
@@ -237,12 +231,12 @@ export default function CalendarPage() {
       )
       const snap = await getDocs(q)
       await Promise.all(snap.docs.map(d => deleteDoc(doc(db, 'schedules', d.id))))
-      toast.success(`Removed ${snap.docs.length} scheduled visits`)
+      toast.success(`${snap.docs.length} ${translate('calendar', 'visits')} ✓`)
       setShowDeleteModal(false)
       setDeleteTarget(null)
       loadData()
     } catch {
-      toast.error('Could not remove visits')
+      toast.error(translate('common', 'error'))
     } finally {
       setDeleting(false)
     }
@@ -257,8 +251,8 @@ export default function CalendarPage() {
     <AppShell>
       <div className="page-content">
         <PageHeader
-          title="Calendar"
-          subtitle={`${totalJobsThisMonth} jobs in ${format(currentDate, 'MMMM')}`}
+          title={translate('calendar', 'title')}
+          subtitle={`${totalJobsThisMonth} ${translate('calendar', 'jobs_in')} ${format(currentDate, 'MMMM')}`}
         />
 
         <div className="px-4 py-4 max-w-lg mx-auto space-y-4">
@@ -286,7 +280,10 @@ export default function CalendarPage() {
           <Card padding={false}>
             <div className="p-3">
               <div className="grid grid-cols-7 mb-1">
-                {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
+                {(lang === 'es'
+                  ? ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
+                  : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+                ).map(d => (
                   <div key={d} className="text-center text-[10px] font-medium text-gray-400 py-1">{d}</div>
                 ))}
               </div>
@@ -337,12 +334,8 @@ export default function CalendarPage() {
                 <h3 className="text-[14px] font-semibold text-gray-800">
                   {format(selectedDay, 'EEEE, MMMM d')}
                 </h3>
-                <Button
-                  icon={Plus} size="sm"
-                  onClick={openAddModal}
-                  disabled={clients.length === 0}
-                >
-                  Add job
+                <Button icon={Plus} size="sm" onClick={openAddModal} disabled={clients.length === 0}>
+                  {translate('calendar', 'add_job')}
                 </Button>
               </div>
 
@@ -351,10 +344,9 @@ export default function CalendarPage() {
               ) : selectedDaySchedules.length === 0 ? (
                 <Card className="text-center py-6">
                   <CalendarDays size={24} className="text-gray-300 mx-auto mb-2" />
-                  <p className="text-[13px] text-gray-400">No jobs scheduled</p>
-                  <Button variant="brand" size="sm" className="mt-3"
-                    onClick={openAddModal} disabled={clients.length === 0}>
-                    Add a job
+                  <p className="text-[13px] text-gray-400">{translate('calendar', 'no_jobs')}</p>
+                  <Button variant="brand" size="sm" className="mt-3" onClick={openAddModal} disabled={clients.length === 0}>
+                    {translate('calendar', 'add_job')}
                   </Button>
                 </Card>
               ) : (
@@ -376,7 +368,9 @@ export default function CalendarPage() {
                               {schedule.isRecurring && (
                                 <div className="flex items-center gap-0.5">
                                   <RefreshCw size={9} className="text-brand-400" />
-                                  <span className="text-[10px] text-brand-500 font-medium">Recurring</span>
+                                  <span className="text-[10px] text-brand-500 font-medium">
+                                    {translate('calendar', 'recurring')}
+                                  </span>
                                 </div>
                               )}
                               {schedule.smsSent && (
@@ -412,11 +406,10 @@ export default function CalendarPage() {
           {!selectedDay && (
             <EmptyState
               icon={CalendarDays}
-              title="Tap a day to view or add jobs"
-              description="Dots show scheduled visits · Numbers show multiple jobs"
+              title={translate('calendar', 'tap_day')}
+              description={translate('calendar', 'dots_show')}
             />
           )}
-
         </div>
       </div>
 
@@ -424,19 +417,23 @@ export default function CalendarPage() {
       <Modal
         open={showAddModal}
         onClose={() => setShowAddModal(false)}
-        title={`Add job — ${selectedDay ? format(selectedDay, 'MMM d') : ''}`}
+        title={`${translate('calendar', 'add_job')} — ${selectedDay ? format(selectedDay, 'MMM d') : ''}`}
         footer={
           <>
-            <Button variant="secondary" fullWidth onClick={() => setShowAddModal(false)}>Cancel</Button>
+            <Button variant="secondary" fullWidth onClick={() => setShowAddModal(false)}>
+              {translate('common', 'cancel')}
+            </Button>
             <Button fullWidth loading={saving} onClick={handleAddSchedule}>
-              {repeatMode === 'none' ? 'Add job' : `Schedule ${occurrences} visits`}
+              {repeatMode === 'none'
+                ? translate('calendar', 'add_job')
+                : `${translate('calendar', 'schedule')} ${occurrences} ${translate('calendar', 'visits')}`}
             </Button>
           </>
         }
       >
         <div className="space-y-4">
           <Select
-            label="Client"
+            label={translate('calendar', 'client')}
             value={selectedClient}
             onChange={e => handleClientSelect(e.target.value)}
           >
@@ -445,16 +442,20 @@ export default function CalendarPage() {
             ))}
           </Select>
 
-          <Select label="Time" value={selectedTime} onChange={e => setSelectedTime(e.target.value)}>
+          <Select
+            label={translate('calendar', 'time')}
+            value={selectedTime}
+            onChange={e => setSelectedTime(e.target.value)}
+          >
             {TIMES.map(t => <option key={t} value={t}>{t}</option>)}
           </Select>
 
           <Select
-            label="Repeat"
+            label={translate('calendar', 'repeat')}
             value={repeatMode}
             onChange={e => setRepeatMode(e.target.value)}
             hint={selectedClientObj?.recurrence && selectedClientObj.recurrence !== 'onetime'
-              ? `Suggested for ${selectedClientObj.name}: ${REPEAT_OPTIONS.find(o => o.value === selectedClientObj.recurrence)?.label || ''}`
+              ? `${selectedClientObj.name}: ${REPEAT_OPTIONS.find(o => o.value === selectedClientObj.recurrence)?.label || ''}`
               : undefined}
           >
             {REPEAT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -462,11 +463,15 @@ export default function CalendarPage() {
 
           {repeatMode !== 'none' && (
             <Select
-              label="Number of visits to schedule"
+              label={translate('calendar', 'occurrences')}
               value={occurrences}
               onChange={e => setOccurrences(e.target.value)}
             >
-              {OCCURRENCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {OCCURRENCE_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>
+                  {o.label} {translate('calendar', 'visits')}
+                </option>
+              ))}
             </Select>
           )}
 
@@ -476,7 +481,7 @@ export default function CalendarPage() {
                 onClick={() => setShowPreview(!showPreview)}
                 className="text-[12px] text-brand-600 font-medium"
               >
-                {showPreview ? 'Hide' : 'Preview'} scheduled dates →
+                {showPreview ? translate('calendar', 'hide') : translate('calendar', 'preview')}
               </button>
               {showPreview && (
                 <div className="mt-2 bg-brand-50 rounded-xl p-3 max-h-48 overflow-y-auto">
@@ -486,27 +491,11 @@ export default function CalendarPage() {
                         <div className="w-1.5 h-1.5 rounded-full bg-brand-500 flex-shrink-0" />
                         <p className="text-[12px] text-brand-700">
                           {format(date, 'EEE, MMM d yyyy')}
-                          {i === 0 && <span className="text-brand-400 ml-1">(first visit)</span>}
                         </p>
                       </div>
                     ))}
                   </div>
                 </div>
-              )}
-            </div>
-          )}
-
-          {repeatMode === 'none' && selectedClientObj && (
-            <div className="bg-gray-50 rounded-xl p-3">
-              <p className="text-[12px] text-gray-500">
-                Adding a single visit for <strong>{selectedClientObj.name}</strong> on{' '}
-                <strong>{selectedDay ? format(selectedDay, 'MMMM d') : ''}</strong> at{' '}
-                <strong>{selectedTime}</strong>.
-              </p>
-              {selectedClientObj.recurrence && selectedClientObj.recurrence !== 'onetime' && (
-                <p className="text-[11px] text-brand-600 mt-1">
-                  Tip: This client is on a recurring schedule. Use "Repeat" to auto-schedule all visits at once.
-                </p>
               )}
             </div>
           )}
@@ -517,41 +506,27 @@ export default function CalendarPage() {
       <Modal
         open={showDeleteModal}
         onClose={() => { setShowDeleteModal(false); setDeleteTarget(null) }}
-        title="Remove visit"
+        title={translate('calendar', 'remove_visit')}
         footer={
           deleteTarget?.isRecurring ? (
             <div className="flex flex-col gap-2 w-full">
-              <Button
-                variant="secondary"
-                fullWidth
-                loading={deleting}
-                onClick={handleDeleteOne}
-              >
-                Remove just this visit
+              <Button variant="secondary" fullWidth loading={deleting} onClick={handleDeleteOne}>
+                {translate('calendar', 'remove_one')}
               </Button>
-              <Button
-                variant="danger"
-                fullWidth
-                loading={deleting}
-                onClick={handleDeleteAll}
-              >
-                Remove all future visits
+              <Button variant="danger" fullWidth loading={deleting} onClick={handleDeleteAll}>
+                {translate('calendar', 'remove_all')}
               </Button>
-              <Button
-                variant="ghost"
-                fullWidth
-                onClick={() => { setShowDeleteModal(false); setDeleteTarget(null) }}
-              >
-                Cancel
+              <Button variant="ghost" fullWidth onClick={() => { setShowDeleteModal(false); setDeleteTarget(null) }}>
+                {translate('common', 'cancel')}
               </Button>
             </div>
           ) : (
             <>
               <Button variant="secondary" fullWidth onClick={() => { setShowDeleteModal(false); setDeleteTarget(null) }}>
-                Cancel
+                {translate('common', 'cancel')}
               </Button>
               <Button variant="danger" fullWidth loading={deleting} onClick={handleDeleteOne}>
-                Remove visit
+                {translate('common', 'remove')}
               </Button>
             </>
           )
@@ -562,21 +537,19 @@ export default function CalendarPage() {
             <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-xl p-3">
               <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
               <p className="text-[13px] text-amber-700">
-                This is a recurring visit for <strong>
+                {translate('calendar', 'recurring_warning')} <strong>
                   {clientMap[deleteTarget?.clientId]?.name || deleteTarget?.clientName}
-                </strong>. Do you want to remove just this visit or all future scheduled visits?
+                </strong>.
               </p>
             </div>
             <p className="text-[12px] text-gray-400 text-center">
-              Completed visits will not be affected.
+              {translate('calendar', 'completed_note')}
             </p>
           </div>
         ) : (
           <p className="text-[14px] text-gray-600">
-            Remove this visit for <strong>
+            {translate('calendar', 'remove_visit')} — <strong>
               {clientMap[deleteTarget?.clientId]?.name || deleteTarget?.clientName}
-            </strong> on <strong>
-              {deleteTarget?.serviceDate}
             </strong>?
           </p>
         )}

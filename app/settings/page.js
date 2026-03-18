@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Input, Select } from '@/components/ui'
@@ -10,11 +11,11 @@ import { Bell, Globe, User, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const REMINDER_OPTIONS = [
-  { value: '24',  label: '24 hours before' },
-  { value: '48',  label: '48 hours before' },
-  { value: '72',  label: '72 hours before' },
-  { value: '0',   label: 'Day of visit' },
-  { value: 'all', label: 'All of the above' },
+  { value: '24',  label: '24 hours before / 24 horas antes' },
+  { value: '48',  label: '48 hours before / 48 horas antes' },
+  { value: '72',  label: '72 hours before / 72 horas antes' },
+  { value: '0',   label: 'Day of visit / Día de la visita' },
+  { value: 'all', label: 'All of the above / Todos' },
 ]
 
 const LANGUAGE_OPTIONS = [
@@ -24,6 +25,7 @@ const LANGUAGE_OPTIONS = [
 
 export default function SettingsPage() {
   const { user, profile, refreshProfile } = useAuth()
+  const { translate } = useLang()
 
   const [form,    setForm]    = useState({
     name:           '',
@@ -59,9 +61,9 @@ export default function SettingsPage() {
     try {
       await saveGardenerProfile(user.uid, form)
       await refreshProfile()
-      toast.success('Settings saved!')
+      toast.success(translate('settings', 'save') + ' ✓')
     } catch {
-      toast.error('Could not save settings')
+      toast.error(translate('common', 'error'))
     } finally {
       setSaving(false)
     }
@@ -70,7 +72,10 @@ export default function SettingsPage() {
   return (
     <AppShell>
       <div className="page-content">
-        <PageHeader title="Settings" subtitle="Your profile & preferences" />
+        <PageHeader
+          title={translate('settings', 'title')}
+          subtitle={translate('settings', 'subtitle')}
+        />
 
         <div className="px-4 py-4 max-w-lg mx-auto space-y-5">
 
@@ -78,24 +83,26 @@ export default function SettingsPage() {
           <section>
             <div className="flex items-center gap-2 mb-3">
               <User size={14} className="text-brand-600" />
-              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Profile</p>
+              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                {translate('settings', 'profile')}
+              </p>
             </div>
             <Card>
               <div className="space-y-4">
                 <Input
-                  label="Your name"
+                  label={translate('settings', 'your_name')}
                   value={form.name}
                   onChange={e => setField('name', e.target.value)}
-                  placeholder="Marco Torres"
+                  placeholder="Jay Johnson"
                 />
                 <Input
-                  label="Business name"
+                  label={translate('settings', 'business_name')}
                   value={form.businessName}
                   onChange={e => setField('businessName', e.target.value)}
-                  placeholder="Torres Lawn Care"
+                  placeholder="JNew Technologies"
                 />
                 <Input
-                  label="Phone number"
+                  label={translate('settings', 'phone')}
                   value={form.phone}
                   onChange={e => setField('phone', e.target.value)}
                   placeholder="(210) 555-0100"
@@ -110,12 +117,12 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 mb-3">
               <Globe size={14} className="text-brand-600" />
               <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
-                Language / Idioma
+                {translate('settings', 'language')}
               </p>
             </div>
             <Card>
               <Select
-                label="App language"
+                label={translate('settings', 'app_language')}
                 value={form.language}
                 onChange={e => setField('language', e.target.value)}
               >
@@ -124,7 +131,7 @@ export default function SettingsPage() {
                 ))}
               </Select>
               <p className="text-[11px] text-gray-400 mt-2">
-                SMS reminders will automatically send in the selected language
+                {translate('settings', 'sms_note')}
               </p>
             </Card>
           </section>
@@ -134,13 +141,13 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 mb-3">
               <Bell size={14} className="text-brand-600" />
               <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
-                SMS Reminders
+                {translate('settings', 'reminders')}
               </p>
             </div>
             <Card>
               <div className="space-y-4">
                 <Select
-                  label="Send reminders"
+                  label={translate('settings', 'send_reminders')}
                   value={form.reminderTiming}
                   onChange={e => setField('reminderTiming', e.target.value)}
                 >
@@ -150,7 +157,9 @@ export default function SettingsPage() {
                 </Select>
 
                 <div>
-                  <p className="text-[13px] font-medium text-gray-700 mb-1">English template</p>
+                  <p className="text-[13px] font-medium text-gray-700 mb-1">
+                    {translate('settings', 'english_template')}
+                  </p>
                   <textarea
                     value={form.smsTemplate}
                     onChange={e => setField('smsTemplate', e.target.value)}
@@ -161,7 +170,7 @@ export default function SettingsPage() {
 
                 <div>
                   <p className="text-[13px] font-medium text-gray-700 mb-1">
-                    Plantilla en Español
+                    {translate('settings', 'spanish_template')}
                   </p>
                   <textarea
                     value={form.smsTemplateEs}
@@ -172,7 +181,7 @@ export default function SettingsPage() {
                 </div>
 
                 <p className="text-[11px] text-gray-400">
-                  Variables: {'{name}'} {'{date}'} {'{time}'} {'{business}'}
+                  {translate('settings', 'variables')} {'{name}'} {'{date}'} {'{time}'} {'{business}'}
                 </p>
               </div>
             </Card>
@@ -183,49 +192,51 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 mb-3">
               <Clock size={14} className="text-brand-600" />
               <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
-                Subscription
+                {translate('settings', 'subscription')}
               </p>
             </div>
             <Card className="bg-brand-50 border-brand-100">
-              <p className="text-[13px] font-medium text-brand-800">YardSync — Active</p>
+              <p className="text-[13px] font-medium text-brand-800">
+                {translate('settings', 'active')}
+              </p>
               <p className="text-[12px] text-brand-600 mt-1">
-                Your clients are automatically charged the YardSync platform fee on every invoice.
+                {translate('settings', 'fee_note')}
               </p>
               <div className="mt-3 space-y-1">
                 <div className="flex justify-between text-[12px]">
-                  <span className="text-brand-700">Monthly clients</span>
+                  <span className="text-brand-700">Monthly / Mensual</span>
                   <span className="text-brand-800 font-medium">+$15/invoice</span>
                 </div>
                 <div className="flex justify-between text-[12px]">
-                  <span className="text-brand-700">Quarterly clients</span>
+                  <span className="text-brand-700">Quarterly / Trimestral</span>
                   <span className="text-brand-800 font-medium">+$35/invoice</span>
                 </div>
                 <div className="flex justify-between text-[12px]">
-                  <span className="text-brand-700">Annual clients</span>
+                  <span className="text-brand-700">Annual / Anual</span>
                   <span className="text-brand-800 font-medium">+$100/invoice</span>
                 </div>
                 <div className="flex justify-between text-[12px]">
-                  <span className="text-brand-700">Weekly clients</span>
+                  <span className="text-brand-700">Weekly / Semanal</span>
                   <span className="text-brand-800 font-medium">+$5/invoice</span>
                 </div>
                 <div className="flex justify-between text-[12px]">
-                  <span className="text-brand-700">One-time jobs</span>
+                  <span className="text-brand-700">One-time / Una vez</span>
                   <span className="text-brand-800 font-medium">+8% (min $10)</span>
                 </div>
                 <div className="flex justify-between text-[12px]">
-                  <span className="text-brand-700">Add-on services</span>
-                  <span className="text-brand-800 font-medium">+10%/invoice</span>
+                  <span className="text-brand-700">Add-ons / Adicionales</span>
+                  <span className="text-brand-800 font-medium">+10%</span>
                 </div>
               </div>
             </Card>
           </section>
 
           <Button fullWidth size="lg" loading={saving} onClick={handleSave}>
-            Save settings
+            {translate('settings', 'save')}
           </Button>
 
           <p className="text-center text-[11px] text-gray-300 pb-4">
-            YardSync · A JNew Technologies platform
+            {translate('settings', 'footer')}
           </p>
 
         </div>

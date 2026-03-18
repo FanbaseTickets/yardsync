@@ -3,18 +3,20 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { LayoutDashboard, CalendarDays, Users, Wrench, MessageSquare } from 'lucide-react'
+import { useLang } from '@/context/LangContext'
 import clsx from 'clsx'
-
-const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Home',     icon: LayoutDashboard },
-  { href: '/calendar',  label: 'Calendar', icon: CalendarDays    },
-  { href: '/clients',   label: 'Clients',  icon: Users           },
-  { href: '/services',  label: 'Services', icon: Wrench          },
-  { href: '/sms',       label: 'SMS',      icon: MessageSquare   },
-]
 
 export default function BottomNav() {
   const pathname = usePathname()
+  const { translate } = useLang()
+
+  const NAV_ITEMS = [
+    { href: '/dashboard', label: translate('nav', 'home'),     icon: LayoutDashboard },
+    { href: '/calendar',  label: translate('nav', 'calendar'), icon: CalendarDays    },
+    { href: '/clients',   label: translate('nav', 'clients'),  icon: Users           },
+    { href: '/services',  label: translate('nav', 'services'), icon: Wrench          },
+    { href: '/sms',       label: translate('nav', 'sms'),      icon: MessageSquare   },
+  ]
 
   return (
     <nav

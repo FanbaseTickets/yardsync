@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Skeleton, EmptyState } from '@/components/ui'
@@ -14,6 +15,7 @@ import toast from 'react-hot-toast'
 
 export default function SMSPage() {
   const { user, profile } = useAuth()
+  const { translate } = useLang()
 
   const [schedules,  setSchedules]  = useState([])
   const [clients,    setClients]    = useState([])
@@ -53,7 +55,7 @@ export default function SMSPage() {
       setSchedules(allSchedules)
       setClients(c)
     } catch {
-      toast.error('Could not load SMS data')
+      toast.error(translate('common', 'error'))
     } finally {
       setLoading(false)
     }
@@ -97,10 +99,10 @@ export default function SMSPage() {
         }),
       })
       if (!res.ok) throw new Error()
-      toast.success('SMS sent!')
+      toast.success(translate('sms', 'sms_sent_check'))
       loadData()
     } catch {
-      toast.error('SMS failed — check Twilio setup in Settings')
+      toast.error(translate('sms', 'not_connected'))
     } finally {
       setSending(null)
     }
@@ -121,8 +123,8 @@ export default function SMSPage() {
     <AppShell>
       <div className="page-content">
         <PageHeader
-          title="SMS Reminders"
-          subtitle="Auto-sent before each visit"
+          title={translate('sms', 'title')}
+          subtitle={translate('sms', 'subtitle')}
         />
 
         <div className="px-4 py-4 max-w-lg mx-auto space-y-4">
@@ -131,21 +133,21 @@ export default function SMSPage() {
           <div className="grid grid-cols-2 gap-3">
             <Card className="text-center py-3">
               <p className="text-[22px] font-semibold text-brand-600">{smsSentCount}</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">SMS sent</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">{translate('sms', 'sms_sent')}</p>
             </Card>
             <Card className="text-center py-3">
               <p className="text-[22px] font-semibold text-gray-800">{upcomingCount}</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">Pending reminders</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">{translate('sms', 'pending')}</p>
             </Card>
           </div>
 
-          {/* Twilio status — green, connected */}
+          {/* Twilio status */}
           <Card className="flex items-center gap-3">
             <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-green-400" />
             <div className="flex-1">
               <p className="text-[13px] font-medium text-gray-800">Twilio SMS</p>
               <p className="text-[11px] text-gray-400">
-                Connected · SMS will send when you tap Send
+                {translate('sms', 'connected')}
               </p>
             </div>
           </Card>
@@ -154,13 +156,13 @@ export default function SMSPage() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
-                Message template
+                {translate('sms', 'message_template')}
               </p>
               <button
                 onClick={() => setEditingTpl(!editingTpl)}
                 className="text-[12px] text-brand-600 font-medium"
               >
-                {editingTpl ? 'Done' : 'Edit'}
+                {editingTpl ? translate('sms', 'done') : translate('sms', 'edit')}
               </button>
             </div>
             {editingTpl ? (
@@ -176,14 +178,14 @@ export default function SMSPage() {
               </Card>
             )}
             <p className="text-[11px] text-gray-400 mt-1">
-              Variables: {'{name}'} {'{date}'} {'{time}'} {'{business}'}
+              {translate('sms', 'variables')} {'{name}'} {'{date}'} {'{time}'} {'{business}'}
             </p>
           </div>
 
           {/* Upcoming visits grouped by date */}
           <div>
             <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-2">
-              Upcoming visits
+              {translate('sms', 'upcoming')}
             </p>
 
             {loading ? (
@@ -193,8 +195,8 @@ export default function SMSPage() {
             ) : upcoming.length === 0 ? (
               <EmptyState
                 icon={MessageSquare}
-                title="No upcoming visits"
-                description="Add jobs to the calendar to see SMS reminders here"
+                title={translate('sms', 'no_upcoming')}
+                description={translate('sms', 'add_jobs')}
               />
             ) : (
               <div className="space-y-4">
@@ -219,7 +221,9 @@ export default function SMSPage() {
                                   {client?.name || schedule.clientName}
                                 </p>
                                 <p className="text-[11px] text-gray-400">
-                                  {schedule.time || 'TBD'} · {schedule.smsSent ? 'SMS sent ✓' : 'SMS pending'}
+                                  {schedule.time || 'TBD'} · {schedule.smsSent
+                                    ? translate('sms', 'sms_sent_check')
+                                    : translate('sms', 'sms_pending')}
                                 </p>
                                 <p className="text-[11px] text-gray-500 mt-0.5 truncate italic">
                                   "{buildPreview(schedule)}"
@@ -232,7 +236,9 @@ export default function SMSPage() {
                                 onClick={() => handleSendSMS(schedule)}
                                 icon={Send}
                               >
-                                {schedule.smsSent ? 'Resend' : 'Send'}
+                                {schedule.smsSent
+                                  ? translate('sms', 'resend')
+                                  : translate('sms', 'send')}
                               </Button>
                             </div>
                           </Card>
@@ -244,7 +250,7 @@ export default function SMSPage() {
 
                 {Object.keys(grouped).length > 10 && (
                   <p className="text-[12px] text-center text-gray-400">
-                    Showing next 10 days · View calendar for full schedule
+                    {translate('sms', 'showing_next')}
                   </p>
                 )}
               </div>

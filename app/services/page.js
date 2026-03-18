@@ -2,51 +2,22 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Badge, Modal, Input, Select, EmptyState, Skeleton } from '@/components/ui'
 import { getServices, addService, updateService, deleteService } from '@/lib/db'
-import { dollarsToCents, formatCents, getAddonFee, getPackageFee } from '@/lib/fee'
+import { dollarsToCents, formatCents, getAddonFee } from '@/lib/fee'
 import { Wrench, Plus, Trash2, Pencil, DollarSign, Package, CheckCircle2, Calendar } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-const SERVICE_TYPE_OPTIONS = [
-  { value: 'base',  label: 'Base package — your core recurring service' },
-  { value: 'addon', label: 'Add-on service — extra work billed separately' },
-]
-
-const BASE_PACKAGE_OPTIONS = [
-  { value: 'monthly',   label: 'Monthly' },
-  { value: 'quarterly', label: 'Quarterly' },
-  { value: 'annual',    label: 'Annual' },
-  { value: 'weekly',    label: 'Weekly' },
-  { value: 'onetime',   label: 'One-time' },
-]
-
-const RECURRENCE_OPTIONS = [
-  { value: 'weekly',     label: 'Every week (1x/week)' },
-  { value: 'biweekly',   label: 'Every 2 weeks (2x/month)' },
-  { value: '3x_month',   label: '3 times per month' },
-  { value: 'monthly',    label: 'Once a month' },
-  { value: 'quarterly',  label: 'Once every 3 months' },
-  { value: 'annual',     label: 'Once a year' },
-  { value: 'onetime',    label: 'One-time only (no recurrence)' },
-]
-
-const DAY_OPTIONS = [
-  { value: '',          label: 'No preference' },
-  { value: 'monday',    label: 'Monday' },
-  { value: 'tuesday',   label: 'Tuesday' },
-  { value: 'wednesday', label: 'Wednesday' },
-  { value: 'thursday',  label: 'Thursday' },
-  { value: 'friday',    label: 'Friday' },
-  { value: 'saturday',  label: 'Saturday' },
-]
-
-const PRICING_TYPE_OPTIONS = [
-  { value: 'fixed',    label: 'Fixed price' },
-  { value: 'variable', label: 'Variable / quoted per job' },
-]
+const PACKAGE_FEE_MAP = {
+  monthly:   1500,
+  quarterly: 3500,
+  annual:    10000,
+  weekly:    500,
+  onetime:   1000,
+}
 
 const DEFAULT_FORM = {
   serviceType:   'base',
@@ -60,12 +31,47 @@ const DEFAULT_FORM = {
   priceCents:    '',
 }
 
-function getRecurrenceLabel(val) {
-  return RECURRENCE_OPTIONS.find(o => o.value === val)?.label || val
-}
-
 export default function ServicesPage() {
-  const { user } = useAuth()
+  const { user }            = useAuth()
+  const { translate, lang } = useLang()
+
+  const SERVICE_TYPE_OPTIONS = [
+    { value: 'base',  label: lang === 'es' ? 'Paquete base — servicio recurrente principal'     : 'Base package — your core recurring service' },
+    { value: 'addon', label: lang === 'es' ? 'Servicio adicional — trabajo extra por separado'  : 'Add-on service — extra work billed separately' },
+  ]
+
+  const BASE_PACKAGE_OPTIONS = [
+    { value: 'monthly',   label: lang === 'es' ? 'Mensual'    : 'Monthly'   },
+    { value: 'quarterly', label: lang === 'es' ? 'Trimestral' : 'Quarterly' },
+    { value: 'annual',    label: lang === 'es' ? 'Anual'      : 'Annual'    },
+    { value: 'weekly',    label: lang === 'es' ? 'Semanal'    : 'Weekly'    },
+    { value: 'onetime',   label: lang === 'es' ? 'Una vez'    : 'One-time'  },
+  ]
+
+  const RECURRENCE_OPTIONS = [
+    { value: 'weekly',    label: lang === 'es' ? 'Cada semana (1x/semana)'       : 'Every week (1x/week)'         },
+    { value: 'biweekly',  label: lang === 'es' ? 'Cada 2 semanas (2x/mes)'       : 'Every 2 weeks (2x/month)'     },
+    { value: '3x_month',  label: lang === 'es' ? '3 veces al mes'                : '3 times per month'            },
+    { value: 'monthly',   label: lang === 'es' ? 'Una vez al mes'                : 'Once a month'                 },
+    { value: 'quarterly', label: lang === 'es' ? 'Una vez cada 3 meses'          : 'Once every 3 months'          },
+    { value: 'annual',    label: lang === 'es' ? 'Una vez al año'                : 'Once a year'                  },
+    { value: 'onetime',   label: lang === 'es' ? 'Solo una vez (sin recurrencia)': 'One-time only (no recurrence)'},
+  ]
+
+  const DAY_OPTIONS = [
+    { value: '',          label: lang === 'es' ? 'Sin preferencia' : 'No preference' },
+    { value: 'monday',    label: lang === 'es' ? 'Lunes'     : 'Monday'    },
+    { value: 'tuesday',   label: lang === 'es' ? 'Martes'    : 'Tuesday'   },
+    { value: 'wednesday', label: lang === 'es' ? 'Miércoles' : 'Wednesday' },
+    { value: 'thursday',  label: lang === 'es' ? 'Jueves'    : 'Thursday'  },
+    { value: 'friday',    label: lang === 'es' ? 'Viernes'   : 'Friday'    },
+    { value: 'saturday',  label: lang === 'es' ? 'Sábado'    : 'Saturday'  },
+  ]
+
+  const PRICING_TYPE_OPTIONS = [
+    { value: 'fixed',    label: lang === 'es' ? 'Precio fijo'             : 'Fixed price'               },
+    { value: 'variable', label: lang === 'es' ? 'Variable / cotizado'     : 'Variable / quoted per job' },
+  ]
 
   const [services,  setServices]  = useState([])
   const [loading,   setLoading]   = useState(true)
@@ -86,7 +92,7 @@ export default function ServicesPage() {
     try {
       setServices(await getServices(user.uid))
     } catch {
-      toast.error('Could not load services')
+      toast.error(translate('common', 'error'))
     } finally {
       setLoading(false)
     }
@@ -124,13 +130,13 @@ export default function ServicesPage() {
 
   function validate() {
     const e = {}
-    if (!form.label.trim()) e.label = 'Name is required'
+    if (!form.label.trim()) e.label = translate('services', 'service_name') + ' *'
     if (form.serviceType === 'base') {
-      if (!form.description.trim()) e.description = 'Description is required'
-      if (!form.priceCents || isNaN(parseFloat(form.priceCents))) e.priceCents = 'Enter a valid price'
+      if (!form.description.trim()) e.description = translate('services', 'description') + ' *'
+      if (!form.priceCents || isNaN(parseFloat(form.priceCents))) e.priceCents = translate('services', 'base_price') + ' *'
     }
     if (form.serviceType === 'addon' && form.pricingType === 'fixed') {
-      if (!form.priceCents || isNaN(parseFloat(form.priceCents))) e.priceCents = 'Enter a valid price'
+      if (!form.priceCents || isNaN(parseFloat(form.priceCents))) e.priceCents = translate('services', 'price') + ' *'
     }
     setErrors(e)
     return Object.keys(e).length === 0
@@ -154,15 +160,15 @@ export default function ServicesPage() {
       }
       if (editing) {
         await updateService(editing.id, data)
-        toast.success('Service updated!')
+        toast.success(translate('services', 'save_changes') + ' ✓')
       } else {
         await addService(user.uid, data)
-        toast.success(`${form.label} added!`)
+        toast.success(translate('services', 'add_service') + ' ✓')
       }
       setShowModal(false)
       loadServices()
     } catch {
-      toast.error('Could not save service')
+      toast.error(translate('common', 'error'))
     } finally {
       setSaving(false)
     }
@@ -172,10 +178,10 @@ export default function ServicesPage() {
     setDeleting(service.id)
     try {
       await deleteService(service.id)
-      toast.success('Service removed')
+      toast.success(translate('common', 'remove') + ' ✓')
       loadServices()
     } catch {
-      toast.error('Could not remove service')
+      toast.error(translate('common', 'error'))
     } finally {
       setDeleting(null)
     }
@@ -184,21 +190,21 @@ export default function ServicesPage() {
   const baseServices  = services.filter(s => s.serviceType === 'base')
   const addonServices = services.filter(s => s.serviceType === 'addon')
 
-  const PACKAGE_FEE_MAP = {
-    monthly:   1500,
-    quarterly: 3500,
-    annual:    10000,
-    weekly:    500,
-    onetime:   1000,
+  function getRecurrenceLabel(val) {
+    return RECURRENCE_OPTIONS.find(o => o.value === val)?.label || val
   }
 
   return (
     <AppShell>
       <div className="page-content">
         <PageHeader
-          title="Services"
-          subtitle="Base packages + add-ons"
-          actions={<Button icon={Plus} size="sm" onClick={openAdd}>Add</Button>}
+          title={translate('services', 'title')}
+          subtitle={translate('services', 'subtitle')}
+          actions={
+            <Button icon={Plus} size="sm" onClick={openAdd}>
+              {translate('services', 'add')}
+            </Button>
+          }
         />
 
         <div className="px-4 py-4 max-w-lg mx-auto space-y-5">
@@ -207,7 +213,9 @@ export default function ServicesPage() {
           <section>
             <div className="flex items-center gap-2 mb-2">
               <Package size={13} className="text-brand-600" />
-              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Base packages</p>
+              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                {translate('services', 'base_packages')}
+              </p>
             </div>
 
             {loading ? (
@@ -215,8 +223,10 @@ export default function ServicesPage() {
             ) : baseServices.length === 0 ? (
               <Card className="text-center py-6">
                 <Package size={22} className="text-gray-300 mx-auto mb-2" />
-                <p className="text-[13px] text-gray-400 mb-3">No base packages yet</p>
-                <Button icon={Plus} size="sm" variant="brand" onClick={openAdd}>Add base package</Button>
+                <p className="text-[13px] text-gray-400 mb-3">{translate('services', 'no_base')}</p>
+                <Button icon={Plus} size="sm" variant="brand" onClick={openAdd}>
+                  {translate('services', 'add_base')}
+                </Button>
               </Card>
             ) : (
               <div className="space-y-3">
@@ -247,7 +257,6 @@ export default function ServicesPage() {
                           </div>
                         </div>
 
-                        {/* Schedule badge */}
                         {service.recurrence && service.recurrence !== 'onetime' && (
                           <div className="flex items-center gap-1.5 mb-2">
                             <Calendar size={12} className="text-brand-500" />
@@ -279,7 +288,7 @@ export default function ServicesPage() {
                           )}
                           <p className="text-[11px] text-brand-600">+{formatCents(fee)} YardSync fee</p>
                           {total && (
-                            <p className="text-[11px] text-gray-400">= {formatCents(total)} client pays</p>
+                            <p className="text-[11px] text-gray-400">= {formatCents(total)}</p>
                           )}
                         </div>
                       </div>
@@ -294,7 +303,9 @@ export default function ServicesPage() {
           <section>
             <div className="flex items-center gap-2 mb-2">
               <Wrench size={13} className="text-brand-600" />
-              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Add-on services</p>
+              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                {translate('services', 'addons')}
+              </p>
             </div>
 
             {loading ? (
@@ -302,12 +313,14 @@ export default function ServicesPage() {
             ) : addonServices.length === 0 ? (
               <Card className="text-center py-6">
                 <Wrench size={22} className="text-gray-300 mx-auto mb-2" />
-                <p className="text-[13px] text-gray-400 mb-3">No add-ons yet</p>
-                <Button icon={Plus} size="sm" variant="brand" onClick={openAdd}>Add first service</Button>
+                <p className="text-[13px] text-gray-400 mb-3">{translate('services', 'no_addons')}</p>
+                <Button icon={Plus} size="sm" variant="brand" onClick={openAdd}>
+                  {translate('services', 'add_first')}
+                </Button>
               </Card>
             ) : (
               <div className="space-y-2">
-                {addonServices.map((service) => {
+                {addonServices.map(service => {
                   const fee = service.pricingType === 'fixed' && service.priceCents
                     ? getAddonFee(service.priceCents) : null
                   return (
@@ -331,7 +344,9 @@ export default function ServicesPage() {
                                 {fee && <p className="text-[11px] text-gray-400">+{formatCents(fee)} fee</p>}
                               </>
                             ) : (
-                              <p className="text-[12px] text-gray-400">Quoted per job · +10% fee</p>
+                              <p className="text-[12px] text-gray-400">
+                                {lang === 'es' ? 'Cotizado · +10% tarifa' : 'Quoted per job · +10% fee'}
+                              </p>
                             )}
                           </div>
                         </div>
@@ -356,9 +371,19 @@ export default function ServicesPage() {
 
           {/* Fee info */}
           <Card className="bg-brand-50 border-brand-100">
-            <p className="text-[12px] font-medium text-brand-800 mb-1">YardSync fee structure</p>
-            <p className="text-[11px] text-brand-600">Monthly +$15 · Quarterly +$35 · Annual +$100 · Weekly +$5 · One-time 8% (min $10)</p>
-            <p className="text-[11px] text-brand-600 mt-0.5">Add-ons: +10% automatically embedded in every invoice</p>
+            <p className="text-[12px] font-medium text-brand-800 mb-1">
+              {translate('services', 'fee_structure')}
+            </p>
+            <p className="text-[11px] text-brand-600">
+              {lang === 'es'
+                ? 'Mensual +$15 · Trimestral +$35 · Anual +$100 · Semanal +$5 · Una vez 8% (mín $10)'
+                : 'Monthly +$15 · Quarterly +$35 · Annual +$100 · Weekly +$5 · One-time 8% (min $10)'}
+            </p>
+            <p className="text-[11px] text-brand-600 mt-0.5">
+              {lang === 'es'
+                ? 'Adicionales: +10% incluido automáticamente en cada factura'
+                : 'Add-ons: +10% automatically embedded in every invoice'}
+            </p>
           </Card>
 
         </div>
@@ -368,20 +393,21 @@ export default function ServicesPage() {
       <Modal
         open={showModal}
         onClose={() => setShowModal(false)}
-        title={editing ? 'Edit service' : 'Add service'}
+        title={editing ? translate('services', 'edit_service') : translate('services', 'add_service')}
         footer={
           <>
-            <Button variant="secondary" fullWidth onClick={() => setShowModal(false)}>Cancel</Button>
+            <Button variant="secondary" fullWidth onClick={() => setShowModal(false)}>
+              {translate('common', 'cancel')}
+            </Button>
             <Button fullWidth loading={saving} onClick={handleSave}>
-              {editing ? 'Save changes' : 'Add service'}
+              {editing ? translate('services', 'save_changes') : translate('services', 'add_service')}
             </Button>
           </>
         }
       >
         <div className="space-y-4">
-
           <Select
-            label="Service type"
+            label={translate('services', 'service_type')}
             value={form.serviceType}
             onChange={e => setField('serviceType', e.target.value)}
           >
@@ -390,47 +416,36 @@ export default function ServicesPage() {
             ))}
           </Select>
 
-          {/* BASE PACKAGE FIELDS */}
           {form.serviceType === 'base' && (
             <>
-              <Select label="Package type" value={form.packageType} onChange={e => setField('packageType', e.target.value)}>
+              <Select label={translate('services', 'package_type')} value={form.packageType} onChange={e => setField('packageType', e.target.value)}>
                 {BASE_PACKAGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </Select>
-
               <Select
-                label="Visit schedule"
+                label={translate('services', 'visit_schedule')}
                 value={form.recurrence}
                 onChange={e => setField('recurrence', e.target.value)}
-                hint="This tells the app when to auto-schedule visits and send reminders"
               >
                 {RECURRENCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </Select>
-
               {form.recurrence !== 'onetime' && (
-                <Select
-                  label="Preferred visit day"
-                  value={form.preferredDay}
-                  onChange={e => setField('preferredDay', e.target.value)}
-                  hint="Used to auto-populate the calendar"
-                >
+                <Select label={translate('services', 'preferred_day')} value={form.preferredDay} onChange={e => setField('preferredDay', e.target.value)}>
                   {DAY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </Select>
               )}
-
               <Input
-                label="Package name *"
-                placeholder="Standard Monthly, Premium Weekly..."
+                label={translate('services', 'package_name') + ' *'}
+                placeholder={lang === 'es' ? 'Mensual Estándar...' : 'Standard Monthly...'}
                 value={form.label}
                 onChange={e => setField('label', e.target.value)}
                 error={errors.label}
               />
-
               <div className="flex flex-col gap-1">
                 <label className="text-[13px] font-medium text-gray-700">
-                  Description * <span className="text-gray-400 font-normal">(shown in reminders & invoices)</span>
+                  {translate('services', 'description')} *
                 </label>
                 <textarea
-                  placeholder="Full lawn mow, edge trimming, and blowing off all hard surfaces..."
+                  placeholder={lang === 'es' ? 'Corte de césped, bordeado...' : 'Full lawn mow, edge trimming...'}
                   value={form.description}
                   onChange={e => setField('description', e.target.value)}
                   rows={3}
@@ -438,74 +453,60 @@ export default function ServicesPage() {
                 />
                 {errors.description && <p className="text-[12px] text-red-500">{errors.description}</p>}
               </div>
-
               <div className="flex flex-col gap-1">
                 <label className="text-[13px] font-medium text-gray-700">
-                  What's included <span className="text-gray-400 font-normal">(comma separated)</span>
+                  {translate('services', 'whats_included')}
                 </label>
                 <input
-                  placeholder="Lawn mow, Edge trim, Blow off, Weed eating..."
+                  placeholder={lang === 'es' ? 'Corte, Bordeado, Soplado...' : 'Lawn mow, Edge trim, Blow off...'}
                   value={form.includes}
                   onChange={e => setField('includes', e.target.value)}
                   className="w-full rounded-xl border border-gray-200 bg-white text-[14px] px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 placeholder:text-gray-300"
                 />
-                <p className="text-[11px] text-gray-400">Each item shows as a checklist in the client's reminder</p>
               </div>
-
               <Input
-                label="Your base price *"
+                label={translate('services', 'base_price') + ' *'}
                 placeholder="65"
                 type="number"
                 prefix="$"
                 value={form.priceCents}
                 onChange={e => setField('priceCents', e.target.value)}
                 error={errors.priceCents}
-                hint="YardSync fee is added on top automatically"
               />
             </>
           )}
 
-          {/* ADD-ON FIELDS */}
           {form.serviceType === 'addon' && (
             <>
               <Input
-                label="Service name *"
-                placeholder="Leaf removal, Hedge trimming..."
+                label={translate('services', 'service_name') + ' *'}
+                placeholder={lang === 'es' ? 'Limpieza de hojas, Poda...' : 'Leaf removal, Hedge trimming...'}
                 value={form.label}
                 onChange={e => setField('label', e.target.value)}
                 error={errors.label}
               />
               <Input
-                label="Description (optional)"
-                placeholder="Brief description shown on invoice"
+                label={translate('services', 'description')}
+                placeholder={lang === 'es' ? 'Descripción breve...' : 'Brief description...'}
                 value={form.description}
                 onChange={e => setField('description', e.target.value)}
               />
-              <Select label="Pricing type" value={form.pricingType} onChange={e => setField('pricingType', e.target.value)}>
+              <Select label={translate('services', 'pricing_type')} value={form.pricingType} onChange={e => setField('pricingType', e.target.value)}>
                 {PRICING_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </Select>
               {form.pricingType === 'fixed' && (
                 <Input
-                  label="Price *"
+                  label={translate('services', 'price') + ' *'}
                   placeholder="45"
                   type="number"
                   prefix="$"
                   value={form.priceCents}
                   onChange={e => setField('priceCents', e.target.value)}
                   error={errors.priceCents}
-                  hint="10% YardSync fee added automatically"
                 />
-              )}
-              {form.pricingType === 'variable' && (
-                <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
-                  <p className="text-[12px] text-amber-700">
-                    Variable — you'll enter the amount per invoice. YardSync adds 10% automatically.
-                  </p>
-                </div>
               )}
             </>
           )}
-
         </div>
       </Modal>
     </AppShell>

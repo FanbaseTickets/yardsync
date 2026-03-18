@@ -1,5 +1,6 @@
 import { DM_Sans, DM_Serif_Display } from 'next/font/google'
 import { AuthProvider } from '@/context/AuthContext'
+import { LangProvider } from '@/context/LangContext'
 import { Toaster } from 'react-hot-toast'
 import './globals.css'
 
@@ -45,21 +46,23 @@ export default function RootLayout({ children }) {
       </head>
       <body className="font-sans bg-surface antialiased">
         <AuthProvider>
-          {children}
-          <Toaster
-            position="top-center"
-            toastOptions={{
-              duration: 3500,
-              style: {
-                fontFamily: 'var(--font-sans)',
-                fontSize: '14px',
-                borderRadius: '10px',
-                border: '1px solid #e2e8f0',
-              },
-              success: { iconTheme: { primary: '#0F6E56', secondary: '#fff' } },
-              error:   { iconTheme: { primary: '#dc2626', secondary: '#fff' } },
-            }}
-          />
+          <LangProvider>
+            {children}
+            <Toaster
+              position="top-center"
+              toastOptions={{
+                duration: 3500,
+                style: {
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: '14px',
+                  borderRadius: '10px',
+                  border: '1px solid #e2e8f0',
+                },
+                success: { iconTheme: { primary: '#0F6E56', secondary: '#fff' } },
+                error:   { iconTheme: { primary: '#dc2626', secondary: '#fff' } },
+              }}
+            />
+          </LangProvider>
         </AuthProvider>
       </body>
     </html>
