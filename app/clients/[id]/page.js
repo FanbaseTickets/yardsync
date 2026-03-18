@@ -1,0 +1,548 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { useAuth } from '@/context/AuthContext'
+import AppShell from '@/components/layout/AppShell'
+import PageHeader from '@/components/layout/PageHeader'
+import { Card, Badge, Button, Skeleton, Modal, Input, Select } from '@/components/ui'
+import { getClient, updateClient, deleteClient, getClientInvoices, getServices } from '@/lib/db'
+import { formatCents, getPackageFee, getFeeDescription, buildInvoiceLineItems } from '@/lib/fee'
+import { Phone, MapPin, Mail, CalendarDays, DollarSign, Pencil, FileText, CheckCircle2, RefreshCw } from 'lucide-react'
+import toast from 'react-hot-toast'
+import Link from 'next/link'
+
+const STATUS_OPTIONS = [
+  { value: 'active',    label: 'Active' },
+  { value: 'paused',    label: 'Paused' },
+  { value: 'cancelled', label: 'Cancelled' },
+]
+
+const BILLING_OPTIONS = [
+  { value: 'upfront',   label: 'Upfront (before visit)' },
+  { value: 'postvisit', label: 'Post-visit (after visit)' },
+]
+
+const RECURRENCE_LABELS = {
+  weekly:     'Every week',
+  biweekly:   'Every 2 weeks',
+  '3x_month': '3x per month',
+  monthly:    'Once a month',
+  quarterly:  'Once every 3 months',
+  annual:     'Once a year',
+  onetime:    'One-time only',
+}
+
+const PACKAGE_FEE_MAP = {
+  monthly:   1500,
+  quarterly: 3500,
+  annual:    10000,
+  weekly:    500,
+  onetime:   1000,
+}
+
+export default function ClientDetailPage() {
+  const { id }   = useParams()
+  const router   = useRouter()
+  const { user } = useAuth()
+
+  const [client,     setClient]     = useState(null)
+  const [invoices,   setInvoices]   = useState([])
+  const [services,   setServices]   = useState([])
+  const [loading,    setLoading]    = useState(true)
+  const [showEdit,   setShowEdit]   = useState(false)
+  const [showDelete, setShowDelete] = useState(false)
+  const [form,       setForm]       = useState({})
+  const [saving,     setSaving]     = useState(false)
+  const [deleting,   setDeleting]   = useState(false)
+  const [invoicing,  setInvoicing]  = useState(false)
+
+  useEffect(() => {
+    if (!id || !user) return
+    loadData()
+  }, [id, user])
+
+  async function loadData() {
+    setLoading(true)
+    try {
+      const [c, inv, svc] = await Promise.all([
+        getClient(id),
+        getClientInvoices(id),
+        getServices(user.uid),
+      ])
+      setClient(c)
+      setInvoices(inv)
+      setServices(svc.filter(s => s.serviceType === 'base'))
+      if (c) {
+        setForm({
+          name:        c.name        || '',
+          phone:       c.phone       || '',
+          email:       c.email       || '',
+          address:     c.address     || '',
+          serviceId:   c.serviceId   || '',
+          billingMode: c.billingMode || 'upfront',
+          status:      c.status      || 'active',
+          notes:       c.notes       || '',
+        })
+      }
+    } catch {
+      toast.error('Could not load client')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function setField(key, val) {
+    setForm(prev => ({ ...prev, [key]: val }))
+  }
+
+  const selectedService = services.find(s => s.id === form.serviceId)
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      const updateData = {
+        name:        form.name        || client.name,
+        phone:       form.phone       || client.phone,
+        email:       form.email       || '',
+        address:     form.address     || client.address,
+        billingMode: form.billingMode,
+        status:      form.status,
+        notes:       form.notes       || '',
+      }
+
+      if (form.serviceId && form.serviceId !== client.serviceId) {
+        const svc = services.find(s => s.id === form.serviceId)
+        if (svc) {
+          updateData.serviceId        = svc.id
+          updateData.packageType      = svc.packageType   || 'monthly'
+          updateData.basePriceCents   = svc.priceCents    || 6500
+          updateData.packageLabel     = svc.label         || ''
+          updateData.packageDesc      = svc.description   || ''
+          updateData.packageIncludes  = svc.includes      || ''
+          updateData.recurrence       = svc.recurrence    || 'biweekly'
+          updateData.preferredDay     = svc.preferredDay  || ''
+        }
+      }
+
+      await updateClient(id, updateData)
+      toast.success('Client updated!')
+      setShowEdit(false)
+      loadData()
+    } catch (err) {
+      console.error(err)
+      toast.error('Could not update client')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      await deleteClient(id)
+      toast.success('Client removed')
+      router.replace('/clients')
+    } catch {
+      toast.error('Could not remove client')
+      setDeleting(false)
+    }
+  }
+
+  async function handleSendInvoice() {
+    setInvoicing(true)
+    try {
+      const { lineItems, totalCents } = buildInvoiceLineItems({
+        baseAmountCents: client.basePriceCents || 6500,
+        packageType:     client.packageType,
+        addons:          [],
+      })
+
+      const res = await fetch('/api/square/invoice', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          clientId:    id,
+          lineItems,
+          totalCents,
+          clientName:  client.name,
+          clientEmail: client.email  || '',
+          clientPhone: client.phone  || '',
+          gardenerUid: user.uid,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Invoice failed')
+      }
+
+      toast.success('Invoice sent via Square!')
+
+      if (data.invoiceUrl) {
+        toast.success('Invoice URL ready — client can pay online', { duration: 5000 })
+      }
+
+      loadData()
+    } catch (err) {
+      console.error(err)
+      toast.error(err.message || 'Invoice failed — check Square setup')
+    } finally {
+      setInvoicing(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <AppShell>
+        <PageHeader title="Client" back />
+        <div className="px-4 py-4 space-y-3 max-w-lg mx-auto">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20" />)}
+        </div>
+      </AppShell>
+    )
+  }
+
+  if (!client) {
+    return (
+      <AppShell>
+        <PageHeader title="Client not found" back />
+        <div className="px-4 py-8 text-center">
+          <p className="text-gray-400">This client no longer exists.</p>
+        </div>
+      </AppShell>
+    )
+  }
+
+  const baseCents   = client.basePriceCents || 6500
+  const packageFee  = getPackageFee(client.packageType, baseCents)
+  const totalCharge = baseCents + packageFee
+  const feeDesc     = getFeeDescription(client.packageType)
+  const isOnetime   = client.packageType === 'onetime'
+
+  const recurrenceLabel = client.recurrence
+    ? RECURRENCE_LABELS[client.recurrence] || client.recurrence
+    : null
+
+  const scheduleDisplay = recurrenceLabel
+    ? recurrenceLabel + (client.preferredDay
+        ? ` · ${client.preferredDay.charAt(0).toUpperCase() + client.preferredDay.slice(1)}s`
+        : '')
+    : null
+
+  return (
+    <AppShell>
+      <div className="page-content">
+        <PageHeader
+          title={client.name}
+          subtitle={`${client.packageType} · ${client.status}`}
+          back
+          actions={
+            <button
+              onClick={() => setShowEdit(true)}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <Pencil size={16} className="text-gray-500" />
+            </button>
+          }
+        />
+
+        <div className="px-4 py-4 max-w-lg mx-auto space-y-4">
+
+          {/* Profile card */}
+          <Card>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-semibold text-[15px] flex-shrink-0">
+                {client.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2)}
+              </div>
+              <div>
+                <p className="text-[16px] font-semibold text-gray-900">{client.name}</p>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <Badge label={client.packageType} variant={client.packageType} />
+                  <Badge label={client.status}      variant={client.status} />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 border-t border-gray-100 pt-3">
+              <div className="flex items-center gap-2.5">
+                <Phone size={14} className="text-gray-400 flex-shrink-0" />
+                <p className="text-[13px] text-gray-700">{client.phone}</p>
+              </div>
+              {client.email && (
+                <div className="flex items-center gap-2.5">
+                  <Mail size={14} className="text-gray-400 flex-shrink-0" />
+                  <p className="text-[13px] text-gray-700">{client.email}</p>
+                </div>
+              )}
+              <div className="flex items-start gap-2.5">
+                <MapPin size={14} className="text-gray-400 flex-shrink-0 mt-0.5" />
+                <p className="text-[13px] text-gray-700">{client.address}</p>
+              </div>
+              {scheduleDisplay && !isOnetime && (
+                <div className="flex items-center gap-2.5">
+                  <CalendarDays size={14} className="text-gray-400 flex-shrink-0" />
+                  <p className="text-[13px] text-gray-700">{scheduleDisplay}</p>
+                </div>
+              )}
+              {client.packageLabel && (
+                <div className="flex items-start gap-2.5">
+                  <FileText size={14} className="text-gray-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-[13px] font-medium text-gray-700">{client.packageLabel}</p>
+                </div>
+              )}
+              {client.packageDesc && (
+                <div className="pl-5">
+                  <p className="text-[12px] text-gray-500">{client.packageDesc}</p>
+                </div>
+              )}
+              {client.packageIncludes && (
+                <div className="pl-5 space-y-1">
+                  {client.packageIncludes.split(',').map((item, i) => (
+                    <div key={i} className="flex items-center gap-1.5">
+                      <CheckCircle2 size={11} className="text-brand-500 flex-shrink-0" />
+                      <p className="text-[12px] text-gray-500">{item.trim()}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {client.notes && (
+                <div className="flex items-start gap-2.5 pt-1 border-t border-gray-100">
+                  <FileText size={14} className="text-gray-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-[13px] text-gray-500 italic">{client.notes}</p>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Billing card */}
+          <Card>
+            <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-3">
+              Billing
+            </p>
+            <div className="space-y-2">
+              <div className="flex justify-between text-[13px]">
+                <span className="text-gray-500">Base price</span>
+                <span className="font-medium text-gray-900">{formatCents(baseCents)}</span>
+              </div>
+              <div className="flex justify-between text-[13px]">
+                <span className="text-gray-500">YardSync fee</span>
+                <span className="font-medium text-brand-600">+{formatCents(packageFee)}</span>
+              </div>
+              <div className="flex justify-between text-[13px] border-t border-gray-100 pt-2">
+                <span className="font-medium text-gray-800">Client pays</span>
+                <span className="font-semibold text-gray-900">{formatCents(totalCharge)}</span>
+              </div>
+              <div className="flex justify-between text-[12px]">
+                <span className="text-gray-400">Fee structure</span>
+                <span className="text-brand-600 font-medium">{feeDesc}</span>
+              </div>
+              <div className="flex justify-between text-[12px]">
+                <span className="text-gray-400">Billing mode</span>
+                <span className="text-gray-500 capitalize">{client.billingMode || 'upfront'}</span>
+              </div>
+            </div>
+
+            <Button
+              fullWidth
+              className="mt-4"
+              icon={isOnetime ? DollarSign : RefreshCw}
+              loading={invoicing}
+              onClick={handleSendInvoice}
+            >
+              {isOnetime ? 'Send invoice' : 'Send Square invoice'}
+            </Button>
+
+            {isOnetime && (
+              <p className="text-[11px] text-center text-gray-400 mt-2">
+                One-time job — invoice sends once
+              </p>
+            )}
+          </Card>
+
+          {/* Invoice history */}
+          <div>
+            <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-2">
+              Invoice history
+            </p>
+            {invoices.length === 0 ? (
+              <Card className="text-center py-6">
+                <FileText size={24} className="text-gray-300 mx-auto mb-2" />
+                <p className="text-[13px] text-gray-400">No invoices yet</p>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {invoices.map(inv => (
+                  <Card key={inv.id} padding={false}>
+                    <div className="p-3 flex items-center gap-3">
+                      <CheckCircle2 size={16} className={
+                        inv.status === 'paid' ? 'text-brand-500' : 'text-amber-400'
+                      } />
+                      <div className="flex-1">
+                        <p className="text-[13px] font-medium text-gray-900">
+                          {formatCents(inv.totalCents || 0)}
+                        </p>
+                        <p className="text-[11px] text-gray-400">
+                          {inv.createdAt?.toDate?.().toLocaleDateString() || '—'}
+                        </p>
+                      </div>
+                      <Badge
+                        label={inv.status || 'sent'}
+                        variant={inv.status === 'paid' ? 'active' : 'scheduled'}
+                      />
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Danger zone */}
+          <button
+            onClick={() => setShowDelete(true)}
+            className="w-full text-center text-[13px] text-red-400 hover:text-red-500 py-2 transition-colors"
+          >
+            Remove this client
+          </button>
+
+        </div>
+      </div>
+
+      {/* Edit modal */}
+      <Modal
+        open={showEdit}
+        onClose={() => setShowEdit(false)}
+        title="Edit client"
+        footer={
+          <>
+            <Button variant="secondary" fullWidth onClick={() => setShowEdit(false)}>Cancel</Button>
+            <Button fullWidth loading={saving} onClick={handleSave}>Save changes</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Full name"
+            value={form.name}
+            onChange={e => setField('name', e.target.value)}
+            placeholder="Sarah Martinez"
+          />
+          <Input
+            label="Phone"
+            type="tel"
+            value={form.phone}
+            onChange={e => setField('phone', e.target.value)}
+            placeholder="(210) 555-0100"
+          />
+          <Input
+            label="Email"
+            type="email"
+            value={form.email}
+            onChange={e => setField('email', e.target.value)}
+            placeholder="sarah@example.com"
+          />
+          <Input
+            label="Address"
+            value={form.address}
+            onChange={e => setField('address', e.target.value)}
+            placeholder="4821 Maple Dr, San Antonio TX"
+          />
+
+          {services.length > 0 ? (
+            <>
+              <Select
+                label="Package"
+                value={form.serviceId}
+                onChange={e => setField('serviceId', e.target.value)}
+                hint="Changing the package updates pricing and schedule automatically"
+              >
+                <option value="">— Keep current package —</option>
+                {services.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.label} · {formatCents(s.priceCents || 0)}
+                  </option>
+                ))}
+              </Select>
+
+              {selectedService && selectedService.id !== client.serviceId && (
+                <div className="bg-brand-50 border border-brand-100 rounded-xl p-3 space-y-1">
+                  <p className="text-[11px] font-medium text-brand-700">New package preview:</p>
+                  <div className="flex items-center gap-2">
+                    <Badge label={selectedService.packageType} variant={selectedService.packageType} />
+                    <p className="text-[12px] text-brand-800">{selectedService.label}</p>
+                  </div>
+                  {selectedService.description && (
+                    <p className="text-[11px] text-brand-600">{selectedService.description}</p>
+                  )}
+                  <p className="text-[12px] font-semibold text-brand-800">
+                    Client pays {formatCents(
+                      (selectedService.priceCents || 0) +
+                      (PACKAGE_FEE_MAP[selectedService.packageType] || 1000)
+                    )} / {selectedService.packageType}
+                  </p>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+              <p className="text-[13px] text-amber-800 font-medium">No packages set up</p>
+              <p className="text-[12px] text-amber-600 mt-0.5">
+                Go to Services to create packages first.
+              </p>
+              <Link href="/services">
+                <span className="text-[12px] text-amber-700 font-medium underline">
+                  Go to Services →
+                </span>
+              </Link>
+            </div>
+          )}
+
+          <Select
+            label="Billing mode"
+            value={form.billingMode}
+            onChange={e => setField('billingMode', e.target.value)}
+          >
+            {BILLING_OPTIONS.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </Select>
+
+          <Select
+            label="Status"
+            value={form.status}
+            onChange={e => setField('status', e.target.value)}
+          >
+            {STATUS_OPTIONS.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </Select>
+
+          <Input
+            label="Notes"
+            value={form.notes}
+            onChange={e => setField('notes', e.target.value)}
+            placeholder="Gate code, preferences, special instructions..."
+          />
+        </div>
+      </Modal>
+
+      {/* Delete confirm */}
+      <Modal
+        open={showDelete}
+        onClose={() => setShowDelete(false)}
+        title="Remove client?"
+        footer={
+          <>
+            <Button variant="secondary" fullWidth onClick={() => setShowDelete(false)}>Cancel</Button>
+            <Button variant="danger" fullWidth loading={deleting} onClick={handleDelete}>Remove</Button>
+          </>
+        }
+      >
+        <p className="text-[14px] text-gray-600">
+          Are you sure you want to remove <strong>{client.name}</strong>? This cannot be undone.
+        </p>
+      </Modal>
+    </AppShell>
+  )
+}
