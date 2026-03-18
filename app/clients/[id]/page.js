@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
+import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, Skeleton, Modal, Input, Select } from '@/components/ui'
@@ -12,18 +13,15 @@ import { Phone, MapPin, Mail, CalendarDays, DollarSign, Pencil, FileText, CheckC
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 
-const STATUS_OPTIONS = [
-  { value: 'active',    label: 'Active' },
-  { value: 'paused',    label: 'Paused' },
-  { value: 'cancelled', label: 'Cancelled' },
-]
+const PACKAGE_FEE_MAP = {
+  monthly:   1500,
+  quarterly: 3500,
+  annual:    10000,
+  weekly:    500,
+  onetime:   1000,
+}
 
-const BILLING_OPTIONS = [
-  { value: 'upfront',   label: 'Upfront (before visit)' },
-  { value: 'postvisit', label: 'Post-visit (after visit)' },
-]
-
-const RECURRENCE_LABELS = {
+const RECURRENCE_LABELS_EN = {
   weekly:     'Every week',
   biweekly:   'Every 2 weeks',
   '3x_month': '3x per month',
@@ -33,18 +31,34 @@ const RECURRENCE_LABELS = {
   onetime:    'One-time only',
 }
 
-const PACKAGE_FEE_MAP = {
-  monthly:   1500,
-  quarterly: 3500,
-  annual:    10000,
-  weekly:    500,
-  onetime:   1000,
+const RECURRENCE_LABELS_ES = {
+  weekly:     'Cada semana',
+  biweekly:   'Cada 2 semanas',
+  '3x_month': '3 veces al mes',
+  monthly:    'Una vez al mes',
+  quarterly:  'Una vez cada 3 meses',
+  annual:     'Una vez al año',
+  onetime:    'Solo una vez',
 }
 
 export default function ClientDetailPage() {
-  const { id }   = useParams()
-  const router   = useRouter()
-  const { user } = useAuth()
+  const { id }              = useParams()
+  const router              = useRouter()
+  const { user }            = useAuth()
+  const { translate, lang } = useLang()
+
+  const STATUS_OPTIONS = [
+    { value: 'active',    label: lang === 'es' ? 'Activo'    : 'Active'    },
+    { value: 'paused',    label: lang === 'es' ? 'Pausado'   : 'Paused'   },
+    { value: 'cancelled', label: lang === 'es' ? 'Cancelado' : 'Cancelled' },
+  ]
+
+  const BILLING_OPTIONS = [
+    { value: 'upfront',   label: lang === 'es' ? 'Por adelantado (antes de la visita)' : 'Upfront (before visit)'    },
+    { value: 'postvisit', label: lang === 'es' ? 'Después de la visita'                : 'Post-visit (after visit)'  },
+  ]
+
+  const RECURRENCE_LABELS = lang === 'es' ? RECURRENCE_LABELS_ES : RECURRENCE_LABELS_EN
 
   const [client,     setClient]     = useState(null)
   const [invoices,   setInvoices]   = useState([])
@@ -86,7 +100,7 @@ export default function ClientDetailPage() {
         })
       }
     } catch {
-      toast.error('Could not load client')
+      toast.error(translate('common', 'error'))
     } finally {
       setLoading(false)
     }
@@ -126,12 +140,12 @@ export default function ClientDetailPage() {
       }
 
       await updateClient(id, updateData)
-      toast.success('Client updated!')
+      toast.success(translate('client_detail', 'save_changes') + ' ✓')
       setShowEdit(false)
       loadData()
     } catch (err) {
       console.error(err)
-      toast.error('Could not update client')
+      toast.error(translate('common', 'error'))
     } finally {
       setSaving(false)
     }
@@ -141,10 +155,10 @@ export default function ClientDetailPage() {
     setDeleting(true)
     try {
       await deleteClient(id)
-      toast.success('Client removed')
+      toast.success(translate('common', 'remove') + ' ✓')
       router.replace('/clients')
     } catch {
-      toast.error('Could not remove client')
+      toast.error(translate('common', 'error'))
       setDeleting(false)
     }
   }
@@ -157,7 +171,6 @@ export default function ClientDetailPage() {
         packageType:     client.packageType,
         addons:          [],
       })
-
       const res = await fetch('/api/square/invoice', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -171,23 +184,15 @@ export default function ClientDetailPage() {
           gardenerUid: user.uid,
         }),
       })
-
       const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Invoice failed')
-      }
-
-      toast.success('Invoice sent via Square!')
-
+      if (!res.ok) throw new Error(data.error || 'Invoice failed')
+      toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent via Square!')
       if (data.invoiceUrl) {
-        toast.success('Invoice URL ready — client can pay online', { duration: 5000 })
+        toast.success(lang === 'es' ? 'URL lista — el cliente puede pagar en línea' : 'Invoice URL ready — client can pay online', { duration: 5000 })
       }
-
       loadData()
     } catch (err) {
-      console.error(err)
-      toast.error(err.message || 'Invoice failed — check Square setup')
+      toast.error(err.message || translate('common', 'error'))
     } finally {
       setInvoicing(false)
     }
@@ -196,7 +201,7 @@ export default function ClientDetailPage() {
   if (loading) {
     return (
       <AppShell>
-        <PageHeader title="Client" back />
+        <PageHeader title={translate('client_detail', 'edit')} back />
         <div className="px-4 py-4 space-y-3 max-w-lg mx-auto">
           {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20" />)}
         </div>
@@ -207,9 +212,9 @@ export default function ClientDetailPage() {
   if (!client) {
     return (
       <AppShell>
-        <PageHeader title="Client not found" back />
+        <PageHeader title={lang === 'es' ? 'Cliente no encontrado' : 'Client not found'} back />
         <div className="px-4 py-8 text-center">
-          <p className="text-gray-400">This client no longer exists.</p>
+          <p className="text-gray-400">{lang === 'es' ? 'Este cliente ya no existe.' : 'This client no longer exists.'}</p>
         </div>
       </AppShell>
     )
@@ -319,27 +324,27 @@ export default function ClientDetailPage() {
           {/* Billing card */}
           <Card>
             <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-3">
-              Billing
+              {translate('client_detail', 'billing')}
             </p>
             <div className="space-y-2">
               <div className="flex justify-between text-[13px]">
-                <span className="text-gray-500">Base price</span>
+                <span className="text-gray-500">{translate('client_detail', 'base_price')}</span>
                 <span className="font-medium text-gray-900">{formatCents(baseCents)}</span>
               </div>
               <div className="flex justify-between text-[13px]">
-                <span className="text-gray-500">YardSync fee</span>
+                <span className="text-gray-500">{translate('client_detail', 'yardsync_fee')}</span>
                 <span className="font-medium text-brand-600">+{formatCents(packageFee)}</span>
               </div>
               <div className="flex justify-between text-[13px] border-t border-gray-100 pt-2">
-                <span className="font-medium text-gray-800">Client pays</span>
+                <span className="font-medium text-gray-800">{translate('client_detail', 'client_pays')}</span>
                 <span className="font-semibold text-gray-900">{formatCents(totalCharge)}</span>
               </div>
               <div className="flex justify-between text-[12px]">
-                <span className="text-gray-400">Fee structure</span>
+                <span className="text-gray-400">{translate('client_detail', 'fee_structure')}</span>
                 <span className="text-brand-600 font-medium">{feeDesc}</span>
               </div>
               <div className="flex justify-between text-[12px]">
-                <span className="text-gray-400">Billing mode</span>
+                <span className="text-gray-400">{translate('client_detail', 'billing_mode')}</span>
                 <span className="text-gray-500 capitalize">{client.billingMode || 'upfront'}</span>
               </div>
             </div>
@@ -351,12 +356,14 @@ export default function ClientDetailPage() {
               loading={invoicing}
               onClick={handleSendInvoice}
             >
-              {isOnetime ? 'Send invoice' : 'Send Square invoice'}
+              {isOnetime
+                ? translate('client_detail', 'send_invoice_one')
+                : translate('client_detail', 'send_invoice')}
             </Button>
 
             {isOnetime && (
               <p className="text-[11px] text-center text-gray-400 mt-2">
-                One-time job — invoice sends once
+                {lang === 'es' ? 'Trabajo único — factura se envía una vez' : 'One-time job — invoice sends once'}
               </p>
             )}
           </Card>
@@ -364,21 +371,19 @@ export default function ClientDetailPage() {
           {/* Invoice history */}
           <div>
             <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-2">
-              Invoice history
+              {translate('client_detail', 'invoice_history')}
             </p>
             {invoices.length === 0 ? (
               <Card className="text-center py-6">
                 <FileText size={24} className="text-gray-300 mx-auto mb-2" />
-                <p className="text-[13px] text-gray-400">No invoices yet</p>
+                <p className="text-[13px] text-gray-400">{translate('client_detail', 'no_invoices')}</p>
               </Card>
             ) : (
               <div className="space-y-2">
                 {invoices.map(inv => (
                   <Card key={inv.id} padding={false}>
                     <div className="p-3 flex items-center gap-3">
-                      <CheckCircle2 size={16} className={
-                        inv.status === 'paid' ? 'text-brand-500' : 'text-amber-400'
-                      } />
+                      <CheckCircle2 size={16} className={inv.status === 'paid' ? 'text-brand-500' : 'text-amber-400'} />
                       <div className="flex-1">
                         <p className="text-[13px] font-medium text-gray-900">
                           {formatCents(inv.totalCents || 0)}
@@ -398,12 +403,12 @@ export default function ClientDetailPage() {
             )}
           </div>
 
-          {/* Danger zone */}
+          {/* Remove client */}
           <button
             onClick={() => setShowDelete(true)}
             className="w-full text-center text-[13px] text-red-400 hover:text-red-500 py-2 transition-colors"
           >
-            Remove this client
+            {translate('client_detail', 'remove')}
           </button>
 
         </div>
@@ -413,51 +418,33 @@ export default function ClientDetailPage() {
       <Modal
         open={showEdit}
         onClose={() => setShowEdit(false)}
-        title="Edit client"
+        title={translate('client_detail', 'edit')}
         footer={
           <>
-            <Button variant="secondary" fullWidth onClick={() => setShowEdit(false)}>Cancel</Button>
-            <Button fullWidth loading={saving} onClick={handleSave}>Save changes</Button>
+            <Button variant="secondary" fullWidth onClick={() => setShowEdit(false)}>
+              {translate('common', 'cancel')}
+            </Button>
+            <Button fullWidth loading={saving} onClick={handleSave}>
+              {translate('client_detail', 'save_changes')}
+            </Button>
           </>
         }
       >
         <div className="space-y-4">
-          <Input
-            label="Full name"
-            value={form.name}
-            onChange={e => setField('name', e.target.value)}
-            placeholder="Sarah Martinez"
-          />
-          <Input
-            label="Phone"
-            type="tel"
-            value={form.phone}
-            onChange={e => setField('phone', e.target.value)}
-            placeholder="(210) 555-0100"
-          />
-          <Input
-            label="Email"
-            type="email"
-            value={form.email}
-            onChange={e => setField('email', e.target.value)}
-            placeholder="sarah@example.com"
-          />
-          <Input
-            label="Address"
-            value={form.address}
-            onChange={e => setField('address', e.target.value)}
-            placeholder="4821 Maple Dr, San Antonio TX"
-          />
+          <Input label={translate('clients', 'full_name')}  value={form.name}    onChange={e => setField('name', e.target.value)}    />
+          <Input label={translate('clients', 'phone')}      value={form.phone}   onChange={e => setField('phone', e.target.value)}   type="tel" />
+          <Input label={translate('clients', 'email')}      value={form.email}   onChange={e => setField('email', e.target.value)}   type="email" />
+          <Input label={translate('clients', 'address')}    value={form.address} onChange={e => setField('address', e.target.value)} />
 
           {services.length > 0 ? (
             <>
               <Select
-                label="Package"
+                label={translate('client_detail', 'package')}
                 value={form.serviceId}
                 onChange={e => setField('serviceId', e.target.value)}
-                hint="Changing the package updates pricing and schedule automatically"
+                hint={lang === 'es' ? 'Cambiar el paquete actualiza el precio automáticamente' : 'Changing the package updates pricing automatically'}
               >
-                <option value="">— Keep current package —</option>
+                <option value="">{translate('client_detail', 'keep_current')}</option>
                 {services.map(s => (
                   <option key={s.id} value={s.id}>
                     {s.label} · {formatCents(s.priceCents || 0)}
@@ -467,7 +454,9 @@ export default function ClientDetailPage() {
 
               {selectedService && selectedService.id !== client.serviceId && (
                 <div className="bg-brand-50 border border-brand-100 rounded-xl p-3 space-y-1">
-                  <p className="text-[11px] font-medium text-brand-700">New package preview:</p>
+                  <p className="text-[11px] font-medium text-brand-700">
+                    {lang === 'es' ? 'Vista previa del nuevo paquete:' : 'New package preview:'}
+                  </p>
                   <div className="flex items-center gap-2">
                     <Badge label={selectedService.packageType} variant={selectedService.packageType} />
                     <p className="text-[12px] text-brand-800">{selectedService.label}</p>
@@ -476,7 +465,7 @@ export default function ClientDetailPage() {
                     <p className="text-[11px] text-brand-600">{selectedService.description}</p>
                   )}
                   <p className="text-[12px] font-semibold text-brand-800">
-                    Client pays {formatCents(
+                    {translate('clients', 'client_pays')} {formatCents(
                       (selectedService.priceCents || 0) +
                       (PACKAGE_FEE_MAP[selectedService.packageType] || 1000)
                     )} / {selectedService.packageType}
@@ -486,43 +475,28 @@ export default function ClientDetailPage() {
             </>
           ) : (
             <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
-              <p className="text-[13px] text-amber-800 font-medium">No packages set up</p>
-              <p className="text-[12px] text-amber-600 mt-0.5">
-                Go to Services to create packages first.
-              </p>
+              <p className="text-[13px] text-amber-800 font-medium">{translate('clients', 'no_packages')}</p>
               <Link href="/services">
                 <span className="text-[12px] text-amber-700 font-medium underline">
-                  Go to Services →
+                  {translate('clients', 'go_to_services')}
                 </span>
               </Link>
             </div>
           )}
 
-          <Select
-            label="Billing mode"
-            value={form.billingMode}
-            onChange={e => setField('billingMode', e.target.value)}
-          >
-            {BILLING_OPTIONS.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
+          <Select label={translate('client_detail', 'billing_mode')} value={form.billingMode} onChange={e => setField('billingMode', e.target.value)}>
+            {BILLING_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </Select>
 
-          <Select
-            label="Status"
-            value={form.status}
-            onChange={e => setField('status', e.target.value)}
-          >
-            {STATUS_OPTIONS.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
+          <Select label={translate('client_detail', 'status')} value={form.status} onChange={e => setField('status', e.target.value)}>
+            {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </Select>
 
           <Input
-            label="Notes"
+            label={translate('client_detail', 'notes')}
             value={form.notes}
             onChange={e => setField('notes', e.target.value)}
-            placeholder="Gate code, preferences, special instructions..."
+            placeholder={translate('clients', 'notes_hint')}
           />
         </div>
       </Modal>
@@ -531,16 +505,20 @@ export default function ClientDetailPage() {
       <Modal
         open={showDelete}
         onClose={() => setShowDelete(false)}
-        title="Remove client?"
+        title={lang === 'es' ? '¿Eliminar cliente?' : 'Remove client?'}
         footer={
           <>
-            <Button variant="secondary" fullWidth onClick={() => setShowDelete(false)}>Cancel</Button>
-            <Button variant="danger" fullWidth loading={deleting} onClick={handleDelete}>Remove</Button>
+            <Button variant="secondary" fullWidth onClick={() => setShowDelete(false)}>
+              {translate('common', 'cancel')}
+            </Button>
+            <Button variant="danger" fullWidth loading={deleting} onClick={handleDelete}>
+              {translate('common', 'remove')}
+            </Button>
           </>
         }
       >
         <p className="text-[14px] text-gray-600">
-          Are you sure you want to remove <strong>{client.name}</strong>? This cannot be undone.
+          {translate('client_detail', 'remove_confirm')} <strong>{client.name}</strong>? {translate('client_detail', 'cannot_undo')}
         </p>
       </Modal>
     </AppShell>
