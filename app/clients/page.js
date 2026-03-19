@@ -1,6 +1,6 @@
-export const dynamic = 'force-dynamic'
-
 'use client'
+
+export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -70,7 +70,6 @@ const DEFAULT_FORM = {
   notes:       '',
 }
 
-// ── Phone validation ──────────────────────────────────────────
 function validatePhone(phone) {
   const digits = phone.replace(/\D/g, '')
   return digits.length >= 10
@@ -101,8 +100,8 @@ export default function ClientsPage() {
   const [errors,   setErrors]   = useState({})
   const [saving,   setSaving]   = useState(false)
 
-  const BILLING_OPTIONS     = lang === 'es' ? BILLING_OPTIONS_ES : BILLING_OPTIONS_EN
-  const RECURRENCE_LABELS   = lang === 'es' ? RECURRENCE_LABELS_ES : RECURRENCE_LABELS_EN
+  const BILLING_OPTIONS   = lang === 'es' ? BILLING_OPTIONS_ES : BILLING_OPTIONS_EN
+  const RECURRENCE_LABELS = lang === 'es' ? RECURRENCE_LABELS_ES : RECURRENCE_LABELS_EN
 
   useEffect(() => {
     if (!user) return
