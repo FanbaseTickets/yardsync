@@ -7,11 +7,24 @@ import AppShell from '@/components/layout/AppShell'
 import { StatCard, Card, Badge, Button, Skeleton } from '@/components/ui'
 import { getClients, getTodaySchedules, getInvoices, updateSchedule } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
-import { format } from 'date-fns'
 import { Users, CalendarCheck, DollarSign, MessageSquare, CheckCircle2, Clock, Leaf, LogOut, Settings } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+
+function format(date, str) {
+  const d      = new Date(date)
+  const pad    = n => String(n).padStart(2, '0')
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
+  const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+  return str
+    .replace('yyyy', d.getFullYear())
+    .replace('MM',   pad(d.getMonth() + 1))
+    .replace('MMMM', MONTHS[d.getMonth()])
+    .replace('EEEE', DAYS[d.getDay()])
+    .replace('dd',   pad(d.getDate()))
+    .replace(/(?<!\d)d(?!\d)/, d.getDate())
+}
 
 export default function DashboardPage() {
   const { user, profile, signOut } = useAuth()

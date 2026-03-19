@@ -6,13 +6,28 @@ import { useAuth } from '@/context/AuthContext'
 import { formatCents } from '@/lib/fee'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import { format } from 'date-fns'
 import {
   Shield, LogOut, Users, DollarSign,
   TrendingUp, AlertCircle, RefreshCw,
   ChevronDown, ChevronUp
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+
+function format(date, str) {
+  const d      = new Date(date)
+  const pad    = n => String(n).padStart(2, '0')
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
+  const MONTHS3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+  return str
+    .replace('yyyy', d.getFullYear())
+    .replace('MM',   pad(d.getMonth() + 1))
+    .replace('MMMM', MONTHS[d.getMonth()])
+    .replace('MMM',  MONTHS3[d.getMonth()])
+    .replace('EEEE', DAYS[d.getDay()])
+    .replace('dd',   pad(d.getDate()))
+    .replace(/(?<!\d)d(?!\d)/, d.getDate())
+}
 
 export default function AdminDashboard() {
   const { user, loading, signOut } = useAuth()
@@ -52,7 +67,6 @@ export default function AdminDashboard() {
         const gInvoices = allInvoices.filter(inv => inv.gardenerUid === d.id)
         const gClients  = allClients.filter(c => c.gardenerUid === d.id)
 
-        // Helper to split an invoice into gardener earnings vs your fees
         function splitInvoice(inv) {
           const feeLines  = inv.lineItems?.filter(l => l.category === 'fee')  || []
           const baseLines = inv.lineItems?.filter(l => l.category !== 'fee') || []
@@ -61,7 +75,6 @@ export default function AdminDashboard() {
           return { fees, gardener }
         }
 
-        // All-time totals
         const allTimeTotals = gInvoices.reduce((acc, inv) => {
           const { fees, gardener } = splitInvoice(inv)
           acc.fees     += fees
@@ -70,7 +83,6 @@ export default function AdminDashboard() {
           return acc
         }, { fees: 0, gardener: 0, total: 0 })
 
-        // This month totals
         const thisMonthInvoices = gInvoices.filter(inv => {
           const d2 = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
           return d2.getMonth() === now.getMonth() && d2.getFullYear() === now.getFullYear()
@@ -83,7 +95,6 @@ export default function AdminDashboard() {
           return acc
         }, { fees: 0, gardener: 0, total: 0 })
 
-        // Recent invoices sorted newest first
         const recentInvoices = [...gInvoices]
           .sort((a, b) => {
             const da  = a.createdAt?.toDate?.() || new Date(a.createdAt)
@@ -123,9 +134,9 @@ export default function AdminDashboard() {
     router.replace('/admin')
   }
 
-  const totalMyRevenue      = gardeners.reduce((s, g) => s + g.allTime.fees, 0)
-  const thisMonthMyRevenue  = gardeners.reduce((s, g) => s + g.thisMonth.fees, 0)
-  const totalGardenerGross  = gardeners.reduce((s, g) => s + g.allTime.gardener, 0)
+  const totalMyRevenue     = gardeners.reduce((s, g) => s + g.allTime.fees, 0)
+  const thisMonthMyRevenue = gardeners.reduce((s, g) => s + g.thisMonth.fees, 0)
+  const totalGardenerGross = gardeners.reduce((s, g) => s + g.allTime.gardener, 0)
 
   if (loading || dataLoading) {
     return (
@@ -181,33 +192,10 @@ export default function AdminDashboard() {
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              {
-                label: 'Gardeners',
-                value: gardeners.length,
-                icon:  Users,
-                color: 'text-blue-400',
-              },
-              {
-                label: 'Gardeners Grossed',
-                value: formatCents(totalGardenerGross),
-                icon:  TrendingUp,
-                color: 'text-gray-400',
-                sub:   'all time client payments',
-              },
-              {
-                label: 'My Revenue',
-                value: formatCents(totalMyRevenue),
-                icon:  DollarSign,
-                color: 'text-brand-400',
-                sub:   'all time fees earned',
-              },
-              {
-                label: 'My Cut This Month',
-                value: formatCents(thisMonthMyRevenue),
-                icon:  AlertCircle,
-                color: 'text-green-400',
-                sub:   'outstanding to collect',
-              },
+              { label: 'Gardeners',        value: gardeners.length,              icon: Users,       color: 'text-blue-400',  sub: null },
+              { label: 'Gardeners Grossed', value: formatCents(totalGardenerGross), icon: TrendingUp,  color: 'text-gray-400',  sub: 'all time client payments' },
+              { label: 'My Revenue',        value: formatCents(totalMyRevenue),    icon: DollarSign,  color: 'text-brand-400', sub: 'all time fees earned' },
+              { label: 'My Cut This Month', value: formatCents(thisMonthMyRevenue),icon: AlertCircle, color: 'text-green-400', sub: 'outstanding to collect' },
             ].map(({ label, value, icon: Icon, color, sub }) => (
               <div key={label} className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
                 <Icon size={16} className={`${color} mb-2`} />
@@ -237,27 +225,20 @@ export default function AdminDashboard() {
                 .map(g => {
                   const isExpanded = expanded === g.id
                   const joinDate   = g.createdAt?.toDate?.()
-
                   return (
                     <div key={g.id} className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
 
-                      {/* Row */}
                       <button
                         onClick={() => setExpanded(isExpanded ? null : g.id)}
                         className="w-full p-5 flex items-center gap-4 hover:bg-gray-800/50 transition-colors"
                       >
-                        {/* Avatar */}
                         <div className="w-10 h-10 rounded-full bg-brand-900 flex items-center justify-center text-brand-300 font-bold text-[13px] flex-shrink-0">
                           {g.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2) || '??'}
                         </div>
-
-                        {/* Name */}
                         <div className="flex-1 min-w-0 text-left">
                           <p className="text-[14px] font-semibold text-white truncate">{g.name || 'Unknown'}</p>
                           <p className="text-[12px] text-gray-400 truncate">{g.businessName || g.email}</p>
                         </div>
-
-                        {/* Desktop stats */}
                         <div className="hidden md:flex items-center gap-6 flex-shrink-0">
                           <div className="text-right">
                             <p className="text-[10px] text-gray-500">Clients</p>
@@ -276,8 +257,6 @@ export default function AdminDashboard() {
                             <p className="text-[13px] font-semibold text-brand-400">{formatCents(g.allTime.fees)}</p>
                           </div>
                         </div>
-
-                        {/* Mobile stats */}
                         <div className="flex md:hidden items-center gap-3 flex-shrink-0">
                           <div className="text-right">
                             <p className="text-[10px] text-gray-500">Their gross</p>
@@ -288,51 +267,33 @@ export default function AdminDashboard() {
                             <p className="text-[12px] font-semibold text-brand-400">{formatCents(g.allTime.fees)}</p>
                           </div>
                         </div>
-
                         {isExpanded
                           ? <ChevronUp size={16} className="text-gray-500 flex-shrink-0 ml-2" />
                           : <ChevronDown size={16} className="text-gray-500 flex-shrink-0 ml-2" />
                         }
                       </button>
 
-                      {/* Expanded detail */}
                       {isExpanded && (
                         <div className="border-t border-gray-800 px-5 pb-5">
-
-                          {/* This month breakdown */}
                           <div className="mt-4 mb-4 grid grid-cols-2 gap-3">
                             <div className="bg-gray-800 rounded-xl p-4">
-                              <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-1">
-                                Gardener earned this month
-                              </p>
-                              <p className="text-[22px] font-bold text-gray-200">
-                                {formatCents(g.thisMonth.gardener)}
-                              </p>
+                              <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-1">Gardener earned this month</p>
+                              <p className="text-[22px] font-bold text-gray-200">{formatCents(g.thisMonth.gardener)}</p>
                               <p className="text-[11px] text-gray-500 mt-1">from client invoices</p>
                             </div>
                             <div className="bg-amber-950/40 border border-amber-800/40 rounded-xl p-4">
-                              <p className="text-[11px] text-amber-500 uppercase tracking-wide mb-1">
-                                My cut this month
-                              </p>
-                              <p className="text-[22px] font-bold text-amber-400">
-                                {formatCents(g.thisMonth.fees)}
-                              </p>
+                              <p className="text-[11px] text-amber-500 uppercase tracking-wide mb-1">My cut this month</p>
+                              <p className="text-[22px] font-bold text-amber-400">{formatCents(g.thisMonth.fees)}</p>
                               <p className="text-[11px] text-amber-700 mt-1">outstanding to collect</p>
                             </div>
                           </div>
-
-                          {/* All time breakdown */}
                           <div className="grid grid-cols-3 gap-3 mb-4">
                             <div className="bg-gray-800 rounded-xl p-3 text-center">
-                              <p className="text-[16px] font-bold text-gray-200">
-                                {formatCents(g.allTime.gardener)}
-                              </p>
+                              <p className="text-[16px] font-bold text-gray-200">{formatCents(g.allTime.gardener)}</p>
                               <p className="text-[11px] text-gray-400">Gardener all-time</p>
                             </div>
                             <div className="bg-gray-800 rounded-xl p-3 text-center">
-                              <p className="text-[16px] font-bold text-brand-400">
-                                {formatCents(g.allTime.fees)}
-                              </p>
+                              <p className="text-[16px] font-bold text-brand-400">{formatCents(g.allTime.fees)}</p>
                               <p className="text-[11px] text-gray-400">My cut all-time</p>
                             </div>
                             <div className="bg-gray-800 rounded-xl p-3 text-center">
@@ -340,8 +301,6 @@ export default function AdminDashboard() {
                               <p className="text-[11px] text-gray-400">Total invoices</p>
                             </div>
                           </div>
-
-                          {/* Contact */}
                           <div className="mb-4">
                             <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">Contact</p>
                             <p className="text-[13px] text-gray-300">{g.email}</p>
@@ -352,13 +311,9 @@ export default function AdminDashboard() {
                               </p>
                             )}
                           </div>
-
-                          {/* Recent invoices */}
                           {g.recentInvoices.length > 0 && (
                             <div>
-                              <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">
-                                Recent invoices
-                              </p>
+                              <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">Recent invoices</p>
                               <div className="space-y-2">
                                 {g.recentInvoices.map(inv => {
                                   const invDate   = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
@@ -367,10 +322,7 @@ export default function AdminDashboard() {
                                   const feeAmt    = feeLines.reduce((s, l)  => s + (l.amountCents || 0), 0)
                                   const baseAmt   = baseLines.reduce((s, l) => s + (l.amountCents || 0), 0)
                                   return (
-                                    <div
-                                      key={inv.id}
-                                      className="bg-gray-800 rounded-xl px-4 py-3"
-                                    >
+                                    <div key={inv.id} className="bg-gray-800 rounded-xl px-4 py-3">
                                       <div className="flex items-center justify-between mb-1.5">
                                         <p className="text-[13px] text-white font-medium">{inv.clientName}</p>
                                         <p className="text-[12px] text-gray-400">{format(invDate, 'MMM d, yyyy')}</p>
@@ -395,7 +347,6 @@ export default function AdminDashboard() {
                               </div>
                             </div>
                           )}
-
                         </div>
                       )}
                     </div>

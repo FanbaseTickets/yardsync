@@ -10,8 +10,25 @@ import { getClients } from '@/lib/db'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { MessageSquare, CheckCircle2, Clock, Send } from 'lucide-react'
-import { format, parseISO } from 'date-fns'
 import toast from 'react-hot-toast'
+
+function format(date, str) {
+  const d      = new Date(date)
+  const pad    = n => String(n).padStart(2, '0')
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
+  const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+  return str
+    .replace('yyyy', d.getFullYear())
+    .replace('MM',   pad(d.getMonth() + 1))
+    .replace('MMMM', MONTHS[d.getMonth()])
+    .replace('EEEE', DAYS[d.getDay()])
+    .replace('dd',   pad(d.getDate()))
+    .replace(/(?<!\d)d(?!\d)/, d.getDate())
+}
+
+function parseISO(str) {
+  return new Date(str + 'T12:00:00')
+}
 
 export default function SMSPage() {
   const { user, profile } = useAuth()
@@ -65,7 +82,6 @@ export default function SMSPage() {
     return clients.find(c => c.id === clientId)
   }
 
-  // ← Fixed: falls back to schedule.clientName for walk-ins
   function resolveClientName(schedule) {
     if (schedule.clientId) {
       return getClient(schedule.clientId)?.name || schedule.clientName || 'there'
@@ -73,7 +89,6 @@ export default function SMSPage() {
     return schedule.clientName || 'there'
   }
 
-  // ← Fixed: gets phone from client profile OR from walk-in schedule
   function resolveClientPhone(schedule) {
     if (schedule.clientId) {
       return getClient(schedule.clientId)?.phone || ''
@@ -112,7 +127,7 @@ export default function SMSPage() {
         body:    JSON.stringify({
           scheduleId:  schedule.id,
           clientId:    schedule.clientId || null,
-          clientPhone: phone,            // ← always pass phone directly
+          clientPhone: phone,
           message:     buildPreview(schedule),
         }),
       })
@@ -164,9 +179,7 @@ export default function SMSPage() {
             <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-green-400" />
             <div className="flex-1">
               <p className="text-[13px] font-medium text-gray-800">Twilio SMS</p>
-              <p className="text-[11px] text-gray-400">
-                {translate('sms', 'connected')}
-              </p>
+              <p className="text-[11px] text-gray-400">{translate('sms', 'connected')}</p>
             </div>
           </Card>
 
@@ -200,7 +213,7 @@ export default function SMSPage() {
             </p>
           </div>
 
-          {/* Upcoming visits grouped by date */}
+          {/* Upcoming visits */}
           <div>
             <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-2">
               {translate('sms', 'upcoming')}
@@ -237,9 +250,7 @@ export default function SMSPage() {
                               )}
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5">
-                                  <p className="text-[13px] font-medium text-gray-900">
-                                    {displayName}
-                                  </p>
+                                  <p className="text-[13px] font-medium text-gray-900">{displayName}</p>
                                   {schedule.isWalkIn && (
                                     <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">
                                       Walk-in
