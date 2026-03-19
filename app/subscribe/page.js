@@ -1,12 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+export const dynamic = 'force-dynamic'
+
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { Leaf, Check, Zap, Star } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-export default function SubscribePage() {
+function SubscribeInner() {
   const { user, profile, signOut } = useAuth()
   const router                     = useRouter()
   const searchParams               = useSearchParams()
@@ -279,5 +281,13 @@ export default function SubscribePage() {
         YardSync · A JNew Technologies platform
       </p>
     </div>
+  )
+}
+
+export default function SubscribePage() {
+  return (
+    <Suspense fallback={null}>
+      <SubscribeInner />
+    </Suspense>
   )
 }
