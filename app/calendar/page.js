@@ -1,6 +1,7 @@
 'use client'
 
 export const dynamic = 'force-dynamic'
+
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useLang } from '@/context/LangContext'
@@ -17,7 +18,6 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-// ── Native date utilities (replaces date-fns to avoid Turbopack issues) ──
 function fmt(date, str) {
   const d = new Date(date)
   const pad = n => String(n).padStart(2, '0')
@@ -106,6 +106,9 @@ function toDateStr(date) {
 export default function CalendarPage() {
   const { user }            = useAuth()
   const { translate, lang } = useLang()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
 
   const REPEAT_OPTIONS = [
     { value: 'none',      label: lang === 'es' ? 'Solo esta vez'        : 'Just this once'      },
@@ -417,6 +420,8 @@ export default function CalendarPage() {
     )
   }
 
+  if (!mounted) return null
+
   return (
     <AppShell>
       <div className="page-content">
@@ -554,7 +559,7 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* ── Add job modal ── */}
+      {/* Add job modal */}
       <Modal
         open={showAddModal} onClose={() => setShowAddModal(false)}
         title={`${translate('calendar', 'add_job')} — ${selectedDay ? fmt(selectedDay, 'MMM d') : ''}`}
@@ -606,7 +611,7 @@ export default function CalendarPage() {
         </div>
       </Modal>
 
-      {/* ── Walk-in modal ── */}
+      {/* Walk-in modal */}
       <Modal
         open={showWalkIn} onClose={() => setShowWalkIn(false)}
         title={lang === 'es' ? `Cliente ocasional — ${selectedDay ? fmt(selectedDay, 'MMM d') : ''}` : `Walk-in client — ${selectedDay ? fmt(selectedDay, 'MMM d') : ''}`}
@@ -639,7 +644,7 @@ export default function CalendarPage() {
         </div>
       </Modal>
 
-      {/* ── Walk-in invoice modal ── */}
+      {/* Walk-in invoice modal */}
       <Modal
         open={showWalkInInvoice} onClose={() => setShowWalkInInvoice(false)}
         title={lang === 'es' ? `Factura — ${walkInInvoiceTarget?.clientName || ''}` : `Invoice — ${walkInInvoiceTarget?.clientName || ''}`}
@@ -692,7 +697,7 @@ export default function CalendarPage() {
         </div>
       </Modal>
 
-      {/* ── Delete modal ── */}
+      {/* Delete modal */}
       <Modal
         open={showDeleteModal} onClose={() => { setShowDeleteModal(false); setDeleteTarget(null) }}
         title={translate('calendar', 'remove_visit')}
