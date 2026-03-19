@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useLang } from '@/context/LangContext'
@@ -265,7 +267,7 @@ export default function SMSPage() {
                                     : translate('sms', 'sms_pending')}
                                 </p>
                                 <p className="text-[11px] text-gray-500 mt-0.5 truncate italic">
-                                  "{buildPreview(schedule)}"
+                                  &quot;{buildPreview(schedule)}&quot;
                                 </p>
                               </div>
                               <Button
