@@ -9,8 +9,7 @@ import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Badge, Modal, Select, EmptyState, Skeleton, Input } from '@/components/ui'
 import { getClients, getSchedules, addSchedule, updateSchedule, deleteSchedule, getServices } from '@/lib/db'
-import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { deleteAllClientSchedules } from '@/lib/db'
 import { formatCents, buildInvoiceLineItems } from '@/lib/fee'
 import {
   ChevronLeft, ChevronRight, Plus, CalendarDays,
@@ -342,18 +341,16 @@ export default function CalendarPage() {
     finally { setDeleting(false) }
   }
 
-  async function handleDeleteAll() {
-    if (!deleteTarget) return
-    setDeleting(true)
-    try {
-      const q    = query(collection(db, 'schedules'), where('gardenerUid', '==', user.uid), where('clientId', '==', deleteTarget.clientId), where('status', '==', 'scheduled'))
-      const snap = await getDocs(q)
-      await Promise.all(snap.docs.map(d => deleteDoc(doc(db, 'schedules', d.id))))
-      toast.success(`${snap.docs.length} ${translate('calendar', 'visits')} ✓`)
-      setShowDeleteModal(false); setDeleteTarget(null); loadData()
-    } catch { toast.error(translate('common', 'error')) }
-    finally { setDeleting(false) }
-  }
+ async function handleDeleteAll() {
+  if (!deleteTarget) return
+  setDeleting(true)
+  try {
+    const count = await deleteAllClientSchedules(user.uid, deleteTarget.clientId)
+    toast.success(`${count} ${translate('calendar', 'visits')} ✓`)
+    setShowDeleteModal(false); setDeleteTarget(null); loadData()
+  } catch { toast.error(translate('common', 'error')) }
+  finally { setDeleting(false) }
+}
 
   const selectedDaySchedules = selectedDay ? getSchedulesForDay(selectedDay) : []
   const clientMap             = Object.fromEntries(clients.map(c => [c.id, c]))
