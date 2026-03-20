@@ -7,7 +7,7 @@ import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, Skeleton, Modal, Input, Select } from '@/components/ui'
-import { getClient, updateClient, deleteClient, getClientInvoices, getServices } from '@/lib/db'
+import { getClient, updateClient, deleteClient, getClientInvoices, getServices, saveInvoice } from '@/lib/db'
 import { formatCents, getPackageFee, getFeeDescription, buildInvoiceLineItems, getAddonFee } from '@/lib/fee'
 import { Phone, MapPin, Mail, CalendarDays, DollarSign, Pencil, FileText, CheckCircle2, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -215,48 +215,54 @@ export default function ClientDetailPage() {
     }
   }
 
-  async function handleSendInvoice() {
-    setInvoicing(true)
-    try {
-      const finalAddons = buildFinalAddons()
-      const { lineItems, totalCents } = buildInvoiceLineItems({
-        baseAmountCents: client.basePriceCents || 6500,
-        packageType:     client.packageType,
-        addons:          finalAddons,
-      })
-      const res = await fetch('/api/square/invoice', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          clientId:    id,
-          lineItems,
-          totalCents,
-          clientName:  client.name,
-          clientEmail: client.email  || '',
-          clientPhone: client.phone  || '',
-          gardenerUid: user.uid,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Invoice failed')
-      toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent via Square!')
-      if (data.invoiceUrl) {
-        toast.success(
-          lang === 'es'
-            ? 'URL lista — el cliente puede pagar en línea'
-            : 'Invoice URL ready — client can pay online',
-          { duration: 5000 }
-        )
-      }
-      setShowInvoice(false)
-      loadData()
-    } catch (err) {
-      toast.error(err.message || translate('common', 'error'))
-    } finally {
-      setInvoicing(false)
-    }
-  }
+async function handleSendInvoice() {
+  setInvoicing(true)
+  try {
+    const finalAddons = buildFinalAddons()
+    const { lineItems, totalCents } = buildInvoiceLineItems({
+      baseAmountCents: client.basePriceCents || 6500,
+      packageType:     client.packageType,
+      addons:          finalAddons,
+    })
+    const res = await fetch('/api/square/invoice', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        clientId:    id,
+        lineItems,
+        totalCents,
+        clientName:  client.name,
+        clientEmail: client.email  || '',
+        clientPhone: client.phone  || '',
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Invoice failed')
 
+    // Save to Firestore client-side (authenticated)
+    await saveInvoice(user.uid, {
+      clientId:         id,
+      clientName:       client.name,
+      clientEmail:      client.email || '',
+      clientPhone:      client.phone || '',
+      totalCents,
+      squareInvoiceId:  data.invoiceId,
+      squareOrderId:    data.squareOrderId,
+      squareCustomerId: data.squareCustomerId,
+      squarePublicUrl:  data.invoiceUrl || null,
+      status:           'sent',
+      lineItems,
+    })
+
+    toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent via Square!')
+    setShowInvoice(false)
+    loadData()
+  } catch (err) {
+    toast.error(err.message || translate('common', 'error'))
+  } finally {
+    setInvoicing(false)
+  }
+}
   if (loading) {
     return (
       <AppShell>
