@@ -66,11 +66,11 @@ export default function AppShell({ children }) {
   if (subStatus !== 'active') return null
 
   return (
-    <div className="flex flex-col h-screen max-w-lg mx-auto">
-      <main className="flex-1 overflow-hidden pb-14">
-        {children}
-      </main>
-      <BottomNav />
+    <div className="min-h-screen bg-gray-100 flex items-start justify-center">
+      <div className="flex flex-col h-screen w-full max-w-lg bg-white shadow-xl relative">
+        <main className="flex-1 overflow-hidden pb-14">{children}</main>
+        <BottomNav />
+      </div>
     </div>
   )
 }
