@@ -4,16 +4,15 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import BottomNav from './BottomNav'
-import { doc, getDoc } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { getGardenerProfile } from '@/lib/db'
 import { Leaf } from 'lucide-react'
 
 export default function AppShell({ children }) {
   const { user, loading } = useAuth()
   const router = useRouter()
 
-  const [subStatus,      setSubStatus]      = useState(null) // null = checking
-  const [subLoading,     setSubLoading]     = useState(true)
+  const [subStatus,  setSubStatus]  = useState(null)
+  const [subLoading, setSubLoading] = useState(true)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -35,16 +34,10 @@ export default function AppShell({ children }) {
     }
 
     try {
-      const subDoc = await getDoc(doc(db, 'subscriptions', user.uid))
-      if (subDoc.exists()) {
-        const status = subDoc.data().status
-        setSubStatus(status)
-        if (status !== 'active') {
-          router.replace('/subscribe')
-        }
-      } else {
-        // No subscription found — send to paywall
-        setSubStatus('none')
+      const profile = await getGardenerProfile(user.uid)
+      const status  = profile?.subscriptionStatus || 'none'
+      setSubStatus(status)
+      if (status !== 'active') {
         router.replace('/subscribe')
       }
     } catch (err) {
@@ -81,11 +74,3 @@ export default function AppShell({ children }) {
     </div>
   )
 }
-```
-
-Save it. Now two more things before pushing:
-
-**1 — Add price IDs as public env vars in `.env.local`:**
-```
-NEXT_PUBLIC_STRIPE_PRICE_MONTHLY=price_1TCXeI1qcLHs32s2JqyohVau
-NEXT_PUBLIC_STRIPE_PRICE_ANNUAL=price_1TCXgb1qcLHs32s2oIXNpSBb
