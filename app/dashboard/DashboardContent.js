@@ -29,7 +29,7 @@ function format(date, str) {
 }
 
 export default function DashboardPage() {
-  const { user, profile, signOut } = useAuth()
+  const { user, profile, signOut, refreshProfile } = useAuth()
   const { translate } = useLang()
   const router       = useRouter()
   const searchParams = useSearchParams()
@@ -71,6 +71,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!user) return
+    refreshProfile()
     loadData()
   }, [user])
 

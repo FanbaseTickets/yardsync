@@ -95,13 +95,13 @@ export default function SettingsPage() {
                   label={translate('settings', 'your_name')}
                   value={form.name}
                   onChange={e => setField('name', e.target.value)}
-                  placeholder="Jay Johnson"
+                  placeholder="Marco Rodriguez"
                 />
                 <Input
                   label={translate('settings', 'business_name')}
                   value={form.businessName}
                   onChange={e => setField('businessName', e.target.value)}
-                  placeholder="JNew Technologies"
+                  placeholder="Rodriguez Lawn Care"
                 />
                 <Input
                   label={translate('settings', 'phone')}
