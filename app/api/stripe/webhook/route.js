@@ -21,19 +21,17 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
-  const session      = event.data.object
-  const gardenerUid  = session.metadata?.gardenerUid || session.subscription_details?.metadata?.gardenerUid
+  const session     = event.data.object
+  const gardenerUid = session.metadata?.gardenerUid || session.subscription_details?.metadata?.gardenerUid
 
   try {
     switch (event.type) {
 
-      // ── Payment succeeded → activate subscription ──
       case 'checkout.session.completed': {
         if (!gardenerUid) break
         const subscriptionId = session.subscription
         const customerId     = session.customer
 
-        // Get subscription details from Stripe
         const subscription = await stripe.subscriptions.retrieve(subscriptionId)
         const priceId      = subscription.items.data[0]?.price?.id
         const plan         = priceId === process.env.STRIPE_PRICE_ANNUAL ? 'annual' : 'monthly'
@@ -54,23 +52,26 @@ export async function POST(request) {
           { merge: true }
         )
 
-        // Also update user profile
-        await updateDoc(doc(db, 'users', gardenerUid), {
-          subscriptionStatus: 'active',
-          subscriptionPlan:   plan,
-          stripeCustomerId:   customerId,
-        })
+        // Use setDoc with merge so it works even if user doc doesn't exist yet
+        await setDoc(
+          doc(db, 'users', gardenerUid),
+          {
+            subscriptionStatus: 'active',
+            subscriptionPlan:   plan,
+            stripeCustomerId:   customerId,
+            updatedAt:          new Date().toISOString(),
+          },
+          { merge: true }
+        )
 
         console.log(`Subscription activated for ${gardenerUid} — ${plan}`)
         break
       }
 
-      // ── Subscription renewed ──
       case 'invoice.payment_succeeded': {
         const subscriptionId = session.subscription
         if (!subscriptionId) break
 
-        // Find subscription by Stripe subscription ID
         const q    = query(collection(db, 'subscriptions'), where('stripeSubscriptionId', '==', subscriptionId))
         const snap = await getDocs(q)
         if (snap.empty) break
@@ -85,15 +86,16 @@ export async function POST(request) {
           updatedAt:        new Date().toISOString(),
         })
 
-        await updateDoc(doc(db, 'users', uid), {
-          subscriptionStatus: 'active',
-        })
+        await setDoc(
+          doc(db, 'users', uid),
+          { subscriptionStatus: 'active', updatedAt: new Date().toISOString() },
+          { merge: true }
+        )
 
         console.log(`Subscription renewed for ${uid}`)
         break
       }
 
-      // ── Payment failed ──
       case 'invoice.payment_failed': {
         const subscriptionId = session.subscription
         if (!subscriptionId) break
@@ -110,15 +112,16 @@ export async function POST(request) {
           updatedAt: new Date().toISOString(),
         })
 
-        await updateDoc(doc(db, 'users', uid), {
-          subscriptionStatus: 'past_due',
-        })
+        await setDoc(
+          doc(db, 'users', uid),
+          { subscriptionStatus: 'past_due', updatedAt: new Date().toISOString() },
+          { merge: true }
+        )
 
         console.log(`Payment failed for ${uid}`)
         break
       }
 
-      // ── Subscription cancelled ──
       case 'customer.subscription.deleted': {
         const subscriptionId = session.id
         const q    = query(collection(db, 'subscriptions'), where('stripeSubscriptionId', '==', subscriptionId))
@@ -133,9 +136,11 @@ export async function POST(request) {
           updatedAt: new Date().toISOString(),
         })
 
-        await updateDoc(doc(db, 'users', uid), {
-          subscriptionStatus: 'cancelled',
-        })
+        await setDoc(
+          doc(db, 'users', uid),
+          { subscriptionStatus: 'cancelled', updatedAt: new Date().toISOString() },
+          { merge: true }
+        )
 
         console.log(`Subscription cancelled for ${uid}`)
         break
