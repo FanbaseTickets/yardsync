@@ -24,7 +24,7 @@ function format(date, str) {
     .replace('yyyy', d.getFullYear())
     .replace('MM',   pad(d.getMonth() + 1))
     .replace('dd',   pad(d.getDate()))
-    .replace(/(?<!\d)d(?!\d)/, d.getDate())
+    .replace(/\bd\b/, d.getDate())
 }
 
 function parseISO(str) {

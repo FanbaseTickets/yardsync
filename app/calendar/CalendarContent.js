@@ -32,7 +32,7 @@ function fmt(date, str) {
     .replace('yyyy',  d.getFullYear())
     .replace('MM',    pad(d.getMonth() + 1))
     .replace('dd',    pad(d.getDate()))
-    .replace(/(?<!\d)d(?!\d)/, d.getDate())
+    .replace(/\bd\b/, d.getDate())
 }
 function startOfMonth(date)  { return new Date(date.getFullYear(), date.getMonth(), 1) }
 function endOfMonth(date)    { return new Date(date.getFullYear(), date.getMonth() + 1, 0) }
@@ -139,6 +139,7 @@ export default function CalendarPage() {
   const [showWalkIn,       setShowWalkIn]       = useState(false)
   const [walkInName,       setWalkInName]       = useState('')
   const [walkInPhone,      setWalkInPhone]      = useState('')
+  const [walkInEmail,      setWalkInEmail]      = useState('')
   const [walkInPhoneError, setWalkInPhoneError] = useState('')
   const [walkInPrice,      setWalkInPrice]      = useState('')
   const [walkInAddons,     setWalkInAddons]     = useState([])
@@ -221,7 +222,7 @@ export default function CalendarPage() {
 
   function openWalkInModal() {
     if (!selectedDay) return
-    setWalkInName(''); setWalkInPhone(''); setWalkInPhoneError('')
+    setWalkInName(''); setWalkInPhone(''); setWalkInEmail(''); setWalkInPhoneError('')
     setWalkInPrice(''); setWalkInAddons([]); setWalkInVariables({})
     setWalkInTime('9:00 AM')
     setShowWalkIn(true)
@@ -295,6 +296,7 @@ export default function CalendarPage() {
       const formattedPhone = walkInPhone.trim() ? formatPhone(walkInPhone) : ''
       await addSchedule(user.uid, {
         clientId: null, clientName: walkInName.trim(), clientPhone: formattedPhone,
+        clientEmail: walkInEmail.trim(),
         serviceDate: toDateStr(selectedDay), time: walkInTime,
         status: 'scheduled', isWalkIn: true, isRecurring: false, basePrice, addons: finalAddons,
       })
@@ -311,9 +313,14 @@ export default function CalendarPage() {
       const basePrice   = walkInInvoiceTarget.basePrice || 0
       const finalAddons = buildFinalAddons(walkInInvAddons, walkInInvVariables)
       const { lineItems, totalCents } = buildInvoiceLineItems({ baseAmountCents: basePrice, packageType: 'onetime', addons: finalAddons })
-      const res  = await fetch('/api/square/invoice', {
+      const res = await fetch('/api/square/invoice', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId: null, lineItems, totalCents, clientName: walkInInvoiceTarget.clientName, clientEmail: '', clientPhone: walkInInvoiceTarget.clientPhone || '', gardenerUid: user.uid }),
+        body: JSON.stringify({
+          clientId: null, lineItems, totalCents,
+          clientName:  walkInInvoiceTarget.clientName,
+          clientEmail: walkInInvoiceTarget.clientEmail || '',
+          clientPhone: walkInInvoiceTarget.clientPhone || '',
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Invoice failed')
@@ -341,16 +348,16 @@ export default function CalendarPage() {
     finally { setDeleting(false) }
   }
 
- async function handleDeleteAll() {
-  if (!deleteTarget) return
-  setDeleting(true)
-  try {
-    const count = await deleteAllClientSchedules(user.uid, deleteTarget.clientId)
-    toast.success(`${count} ${translate('calendar', 'visits')} ✓`)
-    setShowDeleteModal(false); setDeleteTarget(null); loadData()
-  } catch { toast.error(translate('common', 'error')) }
-  finally { setDeleting(false) }
-}
+  async function handleDeleteAll() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      const count = await deleteAllClientSchedules(user.uid, deleteTarget.clientId)
+      toast.success(`${count} ${translate('calendar', 'visits')} ✓`)
+      setShowDeleteModal(false); setDeleteTarget(null); loadData()
+    } catch { toast.error(translate('common', 'error')) }
+    finally { setDeleting(false) }
+  }
 
   const selectedDaySchedules = selectedDay ? getSchedulesForDay(selectedDay) : []
   const clientMap             = Object.fromEntries(clients.map(c => [c.id, c]))
@@ -625,11 +632,23 @@ export default function CalendarPage() {
           </div>
           <Input label={lang === 'es' ? 'Nombre del cliente *' : 'Client name *'} placeholder={lang === 'es' ? 'Juan García' : 'John Smith'} value={walkInName} onChange={e => setWalkInName(e.target.value)} />
           <div>
-            <Input label={lang === 'es' ? 'Teléfono (opcional)' : 'Phone (optional)'} placeholder="(210) 555-0100" type="tel" value={walkInPhone}
-              onChange={e => { setWalkInPhone(e.target.value); setWalkInPhoneError('') }} />
+            <Input
+              label={lang === 'es' ? 'Teléfono (opcional)' : 'Phone (optional)'}
+              placeholder="(210) 555-0100"
+              type="tel"
+              value={walkInPhone}
+              onChange={e => { setWalkInPhone(e.target.value.replace(/\D/g, '').slice(0, 10)); setWalkInPhoneError('') }}
+            />
             {walkInPhoneError && <p className="text-[12px] text-red-500 mt-1">{walkInPhoneError}</p>}
             <p className="text-[11px] text-gray-400 mt-1">{lang === 'es' ? 'Necesario para SMS o factura' : 'Needed to send SMS or invoice'}</p>
           </div>
+          <Input
+            label={lang === 'es' ? 'Email (para enviar factura)' : 'Email (to send invoice)'}
+            placeholder="client@example.com"
+            type="email"
+            value={walkInEmail}
+            onChange={e => setWalkInEmail(e.target.value)}
+          />
           <Input label={lang === 'es' ? 'Precio base' : 'Base job price'} placeholder="65" type="number" prefix="$" value={walkInPrice} onChange={e => setWalkInPrice(e.target.value)}
             hint={lang === 'es' ? 'Tarifa 8% (mín $10)' : '8% YardSync fee applies (min $10)'} />
           <Select label={translate('calendar', 'time')} value={walkInTime} onChange={e => setWalkInTime(e.target.value)}>
@@ -660,6 +679,7 @@ export default function CalendarPage() {
               <span className="font-medium">{formatCents(walkInBase)}</span>
             </div>
             {walkInInvoiceTarget?.clientPhone && <p className="text-[11px] text-gray-400">{walkInInvoiceTarget.clientPhone}</p>}
+            {walkInInvoiceTarget?.clientEmail && <p className="text-[11px] text-gray-400">{walkInInvoiceTarget.clientEmail}</p>}
             <div className="flex justify-between text-[12px]">
               <span className="text-gray-400">{lang === 'es' ? 'Tarifa YardSync (8%, mín $10)' : 'YardSync fee (8%, min $10)'}</span>
               <span className="text-brand-600">+{formatCents(walkInBaseFee)}</span>
