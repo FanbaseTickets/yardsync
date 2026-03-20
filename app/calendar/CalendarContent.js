@@ -102,6 +102,69 @@ function toDateStr(date) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
 
+function AddonSelector({ addonServices, lang, fixedAddons, setFixedAddons, variables, setVariables }) {
+  if (addonServices.length === 0) return null
+  const total = addonServices.filter(s => s.pricingType === 'variable').reduce((s, svc) => {
+    const val = variables[svc.id]
+    return s + (val && parseFloat(val) > 0 ? Math.round(parseFloat(val) * 100) : 0)
+  }, 0) + fixedAddons.reduce((s, a) => s + (a.amountCents || 0), 0)
+  return (
+    <div>
+      <p className="text-[13px] font-medium text-gray-700 mb-2">
+        {lang === 'es' ? 'Servicios adicionales' : 'Add-on services'}
+      </p>
+      <div className="space-y-2">
+        {addonServices.map(service => {
+          const isFixed   = service.pricingType === 'fixed'
+          const isChecked = fixedAddons.find(a => a.id === service.id)
+          return (
+            <div key={service.id} className="bg-gray-50 rounded-xl p-3">
+              {isFixed ? (
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" checked={!!isChecked}
+                    onChange={() => setFixedAddons(prev => {
+                      const exists = prev.find(a => a.id === service.id)
+                      if (exists) return prev.filter(a => a.id !== service.id)
+                      return [...prev, { id: service.id, label: service.label, amountCents: service.priceCents }]
+                    })}
+                    className="w-4 h-4 rounded accent-brand-600" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-medium text-gray-800">{service.label}</p>
+                    {service.description && <p className="text-[11px] text-gray-400">{service.description}</p>}
+                  </div>
+                  <p className="text-[13px] font-semibold text-brand-600 flex-shrink-0">{formatCents(service.priceCents)}</p>
+                </label>
+              ) : (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div>
+                      <p className="text-[13px] font-medium text-gray-800">{service.label}</p>
+                      {service.description && <p className="text-[11px] text-gray-400">{service.description}</p>}
+                    </div>
+                    <span className="text-[11px] text-gray-400 ml-2">{lang === 'es' ? 'Cotizado' : 'Variable'}</span>
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                    <input type="number" placeholder="0.00" value={variables[service.id] || ''}
+                      onChange={e => setVariables(prev => ({ ...prev, [service.id]: e.target.value }))}
+                      className="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-200 text-[13px] focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      {total > 0 && (
+        <div className="mt-2 flex justify-between text-[12px]">
+          <span className="text-gray-500">{lang === 'es' ? 'Total adicionales:' : 'Add-on total:'}</span>
+          <span className="font-semibold text-brand-600">{formatCents(total)}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function CalendarPage() {
   const { user }            = useAuth()
   const { translate, lang } = useLang()
@@ -234,14 +297,6 @@ export default function CalendarPage() {
     setShowWalkInInvoice(true)
   }
 
-  function toggleAddon(service, addons, setAddons) {
-    setAddons(prev => {
-      const exists = prev.find(a => a.id === service.id)
-      if (exists) return prev.filter(a => a.id !== service.id)
-      return [...prev, { id: service.id, label: service.label, amountCents: service.priceCents }]
-    })
-  }
-
   function buildFinalAddons(fixedAddons, variableVals) {
     const result = [...fixedAddons]
     addonServices.filter(s => s.pricingType === 'variable').forEach(s => {
@@ -369,60 +424,6 @@ export default function CalendarPage() {
   const walkInInvAddonTotal = getAddonTotal(walkInInvAddons, walkInInvVariables)
   const walkInInvAddonFee   = Math.round(walkInInvAddonTotal * 0.10)
   const walkInInvoiceTotal  = walkInBase + walkInBaseFee + walkInInvAddonTotal + walkInInvAddonFee
-
-  function AddonSelector({ fixedAddons, setFixedAddons, variables, setVariables }) {
-    if (addonServices.length === 0) return null
-    const total = getAddonTotal(fixedAddons, variables)
-    return (
-      <div>
-        <p className="text-[13px] font-medium text-gray-700 mb-2">
-          {lang === 'es' ? 'Servicios adicionales' : 'Add-on services'}
-        </p>
-        <div className="space-y-2">
-          {addonServices.map(service => {
-            const isFixed   = service.pricingType === 'fixed'
-            const isChecked = fixedAddons.find(a => a.id === service.id)
-            return (
-              <div key={service.id} className="bg-gray-50 rounded-xl p-3">
-                {isFixed ? (
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" checked={!!isChecked} onChange={() => toggleAddon(service, fixedAddons, setFixedAddons)} className="w-4 h-4 rounded accent-brand-600" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium text-gray-800">{service.label}</p>
-                      {service.description && <p className="text-[11px] text-gray-400">{service.description}</p>}
-                    </div>
-                    <p className="text-[13px] font-semibold text-brand-600 flex-shrink-0">{formatCents(service.priceCents)}</p>
-                  </label>
-                ) : (
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div>
-                        <p className="text-[13px] font-medium text-gray-800">{service.label}</p>
-                        {service.description && <p className="text-[11px] text-gray-400">{service.description}</p>}
-                      </div>
-                      <span className="text-[11px] text-gray-400 ml-2">{lang === 'es' ? 'Cotizado' : 'Variable'}</span>
-                    </div>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                      <input type="number" placeholder="0.00" value={variables[service.id] || ''}
-                        onChange={e => setVariables(prev => ({ ...prev, [service.id]: e.target.value }))}
-                        className="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-200 text-[13px] focus:outline-none focus:ring-2 focus:ring-brand-500" />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-        {total > 0 && (
-          <div className="mt-2 flex justify-between text-[12px]">
-            <span className="text-gray-500">{lang === 'es' ? 'Total adicionales:' : 'Add-on total:'}</span>
-            <span className="font-semibold text-brand-600">{formatCents(total)}</span>
-          </div>
-        )}
-      </div>
-    )
-  }
 
   if (!mounted) return null
 
@@ -610,7 +611,7 @@ export default function CalendarPage() {
             </div>
           )}
           <div className="border-t border-gray-100 pt-3">
-            <AddonSelector fixedAddons={selectedAddons} setFixedAddons={setSelectedAddons} variables={variableInputs} setVariables={setVariableInputs} />
+            <AddonSelector addonServices={addonServices} lang={lang} fixedAddons={selectedAddons} setFixedAddons={setSelectedAddons} variables={variableInputs} setVariables={setVariableInputs} />
           </div>
         </div>
       </Modal>
@@ -655,7 +656,7 @@ export default function CalendarPage() {
             {TIMES.map(t => <option key={t} value={t}>{t}</option>)}
           </Select>
           <div className="border-t border-gray-100 pt-3">
-            <AddonSelector fixedAddons={walkInAddons} setFixedAddons={setWalkInAddons} variables={walkInVariables} setVariables={setWalkInVariables} />
+            <AddonSelector addonServices={addonServices} lang={lang} fixedAddons={walkInAddons} setFixedAddons={setWalkInAddons} variables={walkInVariables} setVariables={setWalkInVariables} />
           </div>
         </div>
       </Modal>
@@ -689,7 +690,7 @@ export default function CalendarPage() {
               <span className="font-semibold">{formatCents(walkInBase + walkInBaseFee)}</span>
             </div>
           </div>
-          <AddonSelector fixedAddons={walkInInvAddons} setFixedAddons={setWalkInInvAddons} variables={walkInInvVariables} setVariables={setWalkInInvVariables} />
+          <AddonSelector addonServices={addonServices} lang={lang} fixedAddons={walkInInvAddons} setFixedAddons={setWalkInInvAddons} variables={walkInInvVariables} setVariables={setWalkInInvVariables} />
           <div className="bg-brand-50 border border-brand-100 rounded-xl p-4 space-y-1.5">
             <p className="text-[11px] font-medium text-brand-700 uppercase tracking-wide mb-2">{lang === 'es' ? 'Total de factura' : 'Invoice total'}</p>
             <div className="flex justify-between text-[13px]">

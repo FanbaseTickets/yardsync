@@ -27,7 +27,7 @@ export default function LoginPage() {
   function validate() {
     const e = {}
     if (!email)                               e.email    = 'Email is required'
-    if (!email.includes('@'))                 e.email    = 'Enter a valid email'
+    else if (!email.includes('@'))            e.email    = 'Enter a valid email'
     if (mode !== 'reset' && !password)        e.password = 'Password is required'
     if (mode !== 'reset' && password.length < 6) e.password = 'Min 6 characters'
     if (mode === 'signup' && !name)           e.name     = 'Your name is required'
