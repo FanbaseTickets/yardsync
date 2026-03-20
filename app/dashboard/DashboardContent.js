@@ -7,12 +7,12 @@ import { useAuth } from '@/context/AuthContext'
 import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import { StatCard, Card, Badge, Button, Skeleton } from '@/components/ui'
-import { getClients, getTodaySchedules, getInvoices, updateSchedule } from '@/lib/db'
+import { getClients, getTodaySchedules, getInvoices, updateSchedule, saveGardenerProfile } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { Users, CalendarCheck, DollarSign, MessageSquare, CheckCircle2, Clock, Leaf, LogOut, Settings } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 function format(date, str) {
   const d      = new Date(date)
@@ -20,10 +20,10 @@ function format(date, str) {
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
   const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
   return str
-    .replace('yyyy', d.getFullYear())
-    .replace('MM',   pad(d.getMonth() + 1))
     .replace('MMMM', MONTHS[d.getMonth()])
     .replace('EEEE', DAYS[d.getDay()])
+    .replace('yyyy', d.getFullYear())
+    .replace('MM',   pad(d.getMonth() + 1))
     .replace('dd',   pad(d.getDate()))
     .replace(/(?<!\d)d(?!\d)/, d.getDate())
 }
@@ -31,7 +31,8 @@ function format(date, str) {
 export default function DashboardPage() {
   const { user, profile, signOut } = useAuth()
   const { translate } = useLang()
-  const router = useRouter()
+  const router       = useRouter()
+  const searchParams = useSearchParams()
 
   const [clients,    setClients]    = useState([])
   const [todayJobs,  setTodayJobs]  = useState([])
@@ -51,6 +52,22 @@ export default function DashboardPage() {
   const firstName = profile?.name
     ? profile.name.split(' ').find(w => w.length > 1) || profile.name.split(' ')[0]
     : 'there'
+
+  // Handle Stripe redirect back after successful payment
+  useEffect(() => {
+    if (!user) return
+    if (searchParams.get('subscribed') === 'true') {
+      saveGardenerProfile(user.uid, {
+        subscriptionStatus: 'active',
+        subscriptionPlan:   'monthly',
+      }).then(() => {
+        toast.success('Subscription activated! Welcome to YardSync 🌿')
+        router.replace('/dashboard')
+      }).catch(err => {
+        console.error('Failed to activate subscription:', err)
+      })
+    }
+  }, [user, searchParams])
 
   useEffect(() => {
     if (!user) return
