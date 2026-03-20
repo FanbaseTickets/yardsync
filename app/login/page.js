@@ -94,7 +94,6 @@ export default function LoginPage() {
 
       <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-6">
 
-        {/* Google sign-in — only show on login and signup */}
         {mode !== 'reset' && (
           <>
             <button
@@ -129,7 +128,7 @@ export default function LoginPage() {
               <Input
                 label="Your name"
                 type="text"
-                placeholder="Jay Johnson"
+                placeholder="Marco Rodriguez"
                 value={name}
                 onChange={e => setName(e.target.value)}
                 error={errors.name}
@@ -137,7 +136,7 @@ export default function LoginPage() {
               <Input
                 label="Business name"
                 type="text"
-                placeholder="JNew Technologies"
+                placeholder="Rodriguez Lawn Care"
                 value={bizName}
                 onChange={e => setBizName(e.target.value)}
                 error={errors.bizName}
