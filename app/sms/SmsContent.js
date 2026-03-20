@@ -9,8 +9,7 @@ import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Skeleton, EmptyState } from '@/components/ui'
 import { getClients } from '@/lib/db'
-import { collection, query, where, getDocs } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { getSchedulesFromToday } from '@/lib/db'
 import { MessageSquare, CheckCircle2, Clock, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -20,10 +19,10 @@ function format(date, str) {
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
   const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
   return str
-    .replace('yyyy', d.getFullYear())
-    .replace('MM',   pad(d.getMonth() + 1))
     .replace('MMMM', MONTHS[d.getMonth()])
     .replace('EEEE', DAYS[d.getDay()])
+    .replace('yyyy', d.getFullYear())
+    .replace('MM',   pad(d.getMonth() + 1))
     .replace('dd',   pad(d.getDate()))
     .replace(/(?<!\d)d(?!\d)/, d.getDate())
 }
@@ -56,29 +55,22 @@ export default function SMSPage() {
     }
   }, [profile])
 
-  async function loadData() {
-    setLoading(true)
-    try {
-      const today = format(new Date(), 'yyyy-MM-dd')
-      const q = query(
-        collection(db, 'schedules'),
-        where('gardenerUid', '==', user.uid)
-      )
-      const snap = await getDocs(q)
-      const allSchedules = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(s => s.serviceDate >= today)
-        .sort((a, b) => a.serviceDate.localeCompare(b.serviceDate))
-
-      const c = await getClients(user.uid)
-      setSchedules(allSchedules)
-      setClients(c)
-    } catch {
-      toast.error(translate('common', 'error'))
-    } finally {
-      setLoading(false)
-    }
+async function loadData() {
+  setLoading(true)
+  try {
+    const today = format(new Date(), 'yyyy-MM-dd')
+    const [allSchedules, c] = await Promise.all([
+      getSchedulesFromToday(user.uid, today),
+      getClients(user.uid),
+    ])
+    setSchedules(allSchedules)
+    setClients(c)
+  } catch {
+    toast.error(translate('common', 'error'))
+  } finally {
+    setLoading(false)
   }
+}
 
   function getClient(clientId) {
     return clients.find(c => c.id === clientId)

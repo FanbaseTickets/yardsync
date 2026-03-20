@@ -25,12 +25,12 @@ function fmt(date, str) {
   const DAYS    = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
   const DAYS3   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
   return str
-    .replace('yyyy',  d.getFullYear())
-    .replace('MM',    pad(d.getMonth() + 1))
     .replace('MMMM',  MONTHS[d.getMonth()])
     .replace('MMM',   MONTHS3[d.getMonth()])
     .replace('EEEE',  DAYS[d.getDay()])
     .replace('EEE',   DAYS3[d.getDay()])
+    .replace('yyyy',  d.getFullYear())
+    .replace('MM',    pad(d.getMonth() + 1))
     .replace('dd',    pad(d.getDate()))
     .replace(/(?<!\d)d(?!\d)/, d.getDate())
 }
