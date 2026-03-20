@@ -26,7 +26,7 @@ export async function POST(request) {
       mode:                 'subscription',
       payment_method_types: ['card'],
       line_items:           lineItems,
-      success_url:          `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?subscribed=true`,
+      success_url:          `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?subscribed=true&plan=${priceId === process.env.STRIPE_PRICE_ANNUAL ? 'annual' : 'monthly'}`,
       cancel_url:           `${process.env.NEXT_PUBLIC_APP_URL}/subscribe?cancelled=true`,
       customer_email:       gardenerEmail || undefined,
       metadata: {

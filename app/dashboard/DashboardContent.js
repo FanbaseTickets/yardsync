@@ -59,7 +59,7 @@ export default function DashboardPage() {
     if (searchParams.get('subscribed') === 'true') {
       saveGardenerProfile(user.uid, {
         subscriptionStatus: 'active',
-        subscriptionPlan:   'monthly',
+        subscriptionPlan:   searchParams.get('plan') || 'monthly',
       }).then(() => {
         toast.success('Subscription activated! Welcome to YardSync 🌿')
         router.replace('/dashboard')
