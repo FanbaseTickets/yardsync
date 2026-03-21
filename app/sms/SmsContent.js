@@ -137,11 +137,15 @@ async function loadData() {
           language:    resolveClientLanguage(schedule),
         }),
       })
-      if (!res.ok) throw new Error()
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'SMS failed')
+      }
       toast.success(translate('sms', 'sms_sent_check'))
       loadData()
-    } catch {
-      toast.error(translate('sms', 'not_connected'))
+    } catch (err) {
+      const isConnectionError = !err.message || err.message === 'Failed to fetch'
+      toast.error(isConnectionError ? translate('sms', 'not_connected') : err.message)
     } finally {
       setSending(null)
     }
