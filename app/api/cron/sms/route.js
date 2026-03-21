@@ -120,8 +120,75 @@ export async function GET(request) {
       }
     }
 
-    console.log('Cron complete:', results)
-    return NextResponse.json({ success: true, ...results })
+    // ── GARDENER DAILY JOB SUMMARY ──────────────────────────────────────────
+    // After sending client reminders, text each gardener their jobs for today
+    const summaryResults = { sent: 0, skipped: 0, errors: 0 }
+
+    for (const userDoc of usersSnap.docs) {
+      const gardener = { id: userDoc.id, ...userDoc.data() }
+      if (!gardener.phone) { summaryResults.skipped++; continue }
+
+      // Get today's schedules for this gardener
+      const todaySchedulesSnap = await getDocs(query(
+        collection(db, 'schedules'),
+        where('gardenerUid', '==', gardener.id),
+        where('serviceDate', '==', today),
+        where('status',      '==', 'scheduled')
+      ))
+
+      const todayJobs = todaySchedulesSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      if (todayJobs.length === 0) { summaryResults.skipped++; continue }
+
+      // Build job list string
+      const jobList = todayJobs
+        .sort((a, b) => a.time?.localeCompare(b.time) || 0)
+        .map(s => {
+          const client = allClients.find(c => c.id === s.clientId)
+          const name   = client?.name || s.clientName || 'Walk-in'
+          return `${name} (${s.time || 'TBD'})`
+        })
+        .join(', ')
+
+      const firstName = gardener.name?.split(' ')[0] || 'there'
+      const jobCount  = todayJobs.length
+      const language  = gardener.language || 'en'
+
+      const summaryMessage = language === 'es'
+        ? `¡Buenos días ${firstName}! Tienes ${jobCount} trabajo${jobCount !== 1 ? 's' : ''} hoy: ${jobList}. — YardSync`
+        : `Good morning ${firstName}! You have ${jobCount} job${jobCount !== 1 ? 's' : ''} today: ${jobList}. — YardSync`
+
+      const digits = gardener.phone.replace(/\D/g, '')
+      const to     = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
+
+      try {
+        const body = new URLSearchParams({ To: to, From: TWILIO_FROM, Body: summaryMessage })
+        const res  = await fetch(
+          `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`,
+          {
+            method:  'POST',
+            headers: {
+              'Content-Type':  'application/x-www-form-urlencoded',
+              'Authorization': 'Basic ' + Buffer.from(`${TWILIO_SID}:${TWILIO_TOKEN}`).toString('base64'),
+            },
+            body: body.toString(),
+          }
+        )
+        const data = await res.json()
+        if (data.sid) {
+          summaryResults.sent++
+          console.log(`Job summary sent → ${gardener.name} (${to}) — ${jobCount} jobs`)
+        } else {
+          console.error(`Summary error for ${gardener.name}:`, data)
+          summaryResults.errors++
+        }
+      } catch (err) {
+        console.error(`Failed to send summary to ${gardener.name}:`, err)
+        summaryResults.errors++
+      }
+    }
+
+    console.log('Cron complete:', results, '| Summaries:', summaryResults)
+    return NextResponse.json({ success: true, clientReminders: results, gardenerSummaries: summaryResults })
 
   } catch (err) {
     console.error('Cron job failed:', err)
