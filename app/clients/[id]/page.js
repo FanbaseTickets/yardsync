@@ -657,7 +657,20 @@ async function handleSendInvoice() {
       >
         <div className="space-y-4">
           <Input label={translate('clients', 'full_name')} value={form.name}    onChange={e => setField('name', e.target.value)}    />
-          <Input label={translate('clients', 'phone')}     value={form.phone}   onChange={e => setField('phone', e.target.value)}   type="tel" />
+          <Input label={translate('clients', 'phone')} value={form.phone} type="tel"
+            onChange={e => {
+              const digits = e.target.value.replace(/\D/g, '').slice(0, 10)
+              let formatted = digits
+              if (digits.length > 6) {
+                formatted = `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`
+              } else if (digits.length > 3) {
+                formatted = `(${digits.slice(0,3)}) ${digits.slice(3)}`
+              } else if (digits.length > 0) {
+                formatted = `(${digits}`
+              }
+              setField('phone', formatted)
+            }}
+          />
           <Input label={translate('clients', 'email')}     value={form.email}   onChange={e => setField('email', e.target.value)}   type="email" />
           <Input label={translate('clients', 'address')}   value={form.address} onChange={e => setField('address', e.target.value)} />
 
