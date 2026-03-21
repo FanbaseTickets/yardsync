@@ -106,7 +106,18 @@ export default function SettingsPage() {
                 <Input
                   label={translate('settings', 'phone')}
                   value={form.phone}
-                  onChange={e => setField('phone', e.target.value)}
+                  onChange={e => {
+                    const digits = e.target.value.replace(/\D/g, '').slice(0, 10)
+                    let formatted = digits
+                    if (digits.length > 6) {
+                      formatted = `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`
+                    } else if (digits.length > 3) {
+                      formatted = `(${digits.slice(0,3)}) ${digits.slice(3)}`
+                    } else if (digits.length > 0) {
+                      formatted = `(${digits}`
+                    }
+                    setField('phone', formatted)
+                  }}
                   placeholder="(210) 555-0100"
                   type="tel"
                 />
