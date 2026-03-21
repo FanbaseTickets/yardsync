@@ -110,6 +110,11 @@ export default function SettingsPage() {
                   placeholder="(210) 555-0100"
                   type="tel"
                 />
+                <p className="text-[11px] text-brand-600 -mt-2">
+                  {lang === 'es'
+                    ? '📲 Agrega tu número para recibir un resumen de tus trabajos cada mañana por SMS'
+                    : '📲 Add your number to receive a daily morning SMS summary of your jobs'}
+                </p>
               </div>
             </Card>
           </section>
