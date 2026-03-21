@@ -8,7 +8,7 @@ import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Skeleton, EmptyState } from '@/components/ui'
-import { getClients } from '@/lib/db'
+import { getClients, updateSchedule } from '@/lib/db'
 import { getSchedulesFromToday } from '@/lib/db'
 import { MessageSquare, CheckCircle2, Clock, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -140,6 +140,14 @@ async function loadData() {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || 'SMS failed')
+      }
+      const data = await res.json()
+      if (schedule.id) {
+        await updateSchedule(schedule.id, {
+          smsSent:      true,
+          smsSentAt:    new Date().toISOString(),
+          twilioSmsSid: data.sid,
+        })
       }
       toast.success(translate('sms', 'sms_sent_check'))
       loadData()

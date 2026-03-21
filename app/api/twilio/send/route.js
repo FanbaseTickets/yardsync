@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { updateSchedule } from '@/lib/db'
 
 const TWILIO_SID    = process.env.TWILIO_ACCOUNT_SID
 const TWILIO_TOKEN  = process.env.TWILIO_AUTH_TOKEN
@@ -57,15 +56,6 @@ export async function POST(request) {
     }
 
     console.log('SMS sent — SID:', twilioData.sid)
-
-    // ── STEP 3: Mark schedule as smsSent in Firestore ────────────────────────
-    if (scheduleId) {
-      await updateSchedule(scheduleId, {
-        smsSent:      true,
-        smsSentAt:    new Date().toISOString(),
-        twilioSmsSid: twilioData.sid,
-      })
-    }
 
     return NextResponse.json({
       success: true,
