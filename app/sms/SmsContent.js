@@ -98,9 +98,20 @@ async function loadData() {
     }
   }
 
+  function resolveClientLanguage(schedule) {
+    if (schedule.clientId) {
+      return getClient(schedule.clientId)?.language || 'en'
+    }
+    return 'en'
+  }
+
   function buildPreview(schedule) {
     const clientName = resolveClientName(schedule)
-    return template
+    const clientLang = resolveClientLanguage(schedule)
+    const tpl = clientLang === 'es'
+      ? (profile?.smsTemplateEs || 'Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! — {business}')
+      : (profile?.smsTemplate   || 'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! — {business}')
+    return tpl
       .replace('{name}',     clientName.split(' ')[0])
       .replace('{date}',     formatServiceDate(schedule.serviceDate))
       .replace('{time}',     schedule.time || 'TBD')
@@ -123,6 +134,7 @@ async function loadData() {
           clientId:    schedule.clientId || null,
           clientPhone: phone,
           message:     buildPreview(schedule),
+          language:    resolveClientLanguage(schedule),
         }),
       })
       if (!res.ok) throw new Error()

@@ -68,6 +68,7 @@ const DEFAULT_FORM = {
   serviceId:   '',
   billingMode: 'upfront',
   notes:       '',
+  language:    'en',
 }
 
 function validatePhone(phone) {
@@ -158,6 +159,7 @@ export default function ClientsPage() {
         address:         form.address.trim(),
         notes:           form.notes.trim(),
         billingMode:     form.billingMode,
+        language:        form.language,
         serviceId:       form.serviceId,
         packageType:     selectedService?.packageType    || 'monthly',
         basePriceCents:  selectedService?.priceCents     || 6500,
@@ -380,6 +382,15 @@ export default function ClientsPage() {
             {BILLING_OPTIONS.map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
+          </Select>
+
+          <Select
+            label={lang === 'es' ? 'Idioma para SMS' : 'SMS Language'}
+            value={form.language}
+            onChange={e => setField('language', e.target.value)}
+          >
+            <option value="en">English</option>
+            <option value="es">Español</option>
           </Select>
 
           <Input
