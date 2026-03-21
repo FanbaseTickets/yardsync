@@ -102,6 +102,7 @@ export default function ClientDetailPage() {
           address:     c.address     || '',
           serviceId:   c.serviceId   || '',
           billingMode: c.billingMode || 'upfront',
+          language:    c.language    || 'en',
           status:      c.status      || 'active',
           notes:       c.notes       || '',
         })
@@ -173,6 +174,7 @@ export default function ClientDetailPage() {
         email:       form.email       || '',
         address:     form.address     || client.address,
         billingMode: form.billingMode,
+        language:    form.language    || 'en',
         status:      form.status,
         notes:       form.notes       || '',
       }
@@ -707,6 +709,15 @@ async function handleSendInvoice() {
               </Link>
             </div>
           )}
+
+          <Select
+            label={lang === 'es' ? 'Idioma para SMS' : 'SMS Language'}
+            value={form.language || 'en'}
+            onChange={e => setField('language', e.target.value)}
+          >
+            <option value="en">English</option>
+            <option value="es">Español</option>
+          </Select>
 
           <Select
             label={translate('client_detail', 'billing_mode')}
