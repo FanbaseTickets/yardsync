@@ -27,7 +27,7 @@ const LANGUAGE_OPTIONS = [
 
 export default function SettingsPage() {
   const { user, profile, refreshProfile } = useAuth()
-  const { translate } = useLang()
+  const { translate, lang } = useLang()
 
   const [form,    setForm]    = useState({
     name:           '',
