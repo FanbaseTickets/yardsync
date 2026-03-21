@@ -37,7 +37,7 @@ export async function POST(request) {
       }
     }
 
-    console.log('YardSync → Square invoice request:', { clientName, clientEmail, totalCents })
+    console.log('YardSync → Square invoice request:', { clientId, totalCents })
 
     // ── STEP 1: Find or create Square customer ──────────────────────────────
     let squareCustomerId = null

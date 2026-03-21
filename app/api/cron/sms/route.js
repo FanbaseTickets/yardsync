@@ -113,7 +113,7 @@ export async function GET(request) {
               twilioSmsSid: data.sid,
             })
             results.sent++
-            console.log(`SMS sent → ${client.name} (${to}) for ${schedule.serviceDate}`)
+            console.log(`SMS sent → clientId:${schedule.clientId} date:${schedule.serviceDate}`)
           } else {
             console.error(`Twilio error for ${client.name}:`, data)
             results.errors++
@@ -182,7 +182,7 @@ export async function GET(request) {
         const data = await res.json()
         if (data.sid) {
           summaryResults.sent++
-          console.log(`Job summary sent → ${gardener.name} (${to}) — ${jobCount} jobs`)
+          console.log(`Job summary sent → uid:${gardener.id} jobs:${jobCount}`)
         } else {
           console.error(`Summary error for ${gardener.name}:`, data)
           summaryResults.errors++
