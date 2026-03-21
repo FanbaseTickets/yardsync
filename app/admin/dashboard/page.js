@@ -4,15 +4,14 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { formatCents } from '@/lib/fee'
-import { collection, getDocs } from 'firebase/firestore'
+import { collection, getDocs, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import {
   Shield, LogOut, Users, DollarSign,
   TrendingUp, AlertCircle, RefreshCw,
-  ChevronDown, ChevronUp
+  ChevronDown, ChevronUp, CheckCircle, Plus, Calendar
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-
 import { fmt as format } from '@/lib/date'
 
 export default function AdminDashboard() {
@@ -34,6 +33,11 @@ export default function AdminDashboard() {
     }
     loadData()
   }, [user, loading])
+
+  const [actionModal,    setActionModal]    = useState(null)
+  const [actionGardener, setActionGardener] = useState(null)
+  const [actionForm,     setActionForm]     = useState({})
+  const [actionLoading,  setActionLoading]  = useState(false)
 
   async function loadData() {
     setDataLoading(true)
@@ -81,6 +85,20 @@ export default function AdminDashboard() {
           return acc
         }, { fees: 0, gardener: 0, total: 0 })
 
+        const quarters = [0,1,2,3].map(q => {
+          const qStart = new Date(now.getFullYear(), q * 3, 1)
+          const qEnd   = new Date(now.getFullYear(), q * 3 + 3, 0)
+          const qInvs  = gInvoices.filter(inv => {
+            const d2 = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
+            return d2 >= qStart && d2 <= qEnd
+          })
+          const fees = qInvs.reduce((s, inv) => {
+            const feeLines = inv.lineItems?.filter(l => l.category === 'fee') || []
+            return s + feeLines.reduce((fs, l) => fs + (l.amountCents || 0), 0)
+          }, 0)
+          return { label: `Q${q+1} ${now.getFullYear()}`, fees, invoices: qInvs.length }
+        })
+
         const recentInvoices = [...gInvoices]
           .sort((a, b) => {
             const da  = a.createdAt?.toDate?.() || new Date(a.createdAt)
@@ -93,8 +111,11 @@ export default function AdminDashboard() {
           ...g,
           invoiceCount:  gInvoices.length,
           activeClients: gClients.filter(c => c.status === 'active').length,
+          allClients:    gClients,
+          allInvoices:   gInvoices,
           allTime:       allTimeTotals,
           thisMonth:     thisMonthTotals,
+          quarters,
           recentInvoices,
         }
       })
@@ -105,6 +126,54 @@ export default function AdminDashboard() {
       toast.error('Could not load admin data')
     } finally {
       setDataLoading(false)
+    }
+  }
+
+  async function handleMarkPaid(invoiceId) {
+    try {
+      await updateDoc(doc(db, 'invoices', invoiceId), {
+        status: 'paid', updatedAt: new Date().toISOString(),
+      })
+      toast.success('Invoice marked as paid')
+      loadData()
+    } catch (err) {
+      toast.error('Failed to mark paid')
+    }
+  }
+
+  async function handleAddClient() {
+    if (!actionForm.name || !actionForm.phone) { toast.error('Name and phone are required'); return }
+    setActionLoading(true)
+    try {
+      await addDoc(collection(db, 'clients'), {
+        ...actionForm, gardenerUid: actionGardener.id, status: 'active',
+        createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+      })
+      toast.success(`Client added for ${actionGardener.name}`)
+      setActionModal(null); setActionForm({}); loadData()
+    } catch (err) {
+      toast.error('Failed to add client')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  async function handleAddSchedule() {
+    if (!actionForm.clientName || !actionForm.serviceDate) { toast.error('Client name and date are required'); return }
+    setActionLoading(true)
+    try {
+      await addDoc(collection(db, 'schedules'), {
+        ...actionForm, gardenerUid: actionGardener.id,
+        status: 'scheduled', smsSent: false,
+        isWalkIn: !actionForm.clientId, isRecurring: false,
+        createdAt: serverTimestamp(),
+      })
+      toast.success(`Schedule added for ${actionGardener.name}`)
+      setActionModal(null); setActionForm({}); loadData()
+    } catch (err) {
+      toast.error('Failed to add schedule')
+    } finally {
+      setActionLoading(false)
     }
   }
 
@@ -287,6 +356,20 @@ export default function AdminDashboard() {
                               <p className="text-[11px] text-gray-400">Total invoices</p>
                             </div>
                           </div>
+
+                          <div className="mb-4">
+                            <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">Quarterly Fee Breakdown</p>
+                            <div className="grid grid-cols-4 gap-2">
+                              {g.quarters.map(q => (
+                                <div key={q.label} className="bg-gray-800 rounded-xl p-3 text-center">
+                                  <p className="text-[11px] text-gray-500 mb-1">{q.label}</p>
+                                  <p className="text-[14px] font-bold text-brand-400">{formatCents(q.fees)}</p>
+                                  <p className="text-[10px] text-gray-600 mt-0.5">{q.invoices} inv</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
                           <div className="mb-4">
                             <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">Contact</p>
                             <p className="text-[13px] text-gray-300">{g.email}</p>
@@ -297,6 +380,22 @@ export default function AdminDashboard() {
                               </p>
                             )}
                           </div>
+
+                          <div className="mb-4 grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => { setActionGardener(g); setActionForm({}); setActionModal('addClient') }}
+                              className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white text-[13px] font-medium rounded-xl px-4 py-3 transition-colors"
+                            >
+                              <Plus size={14} /> Add Client
+                            </button>
+                            <button
+                              onClick={() => { setActionGardener(g); setActionForm({}); setActionModal('addSchedule') }}
+                              className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white text-[13px] font-medium rounded-xl px-4 py-3 transition-colors"
+                            >
+                              <Calendar size={14} /> Add Schedule
+                            </button>
+                          </div>
+
                           {g.recentInvoices.length > 0 && (
                             <div>
                               <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">Recent invoices</p>
@@ -311,7 +410,19 @@ export default function AdminDashboard() {
                                     <div key={inv.id} className="bg-gray-800 rounded-xl px-4 py-3">
                                       <div className="flex items-center justify-between mb-1.5">
                                         <p className="text-[13px] text-white font-medium">{inv.clientName}</p>
-                                        <p className="text-[12px] text-gray-400">{format(invDate, 'MMM d, yyyy')}</p>
+                                        <div className="flex items-center gap-2">
+                                          <p className="text-[12px] text-gray-400">{format(invDate, 'MMM d, yyyy')}</p>
+                                          {inv.status !== 'paid' ? (
+                                            <button
+                                              onClick={() => handleMarkPaid(inv.id)}
+                                              className="flex items-center gap-1 bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-medium rounded-lg px-2 py-1 transition-colors"
+                                            >
+                                              <CheckCircle size={11} /> Mark paid
+                                            </button>
+                                          ) : (
+                                            <span className="text-[11px] text-green-400 font-medium">✓ Paid</span>
+                                          )}
+                                        </div>
                                       </div>
                                       <div className="flex items-center gap-4">
                                         <div>
@@ -344,5 +455,51 @@ export default function AdminDashboard() {
 
       </div>
     </div>
+
+      {actionModal === 'addClient' && actionGardener && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md p-6">
+            <p className="text-[16px] font-semibold text-white mb-1">Add Client</p>
+            <p className="text-[12px] text-gray-400 mb-4">For {actionGardener.name || actionGardener.email}</p>
+            <div className="space-y-3">
+              <input placeholder="Client name *" value={actionForm.name || ''} onChange={e => setActionForm(f => ({...f, name: e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-[14px] text-white placeholder-gray-500 focus:outline-none focus:border-brand-500" />
+              <input placeholder="Phone *" value={actionForm.phone || ''} onChange={e => setActionForm(f => ({...f, phone: e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-[14px] text-white placeholder-gray-500 focus:outline-none focus:border-brand-500" />
+              <input placeholder="Email" value={actionForm.email || ''} onChange={e => setActionForm(f => ({...f, email: e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-[14px] text-white placeholder-gray-500 focus:outline-none focus:border-brand-500" />
+              <input placeholder="Address" value={actionForm.address || ''} onChange={e => setActionForm(f => ({...f, address: e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-[14px] text-white placeholder-gray-500 focus:outline-none focus:border-brand-500" />
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => { setActionModal(null); setActionForm({}) }} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white text-[14px] font-medium rounded-xl py-3 transition-colors">Cancel</button>
+              <button onClick={handleAddClient} disabled={actionLoading} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-[14px] font-medium rounded-xl py-3 transition-colors disabled:opacity-50">{actionLoading ? 'Adding...' : 'Add Client'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {actionModal === 'addSchedule' && actionGardener && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md p-6">
+            <p className="text-[16px] font-semibold text-white mb-1">Add Schedule</p>
+            <p className="text-[12px] text-gray-400 mb-4">For {actionGardener.name || actionGardener.email}</p>
+            <div className="space-y-3">
+              <select value={actionForm.clientId || ''} onChange={e => {
+                const c = actionGardener.allClients.find(c => c.id === e.target.value)
+                setActionForm(f => ({...f, clientId: e.target.value, clientName: c?.name || '', clientPhone: c?.phone || ''}))
+              }} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-[14px] text-white focus:outline-none focus:border-brand-500">
+                <option value="">Select client (or walk-in)</option>
+                {actionGardener.allClients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              {!actionForm.clientId && (
+                <input placeholder="Walk-in name *" value={actionForm.clientName || ''} onChange={e => setActionForm(f => ({...f, clientName: e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-[14px] text-white placeholder-gray-500 focus:outline-none focus:border-brand-500" />
+              )}
+              <input type="date" value={actionForm.serviceDate || ''} onChange={e => setActionForm(f => ({...f, serviceDate: e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-[14px] text-white focus:outline-none focus:border-brand-500" />
+              <input placeholder="Time (e.g. 9:00 AM)" value={actionForm.time || ''} onChange={e => setActionForm(f => ({...f, time: e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-[14px] text-white placeholder-gray-500 focus:outline-none focus:border-brand-500" />
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => { setActionModal(null); setActionForm({}) }} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white text-[14px] font-medium rounded-xl py-3 transition-colors">Cancel</button>
+              <button onClick={handleAddSchedule} disabled={actionLoading} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-[14px] font-medium rounded-xl py-3 transition-colors disabled:opacity-50">{actionLoading ? 'Adding...' : 'Add Schedule'}</button>
+            </div>
+          </div>
+        </div>
+      )}
   )
 }

@@ -8,8 +8,9 @@ import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Input, Select } from '@/components/ui'
-import { saveGardenerProfile } from '@/lib/db'
-import { Bell, Globe, User, Clock } from 'lucide-react'
+import { saveGardenerProfile, getInvoices } from '@/lib/db'
+import { formatCents } from '@/lib/fee'
+import { Bell, Globe, User, Clock, BarChart2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const REMINDER_OPTIONS = [
@@ -28,6 +29,39 @@ const LANGUAGE_OPTIONS = [
 export default function SettingsPage() {
   const { user, profile, refreshProfile } = useAuth()
   const { translate, lang } = useLang()
+  const [quarterlyFees, setQuarterlyFees] = useState([])
+  const [feesLoading,   setFeesLoading]   = useState(false)
+
+  useEffect(() => {
+    if (user) loadQuarterlyFees()
+  }, [user])
+
+  async function loadQuarterlyFees() {
+    setFeesLoading(true)
+    try {
+      const invoices = await getInvoices(user.uid)
+      const now      = new Date()
+      const quarters = [0,1,2,3].map(q => {
+        const qStart = new Date(now.getFullYear(), q * 3, 1)
+        const qEnd   = new Date(now.getFullYear(), q * 3 + 3, 0)
+        const qInvs  = invoices.filter(inv => {
+          if (inv.status !== 'paid') return false
+          const d = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
+          return d >= qStart && d <= qEnd
+        })
+        const fees = qInvs.reduce((s, inv) => {
+          const feeLines = inv.lineItems?.filter(l => l.category === 'fee') || []
+          return s + feeLines.reduce((fs, l) => fs + (l.amountCents || 0), 0)
+        }, 0)
+        return { label: `Q${q+1}`, fees, invoices: qInvs.length }
+      })
+      setQuarterlyFees(quarters)
+    } catch (err) {
+      console.error('Failed to load quarterly fees:', err)
+    } finally {
+      setFeesLoading(false)
+    }
+  }
 
   const [form,    setForm]    = useState({
     name:           '',
@@ -246,6 +280,45 @@ export default function SettingsPage() {
                   <span className="text-brand-800 font-medium">+10%</span>
                 </div>
               </div>
+            </Card>
+          </section>
+
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <BarChart2 size={14} className="text-brand-600" />
+              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                {lang === 'es' ? 'Tarifas Trimestrales' : 'Quarterly Platform Fees'}
+              </p>
+            </div>
+            <Card>
+              <p className="text-[13px] font-medium text-gray-800 mb-1">
+                {lang === 'es' ? 'Tarifas de plataforma cobradas este año' : 'Platform fees charged this year'}
+              </p>
+              <p className="text-[12px] text-gray-500 mb-3">
+                {lang === 'es'
+                  ? 'Estas tarifas se incluyen automáticamente en cada factura enviada a tus clientes.'
+                  : 'These fees are automatically included in each invoice sent to your clients.'}
+              </p>
+              {feesLoading ? (
+                <div className="grid grid-cols-4 gap-2">
+                  {[0,1,2,3].map(i => <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />)}
+                </div>
+              ) : (
+                <div className="grid grid-cols-4 gap-2">
+                  {quarterlyFees.map(q => (
+                    <div key={q.label} className="bg-brand-50 border border-brand-100 rounded-xl p-3 text-center">
+                      <p className="text-[11px] text-brand-600 font-medium mb-1">{q.label}</p>
+                      <p className="text-[15px] font-bold text-brand-800">{formatCents(q.fees)}</p>
+                      <p className="text-[10px] text-brand-500 mt-0.5">{q.invoices} {lang === 'es' ? 'fact.' : 'inv.'}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-[11px] text-gray-400 mt-3">
+                {lang === 'es'
+                  ? '📲 Recibirás un resumen trimestral por SMS cada 3 meses.'
+                  : '📲 You will receive a quarterly summary SMS every 3 months.'}
+              </p>
             </Card>
           </section>
 
