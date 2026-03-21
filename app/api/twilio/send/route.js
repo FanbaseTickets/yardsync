@@ -7,7 +7,7 @@ const TWILIO_FROM   = process.env.TWILIO_PHONE_NUMBER
 
 export async function POST(request) {
   try {
-    const { scheduleId, clientId, message } = await request.json()
+    const { scheduleId, clientId, clientPhone, message } = await request.json()
 
     if (!TWILIO_SID || !TWILIO_TOKEN || !TWILIO_FROM) {
       return NextResponse.json(
@@ -16,25 +16,19 @@ export async function POST(request) {
       )
     }
 
-    // ── STEP 1: Get client phone number ─────────────────────────────────────
-    const client = await getClient(clientId)
-
-    if (!client?.phone) {
+    // ── STEP 1: Normalize phone from request body — no Firestore lookup needed
+    if (!clientPhone) {
       return NextResponse.json(
         { error: 'Client has no phone number on file' },
         { status: 400 }
       )
     }
 
-    // Normalize phone — strip non-digits and ensure +1 prefix
-    const digits = client.phone.replace(/\D/g, '')
+    const digits = clientPhone.replace(/\D/g, '')
     if (digits.length < 10) {
       return NextResponse.json({ error: 'Invalid phone number — must be 10 digits' }, { status: 400 })
     }
     const to = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
-
-    console.log(`YardSync → Twilio SMS: ${to}`)
-    console.log(`Message: ${message}`)
 
     // ── STEP 2: Send SMS via Twilio REST API ─────────────────────────────────
     const body = new URLSearchParams({
