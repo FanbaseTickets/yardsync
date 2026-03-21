@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getClient, updateSchedule } from '@/lib/db'
+import { updateSchedule } from '@/lib/db'
 
 const TWILIO_SID    = process.env.TWILIO_ACCOUNT_SID
 const TWILIO_TOKEN  = process.env.TWILIO_AUTH_TOKEN
