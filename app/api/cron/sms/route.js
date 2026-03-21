@@ -12,6 +12,7 @@ function addDaysToDate(date, days) {
   return result
 }
 
+// @deprecated — use lib/date.js formatDate()
 function formatDate(date) {
   return date.toISOString().split('T')[0]
 }

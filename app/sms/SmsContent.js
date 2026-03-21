@@ -13,6 +13,7 @@ import { getSchedulesFromToday } from '@/lib/db'
 import { MessageSquare, CheckCircle2, Clock, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
 
+// @deprecated — use lib/date.js fmt()
 function format(date, str) {
   const d      = new Date(date)
   const pad    = n => String(n).padStart(2, '0')

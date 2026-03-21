@@ -14,6 +14,7 @@ import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 
+// @deprecated — use lib/date.js fmt()
 function format(date, str) {
   const d      = new Date(date)
   const pad    = n => String(n).padStart(2, '0')

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
+// @deprecated — use lib/date.js fmt()
 function fmt(date, str) {
   const d = new Date(date)
   const pad = n => String(n).padStart(2, '0')
