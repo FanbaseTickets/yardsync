@@ -11,6 +11,7 @@ import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, EmptyState, Skeleton, Modal, Input, Select } from '@/components/ui'
 import { getClients, addClient, getServices } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
+import { validatePhone, formatPhone } from '@/lib/phone'
 import { Users, Plus, Search, MapPin, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
@@ -69,22 +70,6 @@ const DEFAULT_FORM = {
   billingMode: 'upfront',
   notes:       '',
   language:    'en',
-}
-
-function validatePhone(phone) {
-  const digits = phone.replace(/\D/g, '')
-  return digits.length >= 10
-}
-
-function formatPhone(phone) {
-  const digits = phone.replace(/\D/g, '')
-  if (digits.length === 10) {
-    return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`
-  }
-  if (digits.length === 11 && digits[0] === '1') {
-    return `(${digits.slice(1,4)}) ${digits.slice(4,7)}-${digits.slice(7)}`
-  }
-  return phone
 }
 
 export default function ClientsPage() {

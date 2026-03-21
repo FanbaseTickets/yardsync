@@ -11,6 +11,7 @@ import { Card, Button, Badge, Modal, Select, EmptyState, Skeleton, Input } from 
 import { getClients, getSchedules, addSchedule, updateSchedule, deleteSchedule, getServices } from '@/lib/db'
 import { deleteAllClientSchedules } from '@/lib/db'
 import { formatCents, buildInvoiceLineItems } from '@/lib/fee'
+import { validatePhone, formatPhone } from '@/lib/phone'
 import {
   ChevronLeft, ChevronRight, Plus, CalendarDays,
   Trash2, CheckCircle2, RefreshCw, AlertTriangle, Zap, DollarSign
@@ -68,16 +69,6 @@ const OCCURRENCE_OPTIONS = [
   { value: '52', label: '52' },
 ]
 
-function validatePhone(phone) {
-  return phone.replace(/\D/g, '').length >= 10
-}
-
-function formatPhone(phone) {
-  const d = phone.replace(/\D/g, '')
-  if (d.length === 10) return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`
-  if (d.length === 11 && d[0] === '1') return `(${d.slice(1,4)}) ${d.slice(4,7)}-${d.slice(7)}`
-  return phone
-}
 
 function generateOccurrences(startDate, recurrence, count) {
   const dates = [startDate]
@@ -371,7 +362,7 @@ export default function CalendarPage() {
       const res = await fetch('/api/square/invoice', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clientId: null, lineItems, totalCents,
+          clientId: null, gardenerUid: user.uid, lineItems, totalCents,
           clientName:  walkInInvoiceTarget.clientName,
           clientEmail: walkInInvoiceTarget.clientEmail || '',
           clientPhone: walkInInvoiceTarget.clientPhone || '',

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getClient } from '@/lib/db'
 
 const SQUARE_BASE_URL    = 'https://connect.squareupsandbox.com'
 const SQUARE_TOKEN       = process.env.SQUARE_ACCESS_TOKEN
@@ -20,12 +21,21 @@ export async function POST(request) {
   try {
     const {
       clientId,
+      gardenerUid,
       clientName,
       clientEmail,
       clientPhone,
       lineItems,
       totalCents,
     } = await request.json()
+
+    // Verify client ownership — skip for walk-ins (clientId is null)
+    if (clientId && gardenerUid) {
+      const clientDoc = await getClient(clientId)
+      if (!clientDoc || clientDoc.gardenerUid !== gardenerUid) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      }
+    }
 
     console.log('YardSync → Square invoice request:', { clientName, clientEmail, totalCents })
 

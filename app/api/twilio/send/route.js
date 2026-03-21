@@ -28,6 +28,9 @@ export async function POST(request) {
 
     // Normalize phone — strip non-digits and ensure +1 prefix
     const digits = client.phone.replace(/\D/g, '')
+    if (digits.length < 10) {
+      return NextResponse.json({ error: 'Invalid phone number — must be 10 digits' }, { status: 400 })
+    }
     const to = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
 
     console.log(`YardSync → Twilio SMS: ${to}`)

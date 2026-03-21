@@ -31,7 +31,10 @@ export async function GET(request) {
     const today   = formatDate(new Date())
     const results = { sent: 0, skipped: 0, errors: 0 }
 
-    const usersSnap   = await getDocs(collection(db, 'users'))
+    const usersSnap   = await getDocs(query(
+      collection(db, 'users'),
+      where('subscriptionStatus', '==', 'active')
+    ))
     const clientsSnap = await getDocs(collection(db, 'clients'))
     const allClients  = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
 
@@ -83,6 +86,7 @@ export async function GET(request) {
           .replace('{business}', gardener.businessName || 'YardSync')
 
         const digits = client.phone.replace(/\D/g, '')
+        if (digits.length < 10) { results.skipped++; continue }
         const to     = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
 
         try {
@@ -158,6 +162,7 @@ export async function GET(request) {
         : `Good morning ${firstName}! You have ${jobCount} job${jobCount !== 1 ? 's' : ''} today: ${jobList}. — YardSync`
 
       const digits = gardener.phone.replace(/\D/g, '')
+      if (digits.length < 10) { summaryResults.skipped++; continue }
       const to     = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
 
       try {

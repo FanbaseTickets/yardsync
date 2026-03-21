@@ -231,6 +231,7 @@ async function handleSendInvoice() {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
         clientId:    id,
+        gardenerUid: user.uid,
         lineItems,
         totalCents,
         clientName:  client.name,
