@@ -75,6 +75,11 @@ export function AuthProvider({ children }) {
       await saveGardenerProfile(cred.user.uid, profileData)
       setProfile(profileData)
     } else {
+      // If existing profile has no name, pull it from Google
+      if (!existing.name && cred.user.displayName) {
+        await saveGardenerProfile(cred.user.uid, { name: cred.user.displayName })
+        existing.name = cred.user.displayName
+      }
       setProfile(existing)
     }
 
