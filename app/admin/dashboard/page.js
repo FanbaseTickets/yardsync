@@ -13,22 +13,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-// @deprecated — use lib/date.js fmt()
-function format(date, str) {
-  const d      = new Date(date)
-  const pad    = n => String(n).padStart(2, '0')
-  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
-  const MONTHS3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-  const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
-  return str
-    .replace('yyyy', d.getFullYear())
-    .replace('MM',   pad(d.getMonth() + 1))
-    .replace('MMMM', MONTHS[d.getMonth()])
-    .replace('MMM',  MONTHS3[d.getMonth()])
-    .replace('EEEE', DAYS[d.getDay()])
-    .replace('dd',   pad(d.getDate()))
-    .replace(/(?<!\d)d(?!\d)/, d.getDate())
-}
+import { fmt as format } from '@/lib/date'
 
 export default function AdminDashboard() {
   const { user, loading, signOut } = useAuth()

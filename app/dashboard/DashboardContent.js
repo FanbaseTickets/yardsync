@@ -14,20 +14,7 @@ import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-// @deprecated — use lib/date.js fmt()
-function format(date, str) {
-  const d      = new Date(date)
-  const pad    = n => String(n).padStart(2, '0')
-  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
-  const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
-  return str
-    .replace('MMMM', MONTHS[d.getMonth()])
-    .replace('EEEE', DAYS[d.getDay()])
-    .replace('yyyy', d.getFullYear())
-    .replace('MM',   pad(d.getMonth() + 1))
-    .replace('dd',   pad(d.getDate()))
-    .replace(/\bd\b/, d.getDate())
-}
+import { fmt as format } from '@/lib/date'
 
 export default function DashboardPage() {
   const { user, profile, signOut, refreshProfile } = useAuth()

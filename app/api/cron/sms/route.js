@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { formatDate, formatDateReadable } from '@/lib/date'
 import { collection, getDocs, query, where, doc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 
@@ -12,15 +13,6 @@ function addDaysToDate(date, days) {
   return result
 }
 
-// @deprecated — use lib/date.js formatDate()
-function formatDate(date) {
-  return date.toISOString().split('T')[0]
-}
-
-function formatDateReadable(dateStr) {
-  const d = new Date(dateStr + 'T12:00:00')
-  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-}
 
 export async function GET(request) {
   const authHeader = request.headers.get('authorization')

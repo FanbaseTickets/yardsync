@@ -18,24 +18,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-// @deprecated — use lib/date.js fmt()
-function fmt(date, str) {
-  const d = new Date(date)
-  const pad = n => String(n).padStart(2, '0')
-  const MONTHS  = ['January','February','March','April','May','June','July','August','September','October','November','December']
-  const MONTHS3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-  const DAYS    = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
-  const DAYS3   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
-  return str
-    .replace('MMMM',  MONTHS[d.getMonth()])
-    .replace('MMM',   MONTHS3[d.getMonth()])
-    .replace('EEEE',  DAYS[d.getDay()])
-    .replace('EEE',   DAYS3[d.getDay()])
-    .replace('yyyy',  d.getFullYear())
-    .replace('MM',    pad(d.getMonth() + 1))
-    .replace('dd',    pad(d.getDate()))
-    .replace(/\bd\b/, d.getDate())
-}
+import { fmt } from '@/lib/date'
 function startOfMonth(date)  { return new Date(date.getFullYear(), date.getMonth(), 1) }
 function endOfMonth(date)    { return new Date(date.getFullYear(), date.getMonth() + 1, 0) }
 function eachDayOfInterval({ start, end }) {

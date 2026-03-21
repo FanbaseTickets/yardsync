@@ -29,7 +29,7 @@ export default function LoginPage() {
     if (!email)                               e.email    = 'Email is required'
     else if (!email.includes('@'))            e.email    = 'Enter a valid email'
     if (mode !== 'reset' && !password)        e.password = 'Password is required'
-    if (mode !== 'reset' && password.length < 6) e.password = 'Min 6 characters'
+    if (mode !== 'reset' && password.length < 8) e.password = 'Min 8 characters'
     if (mode === 'signup' && !name)           e.name     = 'Your name is required'
     if (mode === 'signup' && !bizName)        e.bizName  = 'Business name is required'
     setErrors(e)
