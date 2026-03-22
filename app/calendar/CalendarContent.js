@@ -200,6 +200,7 @@ export default function CalendarPage() {
   const [materialsTarget, setMaterialsTarget] = useState(null)
   const [materialsRows,   setMaterialsRows]   = useState([])
   const [materialsSaving, setMaterialsSaving] = useState(false)
+  const [matDisplay,      setMatDisplay]      = useState({})
 
   const monthStart = startOfMonth(currentDate)
   const monthEnd   = endOfMonth(currentDate)
@@ -407,14 +408,21 @@ export default function CalendarPage() {
 
   function openMaterials(schedule) {
     setMaterialsTarget(schedule)
-    setMaterialsRows(schedule.materials?.length > 0
+    const rows = schedule.materials?.length > 0
       ? schedule.materials.map(m => ({ ...m }))
       : [{ id: Date.now().toString(), name: '', qty: 1, unitCostCents: 0, totalCents: 0 }]
-    )
+    setMaterialsRows(rows)
+    const display = {}
+    rows.forEach(r => {
+      display[r.id] = { qty: String(r.qty || 1), cost: ((r.unitCostCents || 0) / 100).toFixed(2) }
+    })
+    setMatDisplay(display)
   }
 
   function addMaterialRow() {
-    setMaterialsRows(prev => [...prev, { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, name: '', qty: 1, unitCostCents: 0, totalCents: 0 }])
+    const newId = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    setMaterialsRows(prev => [...prev, { id: newId, name: '', qty: 1, unitCostCents: 0, totalCents: 0 }])
+    setMatDisplay(prev => ({ ...prev, [newId]: { qty: '1', cost: '0.00' } }))
   }
 
   function updateMaterialRow(id, field, value) {
@@ -828,19 +836,34 @@ export default function CalendarPage() {
                 <div className="grid grid-cols-3 gap-2">
                   <Input
                     label={translate('materials', 'qty')}
-                    type="number"
-                    min="1"
-                    value={row.qty}
-                    onChange={e => updateMaterialRow(row.id, 'qty', parseInt(e.target.value) || 0)}
+                    type="text"
+                    inputMode="numeric"
+                    value={matDisplay[row.id]?.qty ?? String(row.qty || 1)}
+                    onChange={e => {
+                      const val = e.target.value.replace(/[^0-9]/g, '')
+                      setMatDisplay(prev => ({ ...prev, [row.id]: { ...prev[row.id], qty: val } }))
+                    }}
+                    onBlur={() => {
+                      const parsed = Math.max(1, parseInt(matDisplay[row.id]?.qty) || 1)
+                      setMatDisplay(prev => ({ ...prev, [row.id]: { ...prev[row.id], qty: String(parsed) } }))
+                      updateMaterialRow(row.id, 'qty', parsed)
+                    }}
                     onWheel={e => e.target.blur()}
                   />
                   <Input
                     label={translate('materials', 'unitCost')}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={(row.unitCostCents / 100).toFixed(2)}
-                    onChange={e => updateMaterialRow(row.id, 'unitCostCents', Math.round(parseFloat(e.target.value || 0) * 100))}
+                    type="text"
+                    inputMode="decimal"
+                    value={matDisplay[row.id]?.cost ?? ((row.unitCostCents || 0) / 100).toFixed(2)}
+                    onChange={e => {
+                      const val = e.target.value.replace(/[^0-9.]/g, '')
+                      setMatDisplay(prev => ({ ...prev, [row.id]: { ...prev[row.id], cost: val } }))
+                    }}
+                    onBlur={() => {
+                      const parsed = Math.max(0, parseFloat(matDisplay[row.id]?.cost) || 0)
+                      setMatDisplay(prev => ({ ...prev, [row.id]: { ...prev[row.id], cost: parsed.toFixed(2) } }))
+                      updateMaterialRow(row.id, 'unitCostCents', Math.round(parsed * 100))
+                    }}
                     onWheel={e => e.target.blur()}
                   />
                   <div>
