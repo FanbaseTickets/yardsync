@@ -85,7 +85,15 @@ export async function GET(request) {
         const to     = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
 
         try {
-          const body = new URLSearchParams({ To: to, From: TWILIO_FROM, Body: message })
+          // Append calendar link for the client to add to their phone calendar
+          const appUrl  = process.env.NEXT_PUBLIC_APP_URL || 'https://yardsync.vercel.app'
+          const calUrl  = `${appUrl}/api/ical/${schedule.clientId}?scheduleId=${schedule.id}`
+          const calLine = clientLang === 'es'
+            ? `\n📅 Agregar al calendario: ${calUrl}`
+            : `\n📅 Add to calendar: ${calUrl}`
+          const finalMsg = message + calLine
+
+          const body = new URLSearchParams({ To: to, From: TWILIO_FROM, Body: finalMsg })
           const res  = await fetch(
             `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`,
             {

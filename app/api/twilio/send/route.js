@@ -6,7 +6,7 @@ const TWILIO_FROM   = process.env.TWILIO_PHONE_NUMBER
 
 export async function POST(request) {
   try {
-    const { scheduleId, clientId, clientPhone, message } = await request.json()
+    const { scheduleId, clientId, clientPhone, message, language } = await request.json()
 
     if (!TWILIO_SID || !TWILIO_TOKEN || !TWILIO_FROM) {
       return NextResponse.json(
@@ -29,11 +29,19 @@ export async function POST(request) {
     }
     const to = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
 
-    // ── STEP 2: Send SMS via Twilio REST API ─────────────────────────────────
+    // ── STEP 2: Append calendar link if this is a scheduled visit ──────────
+    let finalMessage = message
+    if (scheduleId && clientId) {
+      const calUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://yardsync.vercel.app'}/api/ical/${clientId}?scheduleId=${scheduleId}`
+      const calLabel = language === 'es' ? 'Agregar al calendario' : 'Add to calendar'
+      finalMessage += `\n📅 ${calLabel}: ${calUrl}`
+    }
+
+    // ── STEP 3: Send SMS via Twilio REST API ─────────────────────────────────
     const body = new URLSearchParams({
       To:   to,
       From: TWILIO_FROM,
-      Body: message,
+      Body: finalMessage,
     })
 
     const twilioRes = await fetch(

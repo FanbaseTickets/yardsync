@@ -7,8 +7,7 @@ import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, Skeleton, Modal, Input, Select } from '@/components/ui'
-import { getClient, updateClient, deleteClient, getClientInvoices, getServices, saveInvoice, getMostRecentSchedule, getSchedules } from '@/lib/db'
-import { buildICalString, downloadICalFile } from '@/lib/ical'
+import { getClient, updateClient, deleteClient, getClientInvoices, getServices, saveInvoice, getMostRecentSchedule } from '@/lib/db'
 import { formatCents, getPackageFee, getFeeDescription, buildInvoiceLineItems, getAddonFee } from '@/lib/fee'
 import { Phone, MapPin, Mail, CalendarDays, DollarSign, Pencil, FileText, CheckCircle2, RefreshCw } from 'lucide-react'
 import PhoneInput from '@/components/ui/PhoneInput'
@@ -422,29 +421,6 @@ async function handleSendInvoice() {
                   <p className="text-[13px] text-gray-500 italic">{client.notes}</p>
                 </div>
               )}
-              <button
-                onClick={async () => {
-                  try {
-                    const scheds = await getSchedules(user.uid, '2020-01-01', '2030-12-31')
-                    const clientScheds = scheds.filter(s => s.clientId === id && s.status === 'scheduled')
-                    if (clientScheds.length === 0) {
-                      toast.error(lang === 'es' ? 'No hay visitas programadas' : 'No scheduled visits to export')
-                      return
-                    }
-                    const calName = `${profile?.businessName || 'YardSync'} — ${client.name}`
-                    const ical = buildICalString({ calendarName: calName, client, schedules: clientScheds })
-                    const safeName = client.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
-                    downloadICalFile(ical, `yardsync-${safeName}.ics`)
-                    toast.success(lang === 'es' ? 'Calendario descargado' : 'Calendar file downloaded')
-                  } catch {
-                    toast.error(lang === 'es' ? 'No se pudo generar el archivo' : 'Could not generate calendar file. Try again.')
-                  }
-                }}
-                className="flex items-center gap-2 text-[13px] text-brand-600 font-medium hover:underline pt-1 border-t border-gray-100"
-              >
-                <CalendarDays size={14} />
-                {translate('calendar_extra', 'add_calendar')}
-              </button>
             </div>
           </Card>
 
