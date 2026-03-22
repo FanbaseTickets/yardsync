@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { formatDate, formatDateReadable } from '@/lib/date'
+import { formatDate } from '@/lib/date'
+import { formatDateForSMS } from '@/lib/i18n'
 import { collection, getDocs, query, where, doc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 
@@ -71,7 +72,8 @@ export async function GET(request) {
         if (!client?.phone) { results.skipped++; continue }
 
         const firstName     = client.name?.split(' ')[0] || client.name
-        const dateFormatted = formatDateReadable(schedule.serviceDate)
+        const clientLang    = client.language || 'en'
+        const dateFormatted = formatDateForSMS(schedule.serviceDate, clientLang)
         const message       = template
           .replace('{name}',     firstName)
           .replace('{date}',     dateFormatted)

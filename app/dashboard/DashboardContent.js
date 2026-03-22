@@ -15,10 +15,11 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import { fmt as format } from '@/lib/date'
+import { formatDateLocalized } from '@/lib/i18n'
 
 export default function DashboardPage() {
   const { user, profile, signOut, refreshProfile } = useAuth()
-  const { translate } = useLang()
+  const { translate, lang } = useLang()
   const router       = useRouter()
   const searchParams = useSearchParams()
 
@@ -31,7 +32,7 @@ export default function DashboardPage() {
   const [completing,    setCompleting]    = useState(null)
 
   const todayStr    = format(new Date(), 'yyyy-MM-dd')
-  const displayDate = format(new Date(), 'EEEE, MMMM d')
+  const displayDate = formatDateLocalized(new Date(), 'EEEE, MMMM d', lang)
   const hour        = new Date().getHours()
   const greeting    = hour < 12
     ? translate('dashboard', 'greeting_morning')
@@ -107,7 +108,7 @@ export default function DashboardPage() {
     }
   }
 
-  const activeClients    = clients.filter(c => c.status === 'active').length
+  const activeClients    = clients.filter(c => c.status === 'active' && c.gardenerUid === user.uid).length
   const completedToday   = todayJobs.filter(j => j.status === 'completed').length
   const thisMonthRevenue = invoices
     .filter(inv => {
@@ -165,14 +166,16 @@ export default function DashboardPage() {
           {/* Onboarding Checklist */}
           {!loading && !profile?.onboardingComplete && (() => {
             const steps = [
-              { key: 'step_card',     done: !!profile?.cardLast4,        href: '/settings', icon: CreditCard },
-              { key: 'step_square',   done: !!profile?.squareConnected,  href: '/settings', icon: Link2 },
-              { key: 'step_service',  done: services.length > 0,         href: '/services', icon: Package },
-              { key: 'step_client',   done: clients.length > 0,          href: '/clients',  icon: UserPlus },
-              { key: 'step_schedule', done: allSchedules.length > 0,     href: '/calendar', icon: CalendarPlus },
+              { key: 'step_card',     done: !!profile?.cardLast4,        href: '/settings', icon: CreditCard,   optional: false },
+              { key: 'step_square',   done: !!profile?.squareConnected,  href: '/settings', icon: Link2,        optional: true },
+              { key: 'step_service',  done: services.length > 0,         href: '/services', icon: Package,      optional: false },
+              { key: 'step_client',   done: clients.length > 0,          href: '/clients',  icon: UserPlus,     optional: false },
+              { key: 'step_schedule', done: allSchedules.length > 0,     href: '/calendar', icon: CalendarPlus, optional: false },
             ]
-            const completed = steps.filter(s => s.done).length
-            const allDone   = completed === steps.length
+            const completed     = steps.filter(s => s.done).length
+            const requiredSteps = steps.filter(s => !s.optional)
+            const requiredDone  = requiredSteps.every(s => s.done)
+            const allDone       = requiredDone
             return (
               <Card className="border-brand-100 bg-brand-50/50 animate-fade-up">
                 <div className="flex items-start justify-between mb-3">
@@ -236,6 +239,7 @@ export default function DashboardPage() {
                         step.done ? 'text-brand-400 line-through decoration-brand-300' : 'text-brand-900'
                       }`}>
                         {translate('onboarding', step.key)}
+                        {step.optional && <span className="text-brand-400 text-[11px] ml-1">{translate('common', 'optional')}</span>}
                       </p>
                       {!step.done && (
                         <span className="text-[11px] text-brand-500 font-medium">→</span>

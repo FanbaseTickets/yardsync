@@ -45,6 +45,7 @@ export function AuthProvider({ children }) {
       name,
       businessName,
       email,
+      language: 'en',
       basePackages: {
         monthly:   { label: 'Monthly',   visits: 2,  basePriceCents: 6500  },
         quarterly: { label: 'Quarterly', visits: 6,  basePriceCents: 18500 },

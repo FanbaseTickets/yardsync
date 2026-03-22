@@ -10,11 +10,12 @@ export function LangProvider({ children }) {
   const { profile } = useAuth()
   const [lang, setLang] = useState('en')
 
+  // Only read language from the gardener's profile — never from client records
   useEffect(() => {
-    if (profile?.language) {
+    if (profile?.language && (profile.language === 'en' || profile.language === 'es')) {
       setLang(profile.language)
     }
-  }, [profile])
+  }, [profile?.language])
 
   function translate(section, key) {
     return t(lang, section, key)

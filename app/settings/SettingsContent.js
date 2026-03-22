@@ -15,13 +15,15 @@ import { Bell, Globe, User, Clock, BarChart2, CreditCard, Link2, AlertTriangle, 
 import { useSearchParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 
-const REMINDER_OPTIONS = [
-  { value: '24',  label: '24 hours before / 24 horas antes' },
-  { value: '48',  label: '48 hours before / 48 horas antes' },
-  { value: '72',  label: '72 hours before / 72 horas antes' },
-  { value: '0',   label: 'Day of visit / Día de la visita' },
-  { value: 'all', label: 'All of the above / Todos' },
-]
+function getReminderOptions(translate) {
+  return [
+    { value: '24',  label: translate('settings', 'reminder_24') },
+    { value: '48',  label: translate('settings', 'reminder_48') },
+    { value: '72',  label: translate('settings', 'reminder_72') },
+    { value: '0',   label: translate('settings', 'reminder_0') },
+    { value: 'all', label: translate('settings', 'reminder_all') },
+  ]
+}
 
 const LANGUAGE_OPTIONS = [
   { value: 'en', label: 'English (US)' },
@@ -371,7 +373,9 @@ export default function SettingsPage() {
     try {
       await saveGardenerProfile(user.uid, form)
       await refreshProfile()
-      toast.success(translate('settings', 'save') + ' ✓')
+      // Use the form's language for the toast, not the current context lang
+      const toastMsg = form.language === 'es' ? 'Configuración guardada' : 'Settings saved'
+      toast.success(toastMsg + ' ✓')
     } catch {
       toast.error(translate('common', 'error'))
     } finally {
@@ -464,7 +468,7 @@ export default function SettingsPage() {
                   value={form.reminderTiming}
                   onChange={e => setField('reminderTiming', e.target.value)}
                 >
-                  {REMINDER_OPTIONS.map(o => (
+                  {getReminderOptions(translate).map(o => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </Select>
@@ -517,27 +521,27 @@ export default function SettingsPage() {
               </p>
               <div className="mt-3 space-y-1">
                 <div className="flex justify-between text-[12px]">
-                  <span className="text-brand-700">Monthly / Mensual</span>
-                  <span className="text-brand-800 font-medium">+$15/invoice</span>
+                  <span className="text-brand-700">{translate('settings', 'fee_monthly')}</span>
+                  <span className="text-brand-800 font-medium">+$15/{lang === 'es' ? 'factura' : 'invoice'}</span>
                 </div>
                 <div className="flex justify-between text-[12px]">
-                  <span className="text-brand-700">Quarterly / Trimestral</span>
-                  <span className="text-brand-800 font-medium">+$35/invoice</span>
+                  <span className="text-brand-700">{translate('settings', 'fee_quarterly')}</span>
+                  <span className="text-brand-800 font-medium">+$35/{lang === 'es' ? 'factura' : 'invoice'}</span>
                 </div>
                 <div className="flex justify-between text-[12px]">
-                  <span className="text-brand-700">Annual / Anual</span>
-                  <span className="text-brand-800 font-medium">+$100/invoice</span>
+                  <span className="text-brand-700">{translate('settings', 'fee_annual')}</span>
+                  <span className="text-brand-800 font-medium">+$100/{lang === 'es' ? 'factura' : 'invoice'}</span>
                 </div>
                 <div className="flex justify-between text-[12px]">
-                  <span className="text-brand-700">Weekly / Semanal</span>
-                  <span className="text-brand-800 font-medium">+$5/invoice</span>
+                  <span className="text-brand-700">{translate('settings', 'fee_weekly')}</span>
+                  <span className="text-brand-800 font-medium">+$5/{lang === 'es' ? 'factura' : 'invoice'}</span>
                 </div>
                 <div className="flex justify-between text-[12px]">
-                  <span className="text-brand-700">One-time / Una vez</span>
+                  <span className="text-brand-700">{translate('settings', 'fee_onetime')}</span>
                   <span className="text-brand-800 font-medium">+8% (min $10)</span>
                 </div>
                 <div className="flex justify-between text-[12px]">
-                  <span className="text-brand-700">Add-ons / Adicionales</span>
+                  <span className="text-brand-700">{translate('settings', 'fee_addons')}</span>
                   <span className="text-brand-800 font-medium">+10%</span>
                 </div>
               </div>

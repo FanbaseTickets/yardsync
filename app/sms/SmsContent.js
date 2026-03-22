@@ -14,6 +14,7 @@ import { MessageSquare, CheckCircle2, Clock, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 import { fmt as format } from '@/lib/date'
+import { formatDateLocalized, formatDateForSMS } from '@/lib/i18n'
 
 function parseISO(str) {
   return new Date(str + 'T12:00:00')
@@ -79,9 +80,9 @@ async function loadData() {
     return schedule.clientPhone || ''
   }
 
-  function formatServiceDate(dateStr) {
+  function formatServiceDate(dateStr, clientLang) {
     try {
-      return format(parseISO(dateStr), 'MMMM d, yyyy')
+      return formatDateForSMS(dateStr, clientLang || 'en')
     } catch {
       return dateStr
     }
@@ -102,7 +103,7 @@ async function loadData() {
       : (profile?.smsTemplate   || 'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! — {business}')
     return tpl
       .replace('{name}',     clientName.split(' ')[0])
-      .replace('{date}',     formatServiceDate(schedule.serviceDate))
+      .replace('{date}',     formatServiceDate(schedule.serviceDate, clientLang))
       .replace('{time}',     schedule.time || 'TBD')
       .replace('{business}', profile?.businessName || 'YardSync')
   }
@@ -211,9 +212,24 @@ async function loadData() {
                 className="w-full rounded-xl border border-gray-200 bg-white text-[13px] px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
               />
             ) : (
-              <Card className="bg-gray-50">
-                <p className="text-[13px] text-gray-600 leading-relaxed">{template}</p>
-              </Card>
+              <div className="space-y-2">
+                <div>
+                  <p className="text-[10px] text-gray-400 font-medium uppercase mb-1">English</p>
+                  <Card className="bg-gray-50">
+                    <p className="text-[13px] text-gray-600 leading-relaxed">
+                      {profile?.smsTemplate || 'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! — {business}'}
+                    </p>
+                  </Card>
+                </div>
+                <div>
+                  <p className="text-[10px] text-gray-400 font-medium uppercase mb-1">Español</p>
+                  <Card className="bg-gray-50">
+                    <p className="text-[13px] text-gray-600 leading-relaxed">
+                      {profile?.smsTemplateEs || 'Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! — {business}'}
+                    </p>
+                  </Card>
+                </div>
+              </div>
             )}
             <p className="text-[11px] text-gray-400 mt-1">
               {translate('sms', 'variables')} {'{name}'} {'{date}'} {'{time}'} {'{business}'}
@@ -241,7 +257,7 @@ async function loadData() {
                 {Object.entries(grouped).slice(0, 10).map(([date, daySchedules]) => (
                   <div key={date}>
                     <p className="text-[12px] font-semibold text-gray-500 mb-2">
-                      {format(parseISO(date), 'EEEE, MMMM d')}
+                      {formatDateLocalized(parseISO(date), 'EEEE, MMMM d', lang)}
                     </p>
                     <div className="space-y-2">
                       {daySchedules.map(schedule => {

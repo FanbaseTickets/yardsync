@@ -182,7 +182,7 @@ export default function ClientsPage() {
       <div className="page-content">
         <PageHeader
           title={translate('clients', 'title')}
-          subtitle={`${activeCount} ${translate('clients', 'active')}${inactiveCount > 0 ? ` · ${inactiveCount} ${translate('clients', 'inactive')}` : ''}`}
+          subtitle={`${activeCount} ${activeCount !== 1 && lang === 'es' ? translate('common', 'active_pl') : translate('clients', 'active')}${inactiveCount > 0 ? ` · ${inactiveCount} ${translate('clients', 'inactive')}` : ''}`}
           actions={
             <Button icon={Plus} size="sm" onClick={() => {
               if (services.length === 0 && !loading) {
@@ -239,7 +239,7 @@ export default function ClientsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="text-[14px] font-medium text-gray-900">{client.name}</p>
-                        <Badge label={client.packageType} variant={client.packageType} />
+                        <Badge label={translate('packages', client.packageType) || client.packageType} variant={client.packageType} />
                       </div>
                       <div className="flex items-center gap-1 mt-0.5">
                         <MapPin size={10} className="text-gray-300 flex-shrink-0" />
@@ -349,7 +349,7 @@ export default function ClientsPage() {
           {selectedService && (
             <div className="bg-brand-50 border border-brand-100 rounded-xl p-3 space-y-1.5">
               <div className="flex items-center gap-2">
-                <Badge label={selectedService.packageType} variant={selectedService.packageType} />
+                <Badge label={translate('packages', selectedService.packageType) || selectedService.packageType} variant={selectedService.packageType} />
                 <p className="text-[12px] font-medium text-brand-800">{selectedService.label}</p>
               </div>
               {selectedService.description && (

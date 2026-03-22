@@ -20,6 +20,7 @@ import {
 import toast from 'react-hot-toast'
 
 import { fmt } from '@/lib/date'
+import { formatDateLocalized } from '@/lib/i18n'
 function startOfMonth(date)  { return new Date(date.getFullYear(), date.getMonth(), 1) }
 function endOfMonth(date)    { return new Date(date.getFullYear(), date.getMonth() + 1, 0) }
 function eachDayOfInterval({ start, end }) {
@@ -419,7 +420,7 @@ export default function CalendarPage() {
       <div className="page-content">
         <PageHeader
           title={translate('calendar', 'title')}
-          subtitle={`${totalJobsThisMonth} ${translate('calendar', 'jobs_in')} ${fmt(currentDate, 'MMMM')}`}
+          subtitle={`${totalJobsThisMonth} ${translate('calendar', 'jobs_in')} ${formatDateLocalized(currentDate, 'month_year', lang).split(' ')[0]}`}
         />
 
         <div className="px-4 py-4 max-w-lg mx-auto space-y-4">
@@ -428,7 +429,7 @@ export default function CalendarPage() {
             <button onClick={() => { setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() - 1)); setSelectedDay(null) }} aria-label="Previous month" className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
               <ChevronLeft size={18} className="text-gray-600" />
             </button>
-            <h2 className="text-[16px] font-semibold text-gray-900">{fmt(currentDate, 'MMMM yyyy')}</h2>
+            <h2 className="text-[16px] font-semibold text-gray-900">{formatDateLocalized(currentDate, 'MMMM yyyy', lang)}</h2>
             <button onClick={() => { setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() + 1)); setSelectedDay(null) }} aria-label="Next month" className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
               <ChevronRight size={18} className="text-gray-600" />
             </button>
@@ -470,7 +471,7 @@ export default function CalendarPage() {
           {selectedDay && (
             <div className="animate-fade-up">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-[14px] font-semibold text-gray-800">{fmt(selectedDay, 'EEEE, MMMM d')}</h3>
+                <h3 className="text-[14px] font-semibold text-gray-800">{formatDateLocalized(selectedDay, 'EEEE, MMMM d', lang)}</h3>
                 <div className="flex items-center gap-2">
                   <Button icon={Zap} size="sm" variant="secondary" onClick={openWalkInModal}>
                     {lang === 'es' ? 'Ocasional' : 'Walk-in'}

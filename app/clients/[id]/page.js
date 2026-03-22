@@ -340,8 +340,8 @@ async function handleSendInvoice() {
               <div>
                 <p className="text-[16px] font-semibold text-gray-900">{client.name}</p>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  <Badge label={client.packageType} variant={client.packageType} />
-                  <Badge label={client.status}      variant={client.status} />
+                  <Badge label={translate('packages', client.packageType) || client.packageType} variant={client.packageType} />
+                  <Badge label={translate('common', client.status) || client.status} variant={client.status} />
                 </div>
               </div>
             </div>
@@ -521,7 +521,7 @@ async function handleSendInvoice() {
               <span className="font-medium">{formatCents(baseCents)}</span>
             </div>
             <div className="flex justify-between text-[12px]">
-              <span className="text-gray-400">YardSync fee</span>
+              <span className="text-gray-400">{translate('common', 'yardsync_fee')}</span>
               <span className="text-brand-600">+{formatCents(packageFee)}</span>
             </div>
             <div className="flex justify-between text-[13px] border-t border-gray-200 pt-1.5">
@@ -693,7 +693,7 @@ async function handleSendInvoice() {
                     {lang === 'es' ? 'Vista previa del nuevo paquete:' : 'New package preview:'}
                   </p>
                   <div className="flex items-center gap-2">
-                    <Badge label={selectedService.packageType} variant={selectedService.packageType} />
+                    <Badge label={translate('packages', selectedService.packageType) || selectedService.packageType} variant={selectedService.packageType} />
                     <p className="text-[12px] text-brand-800">{selectedService.label}</p>
                   </div>
                   {selectedService.description && (

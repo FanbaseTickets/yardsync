@@ -245,7 +245,7 @@ export default function ServicesPage() {
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-[14px] font-semibold text-gray-900">{service.label}</p>
-                            <Badge label={service.packageType} variant={service.packageType} />
+                            <Badge label={translate('packages', service.packageType) || service.packageType} variant={service.packageType} />
                           </div>
                           <div className="flex items-center gap-1 flex-shrink-0">
                             <button onClick={() => openEdit(service)}
@@ -289,7 +289,7 @@ export default function ServicesPage() {
                           {service.priceCents && (
                             <p className="text-[12px] font-semibold text-gray-800">{formatCents(service.priceCents)}</p>
                           )}
-                          <p className="text-[11px] text-brand-600">+{formatCents(fee)} YardSync fee</p>
+                          <p className="text-[11px] text-brand-600">+{formatCents(fee)} {translate('common', 'yardsync_fee')}</p>
                           {total && (
                             <p className="text-[11px] text-gray-400">= {formatCents(total)}</p>
                           )}
