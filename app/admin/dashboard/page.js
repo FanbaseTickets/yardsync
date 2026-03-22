@@ -9,16 +9,36 @@ import { db } from '@/lib/firebase'
 import {
   Shield, LogOut, Users, DollarSign,
   TrendingUp, AlertCircle, RefreshCw,
-  ChevronDown, ChevronUp, CheckCircle, Plus, Calendar
+  ChevronDown, ChevronUp, CheckCircle, Plus, Calendar, Download, Clock
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { fmt as format } from '@/lib/date'
+
+function splitInvoice(inv) {
+  const feeLines  = inv.lineItems?.filter(l => l.category === 'fee')  || []
+  const baseLines = inv.lineItems?.filter(l => l.category !== 'fee') || []
+  const fees      = feeLines.reduce((s, l)  => s + (l.amountCents || 0), 0)
+  const gardener  = baseLines.reduce((s, l) => s + (l.amountCents || 0), 0)
+  return { fees, gardener }
+}
+
+function getAgeDays(inv) {
+  const created = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
+  return Math.floor((Date.now() - created.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+function AgeBadge({ days }) {
+  if (days < 30) return <span className="text-[10px] bg-green-900/50 text-green-400 px-1.5 py-0.5 rounded-full font-medium">{days}d</span>
+  if (days < 60) return <span className="text-[10px] bg-yellow-900/50 text-yellow-400 px-1.5 py-0.5 rounded-full font-medium">{days}d</span>
+  return <span className="text-[10px] bg-red-900/50 text-red-400 px-1.5 py-0.5 rounded-full font-medium">{days}d overdue</span>
+}
 
 export default function AdminDashboard() {
   const { user, loading, signOut } = useAuth()
   const router = useRouter()
 
   const [gardeners,   setGardeners]   = useState([])
+  const [allInvoicesRaw, setAllInvoicesRaw] = useState([])
   const [dataLoading, setDataLoading] = useState(true)
   const [expanded,    setExpanded]    = useState(null)
   const [refreshing,  setRefreshing]  = useState(false)
@@ -52,18 +72,14 @@ export default function AdminDashboard() {
       const allClients  = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
       const now         = new Date()
 
+      setAllInvoicesRaw(allInvoices)
+
+      const gardenerMap = Object.fromEntries(usersSnap.docs.map(d => [d.id, { id: d.id, ...d.data() }]))
+
       const gardenerList = usersSnap.docs.map(d => {
         const g         = { id: d.id, ...d.data() }
         const gInvoices = allInvoices.filter(inv => inv.gardenerUid === d.id)
         const gClients  = allClients.filter(c => c.gardenerUid === d.id)
-
-        function splitInvoice(inv) {
-          const feeLines  = inv.lineItems?.filter(l => l.category === 'fee')  || []
-          const baseLines = inv.lineItems?.filter(l => l.category !== 'fee') || []
-          const fees      = feeLines.reduce((s, l)  => s + (l.amountCents || 0), 0)
-          const gardener  = baseLines.reduce((s, l) => s + (l.amountCents || 0), 0)
-          return { fees, gardener }
-        }
 
         const allTimeTotals = gInvoices.reduce((acc, inv) => {
           const { fees, gardener } = splitInvoice(inv)
@@ -198,9 +214,63 @@ export default function AdminDashboard() {
     router.replace('/admin')
   }
 
+  // ── CSV Export ──────────────────────────────────────────────────────────
+  function handleExportCSV() {
+    const gardenerMap = Object.fromEntries(gardeners.map(g => [g.id, g]))
+    const now = new Date()
+    const rows = [['Date', 'Gardener Name', 'Client Name', 'Client Paid', 'Gardener Kept', 'YardSync Fee', 'Status']]
+
+    allInvoicesRaw
+      .sort((a, b) => {
+        const da = a.createdAt?.toDate?.() || new Date(a.createdAt)
+        const db2 = b.createdAt?.toDate?.() || new Date(b.createdAt)
+        return db2 - da
+      })
+      .forEach(inv => {
+        const invDate = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
+        const g = gardenerMap[inv.gardenerUid]
+        const { fees, gardener } = splitInvoice(inv)
+        rows.push([
+          format(invDate, 'yyyy-MM-dd'),
+          (g?.name || g?.email || 'Unknown').replace(/,/g, ''),
+          (inv.clientName || 'Unknown').replace(/,/g, ''),
+          `$${((inv.totalCents || 0) / 100).toFixed(2)}`,
+          `$${(gardener / 100).toFixed(2)}`,
+          `$${(fees / 100).toFixed(2)}`,
+          inv.status || 'sent',
+        ])
+      })
+
+    const csv = rows.map(r => r.join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `yardsync-fees-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success(`Exported ${rows.length - 1} invoices to CSV`)
+  }
+
+  // ── Aggregate computed values ──────────────────────────────────────────
   const totalMyRevenue     = gardeners.reduce((s, g) => s + g.allTime.fees, 0)
   const thisMonthMyRevenue = gardeners.reduce((s, g) => s + g.thisMonth.fees, 0)
   const totalGardenerGross = gardeners.reduce((s, g) => s + g.allTime.gardener, 0)
+
+  const now = new Date()
+  const thisMonthCollected = allInvoicesRaw
+    .filter(inv => {
+      if (inv.status !== 'paid') return false
+      const d = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    })
+    .reduce((s, inv) => s + (inv.totalCents || 0), 0)
+
+  const totalOutstanding = allInvoicesRaw
+    .filter(inv => inv.status !== 'paid')
+    .reduce((s, inv) => s + (inv.totalCents || 0), 0)
+
+  const unpaidCount = allInvoicesRaw.filter(inv => inv.status !== 'paid').length
 
   if (loading || dataLoading) {
     return (
@@ -230,6 +300,13 @@ export default function AdminDashboard() {
           </div>
           <div className="flex items-center gap-4">
             <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-1.5 text-[12px] text-gray-400 hover:text-white transition-colors"
+            >
+              <Download size={13} />
+              Export CSV
+            </button>
+            <button
               onClick={handleRefresh}
               className="flex items-center gap-1.5 text-[12px] text-gray-400 hover:text-white transition-colors"
             >
@@ -249,17 +326,50 @@ export default function AdminDashboard() {
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
 
+        {/* Aggregate revenue row */}
+        <div>
+          <p className="text-[11px] font-medium text-gray-500 uppercase tracking-widest mb-4">
+            Revenue Summary · {format(new Date(), 'MMMM yyyy')}
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+              <DollarSign size={16} className="text-green-400 mb-2" />
+              <p className="text-[11px] text-gray-500 uppercase tracking-wide">Collected This Month</p>
+              <p className="text-[20px] font-bold text-green-400 mt-0.5">{formatCents(thisMonthCollected)}</p>
+              <p className="text-[10px] text-gray-600 mt-0.5">paid invoices only</p>
+            </div>
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+              <TrendingUp size={16} className="text-brand-400 mb-2" />
+              <p className="text-[11px] text-gray-500 uppercase tracking-wide">YardSync Fees This Month</p>
+              <p className="text-[20px] font-bold text-brand-400 mt-0.5">{formatCents(thisMonthMyRevenue)}</p>
+              <p className="text-[10px] text-gray-600 mt-0.5">platform revenue</p>
+            </div>
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+              <Clock size={16} className="text-amber-400 mb-2" />
+              <p className="text-[11px] text-gray-500 uppercase tracking-wide">Outstanding</p>
+              <p className="text-[20px] font-bold text-amber-400 mt-0.5">{formatCents(totalOutstanding)}</p>
+              <p className="text-[10px] text-gray-600 mt-0.5">{unpaidCount} unpaid invoice{unpaidCount !== 1 ? 's' : ''}</p>
+            </div>
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+              <DollarSign size={16} className="text-brand-400 mb-2" />
+              <p className="text-[11px] text-gray-500 uppercase tracking-wide">All-Time Fees Earned</p>
+              <p className="text-[20px] font-bold text-white mt-0.5">{formatCents(totalMyRevenue)}</p>
+              <p className="text-[10px] text-gray-600 mt-0.5">lifetime platform revenue</p>
+            </div>
+          </div>
+        </div>
+
         {/* Platform summary */}
         <div>
           <p className="text-[11px] font-medium text-gray-500 uppercase tracking-widest mb-4">
-            Platform Overview · {format(new Date(), 'MMMM yyyy')}
+            Platform Overview
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: 'Gardeners',        value: gardeners.length,              icon: Users,       color: 'text-blue-400',  sub: null },
-              { label: 'Gardeners Grossed', value: formatCents(totalGardenerGross), icon: TrendingUp,  color: 'text-gray-400',  sub: 'all time client payments' },
-              { label: 'My Revenue',        value: formatCents(totalMyRevenue),    icon: DollarSign,  color: 'text-brand-400', sub: 'all time fees earned' },
-              { label: 'My Cut This Month', value: formatCents(thisMonthMyRevenue),icon: AlertCircle, color: 'text-green-400', sub: 'outstanding to collect' },
+              { label: 'Gardeners',         value: gardeners.length,                 icon: Users,       color: 'text-blue-400',  sub: null },
+              { label: 'Gardeners Grossed',  value: formatCents(totalGardenerGross),  icon: TrendingUp,  color: 'text-gray-400',  sub: 'all time client payments' },
+              { label: 'My Revenue',         value: formatCents(totalMyRevenue),      icon: DollarSign,  color: 'text-brand-400', sub: 'all time fees earned' },
+              { label: 'My Cut This Month',  value: formatCents(thisMonthMyRevenue),  icon: AlertCircle, color: 'text-green-400', sub: 'outstanding to collect' },
             ].map(({ label, value, icon: Icon, color, sub }) => (
               <div key={label} className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
                 <Icon size={16} className={`${color} mb-2`} />
@@ -415,10 +525,14 @@ export default function AdminDashboard() {
                                   const baseLines = inv.lineItems?.filter(l => l.category !== 'fee') || []
                                   const feeAmt    = feeLines.reduce((s, l)  => s + (l.amountCents || 0), 0)
                                   const baseAmt   = baseLines.reduce((s, l) => s + (l.amountCents || 0), 0)
+                                  const ageDays   = inv.status !== 'paid' ? getAgeDays(inv) : null
                                   return (
                                     <div key={inv.id} className="bg-gray-800 rounded-xl px-4 py-3">
                                       <div className="flex items-center justify-between mb-1.5">
-                                        <p className="text-[13px] text-white font-medium">{inv.clientName}</p>
+                                        <div className="flex items-center gap-2">
+                                          <p className="text-[13px] text-white font-medium">{inv.clientName}</p>
+                                          {ageDays !== null && <AgeBadge days={ageDays} />}
+                                        </div>
                                         <div className="flex items-center gap-2">
                                           <p className="text-[12px] text-gray-400">{format(invDate, 'MMM d, yyyy')}</p>
                                           {inv.status !== 'paid' ? (
@@ -429,7 +543,7 @@ export default function AdminDashboard() {
                                               <CheckCircle size={11} /> Mark paid
                                             </button>
                                           ) : (
-                                            <span className="text-[11px] text-green-400 font-medium">✓ Paid</span>
+                                            <span className="text-[11px] text-green-400 font-medium">Paid</span>
                                           )}
                                         </div>
                                       </div>
