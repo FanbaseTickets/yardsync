@@ -56,6 +56,10 @@ export function AuthProvider({ children }) {
     }
     await saveGardenerProfile(cred.user.uid, profileData)
     setProfile(profileData)
+    // Persist language to localStorage so pre-auth pages (subscribe) can read it
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('yardsync_lang', profileData.language || 'en')
+    }
     return cred
   }
 

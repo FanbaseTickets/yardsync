@@ -33,19 +33,39 @@ export default function AppShell({ children }) {
       return
     }
 
-    try {
-      const profile = await getGardenerProfile(user.uid)
-      const status  = profile?.subscriptionStatus || 'none'
-      setSubStatus(status)
-      if (status !== 'active') {
-        router.replace('/subscribe')
+    // Retry up to 3 times with 500ms delay — new signups may not have
+    // their Firestore document written yet when this first runs
+    const maxRetries = 3
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const profile = await getGardenerProfile(user.uid)
+        if (profile) {
+          const status = profile.subscriptionStatus || 'none'
+          setSubStatus(status)
+          if (status !== 'active') {
+            router.replace('/subscribe')
+          }
+          setSubLoading(false)
+          return
+        }
+        // Profile is null — doc may not be written yet
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, 500))
+        }
+      } catch (err) {
+        console.error('Subscription check failed:', err)
+        if (attempt === maxRetries) {
+          setSubStatus('active') // fail open so app doesn't brick
+          setSubLoading(false)
+          return
+        }
+        await new Promise(r => setTimeout(r, 500))
       }
-    } catch (err) {
-      console.error('Subscription check failed:', err)
-      setSubStatus('active') // fail open so app doesn't brick
-    } finally {
-      setSubLoading(false)
     }
+    // Exhausted retries — redirect to subscribe (new user with no profile yet)
+    setSubStatus('none')
+    setSubLoading(false)
+    router.replace('/subscribe')
   }
 
   if (loading || subLoading) {

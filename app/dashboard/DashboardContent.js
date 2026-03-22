@@ -48,15 +48,22 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return
     if (searchParams.get('subscribed') === 'true') {
-      saveGardenerProfile(user.uid, {
-        subscriptionStatus: 'active',
-        subscriptionPlan:   searchParams.get('plan') || 'monthly',
-      }).then(() => {
-        toast.success('Subscription activated! Welcome to YardSync 🌿')
-        router.replace('/dashboard')
-      }).catch(err => {
-        console.error('Failed to activate subscription:', err)
-      })
+      ;(async () => {
+        try {
+          await saveGardenerProfile(user.uid, {
+            subscriptionStatus: 'active',
+            subscriptionPlan:   searchParams.get('plan') || 'monthly',
+          })
+          await refreshProfile()
+          const welcomeMsg = profile?.language === 'es'
+            ? 'Suscripción activada. ¡Bienvenido a YardSync!'
+            : 'Subscription activated! Welcome to YardSync 🌿'
+          toast.success(welcomeMsg)
+          router.replace('/dashboard')
+        } catch (err) {
+          console.error('Failed to activate subscription:', err)
+        }
+      })()
     }
   }, [user, searchParams])
 

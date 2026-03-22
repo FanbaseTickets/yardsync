@@ -59,6 +59,7 @@ export default function LoginPage() {
         setFailedAttempts(0)
         router.replace('/dashboard')
       } else if (mode === 'signup') {
+        if (typeof window !== 'undefined') window.localStorage.setItem('yardsync_lang', signupLang)
         await signUp(email, password, name, bizName, signupLang)
         router.replace('/dashboard')
       } else {
