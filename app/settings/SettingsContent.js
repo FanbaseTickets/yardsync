@@ -36,7 +36,13 @@ export default function SettingsPage() {
   const [feesLoading,   setFeesLoading]   = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
-  const [cardLoading,  setCardLoading]  = useState(false)
+  const [cardLoading,    setCardLoading]    = useState(false)
+  const [showCardModal,  setShowCardModal]  = useState(false)
+  const [cardNumber,     setCardNumber]     = useState('')
+  const [cardExpiry,     setCardExpiry]     = useState('')
+  const [cardCvc,        setCardCvc]        = useState('')
+  const [cardError,      setCardError]      = useState('')
+  const [squareRedirecting, setSquareRedirecting] = useState(false)
   const [payingQuarter, setPayingQuarter] = useState(null)
   const [feePayments,   setFeePayments]  = useState([])
   const [quarterFees,   setQuarterFees]   = useState([])
@@ -153,7 +159,9 @@ export default function SettingsPage() {
 
   async function handleSetupCard() {
     setCardLoading(true)
+    setCardError('')
     try {
+      // Step 1: Get SetupIntent from our API
       const res = await fetch('/api/stripe/setup-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -165,31 +173,95 @@ export default function SettingsPage() {
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      if (!res.ok) throw new Error(data.error || 'Failed to create setup intent')
 
       // Save Stripe customer ID if new
       if (!profile?.stripeCustomerId && data.stripeCustomerId) {
         await saveGardenerProfile(user.uid, { stripeCustomerId: data.stripeCustomerId })
+        await refreshProfile()
       }
 
-      // Use Stripe.js to collect card
+      // Step 2: Load Stripe.js and confirm with card details
       const { loadStripe } = await import('@stripe/stripe-js')
       const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
-      const { error, setupIntent } = await stripe.confirmCardSetup(data.clientSecret, {
-        payment_method: {
-          card: { token: 'tok_visa' }, // In production, this uses Stripe Elements
+      if (!stripe) throw new Error('Stripe failed to load')
+
+      // Create a card element for secure collection
+      const elements = stripe.elements({ clientSecret: data.clientSecret })
+      const cardElement = elements.create('card', {
+        style: {
+          base: { fontSize: '14px', color: '#1f2937', '::placeholder': { color: '#9ca3af' } },
         },
       })
 
-      // For now, guide user to add card — full Stripe Elements integration
-      // would require a dedicated card input component
-      toast.success(lang === 'es'
-        ? 'Funcionalidad de tarjeta próximamente. Contacta soporte.'
-        : 'Card setup coming soon. Contact support to add a payment method.')
+      // Mount into the modal's card container
+      const container = document.getElementById('stripe-card-element')
+      if (!container) throw new Error('Card container not found')
+      cardElement.mount(container)
+
+      // Wait for user to submit via the modal's confirm button
+      setCardLoading(false)
+      window.__stripeCardElement = cardElement
+      window.__stripeInstance = stripe
+      window.__setupClientSecret = data.clientSecret
+      window.__stripeCustomerId = data.stripeCustomerId || profile?.stripeCustomerId
     } catch (err) {
-      toast.error(err.message || 'Failed to set up card')
+      toast.error(err.message || 'Could not set up payment method. Please try again.')
+      setCardLoading(false)
+      setShowCardModal(false)
+    }
+  }
+
+  async function handleConfirmCard() {
+    setCardLoading(true)
+    setCardError('')
+    try {
+      const stripe = window.__stripeInstance
+      const cardElement = window.__stripeCardElement
+      const clientSecret = window.__setupClientSecret
+
+      if (!stripe || !cardElement || !clientSecret) throw new Error('Card session expired. Please try again.')
+
+      const { error, setupIntent } = await stripe.confirmCardSetup(clientSecret, {
+        payment_method: { card: cardElement },
+      })
+
+      if (error) throw new Error(error.message)
+
+      if (setupIntent.status === 'succeeded' && setupIntent.payment_method) {
+        // Step 3: Save the payment method via our API
+        const saveRes = await fetch('/api/stripe/payment-method', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            stripeCustomerId: window.__stripeCustomerId,
+            paymentMethodId: setupIntent.payment_method,
+          }),
+        })
+        const saveData = await saveRes.json()
+        if (!saveRes.ok) throw new Error(saveData.error || 'Failed to save card')
+
+        // Save card display info to Firestore (safe — not sensitive data)
+        await saveGardenerProfile(user.uid, {
+          stripePaymentMethodId: saveData.paymentMethodId,
+          cardLast4: saveData.last4,
+          cardBrand: saveData.brand,
+        })
+        await refreshProfile()
+        toast.success(lang === 'es' ? 'Tarjeta guardada!' : 'Card saved!')
+        setShowCardModal(false)
+      } else {
+        throw new Error('Card setup did not complete')
+      }
+    } catch (err) {
+      setCardError(err.message)
+      toast.error(err.message || 'Could not set up payment method. Please try again.')
     } finally {
       setCardLoading(false)
+      window.__stripeCardElement = null
+      window.__stripeInstance = null
+      window.__setupClientSecret = null
+      window.__stripeCustomerId = null
     }
   }
 
@@ -480,6 +552,16 @@ export default function SettingsPage() {
                 {lang === 'es' ? 'Integración Square' : 'Square Integration'}
               </p>
             </div>
+            {process.env.NEXT_PUBLIC_SQUARE_ENVIRONMENT === 'sandbox' && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-3 flex items-center gap-2">
+                <AlertTriangle size={13} className="text-amber-600 flex-shrink-0" />
+                <p className="text-[11px] text-amber-700 font-medium">
+                  {lang === 'es'
+                    ? 'Square está en modo de prueba. Los pagos reales no se procesan.'
+                    : 'Square is in test mode. Real payments are not processed.'}
+                </p>
+              </div>
+            )}
             {profile?.squareConnected ? (
               <Card>
                 <div className="flex items-center justify-between mb-3">
@@ -551,9 +633,16 @@ export default function SettingsPage() {
                 </div>
                 <Button
                   fullWidth
-                  onClick={() => window.location.href = `/api/square/oauth/connect?uid=${user.uid}`}
+                  loading={squareRedirecting}
+                  onClick={() => {
+                    setSquareRedirecting(true)
+                    window.location.href = `/api/square/oauth/connect?uid=${user.uid}`
+                  }}
                 >
-                  <Link2 size={14} /> {lang === 'es' ? 'Conectar Square' : 'Connect Square'}
+                  {squareRedirecting
+                    ? (lang === 'es' ? 'Redirigiendo a Square…' : 'Redirecting to Square…')
+                    : <><Link2 size={14} /> {lang === 'es' ? 'Conectar Square' : 'Connect Square'}</>
+                  }
                 </Button>
               </Card>
             )}
@@ -602,7 +691,12 @@ export default function SettingsPage() {
                     fullWidth
                     variant="secondary"
                     loading={cardLoading}
-                    onClick={handleSetupCard}
+                    onClick={() => {
+                      setShowCardModal(true)
+                      setCardError('')
+                      // Delay to let modal render, then init Stripe
+                      setTimeout(() => handleSetupCard(), 300)
+                    }}
                   >
                     <CreditCard size={14} /> {lang === 'es' ? 'Agregar tarjeta' : 'Add Payment Card'}
                   </Button>
@@ -683,6 +777,49 @@ export default function SettingsPage() {
 
         </div>
       </div>
+
+      {/* Card Setup Modal */}
+      {showCardModal && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
+            <p className="text-[16px] font-semibold text-gray-900 mb-1">
+              {lang === 'es' ? 'Agregar tarjeta de pago' : 'Add Payment Card'}
+            </p>
+            <p className="text-[12px] text-gray-500 mb-4">
+              {lang === 'es'
+                ? 'Tu tarjeta se almacena de forma segura con Stripe.'
+                : 'Your card is securely stored with Stripe.'}
+            </p>
+            <div
+              id="stripe-card-element"
+              className="border border-gray-200 rounded-xl px-4 py-3.5 mb-3 min-h-[44px] bg-gray-50"
+            />
+            {cardError && (
+              <p className="text-[12px] text-red-600 mb-3">{cardError}</p>
+            )}
+            <p className="text-[10px] text-gray-400 mb-4">
+              {lang === 'es'
+                ? 'YardSync nunca almacena los datos completos de tu tarjeta.'
+                : 'YardSync never stores your full card details.'}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowCardModal(false); setCardError('') }}
+                className="flex-1 text-[14px] text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl py-3 font-medium transition-colors"
+              >
+                {translate('common', 'cancel')}
+              </button>
+              <button
+                onClick={handleConfirmCard}
+                disabled={cardLoading}
+                className="flex-1 text-[14px] text-white bg-brand-600 hover:bg-brand-700 rounded-xl py-3 font-medium transition-colors disabled:opacity-50"
+              >
+                {cardLoading ? '...' : (lang === 'es' ? 'Guardar tarjeta' : 'Save Card')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   )
 }
