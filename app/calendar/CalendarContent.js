@@ -594,6 +594,14 @@ export default function CalendarPage() {
                             </button>
                           </div>
                         </div>
+                        {client?.notes && (
+                          <div className="px-3 pb-3 -mt-1">
+                            <div className="bg-gray-50 rounded-lg px-3 py-2">
+                              <p className="text-[10px] text-gray-400 font-medium uppercase mb-0.5">{translate('calendar_extra', 'notes')}</p>
+                              <p className="text-[12px] text-gray-500 italic">{client.notes}</p>
+                            </div>
+                          </div>
+                        )}
                       </Card>
                     )
                   })}

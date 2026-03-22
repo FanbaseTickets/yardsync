@@ -360,7 +360,7 @@ async function handleSendInvoice() {
                 <p className="text-[16px] font-semibold text-gray-900">{client.name}</p>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <Badge label={translate('packages', client.packageType) || client.packageType} variant={client.packageType} />
-                  <Badge label={translate('common', client.status) || client.status} variant={client.status} />
+                  <Badge label={translate('status', client.status) || client.status} variant={client.status} />
                 </div>
               </div>
             </div>
@@ -376,10 +376,18 @@ async function handleSendInvoice() {
                   <p className="text-[13px] text-gray-700">{client.email}</p>
                 </div>
               )}
-              <div className="flex items-start gap-2.5">
-                <MapPin size={14} className="text-gray-400 flex-shrink-0 mt-0.5" />
-                <p className="text-[13px] text-gray-700">{client.address}</p>
-              </div>
+              <a
+                href={`https://maps.google.com/?q=${encodeURIComponent(client.address)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-start gap-2.5 group"
+              >
+                <MapPin size={14} className="text-brand-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[13px] text-brand-600 group-hover:underline">{client.address}</p>
+                  <p className="text-[10px] text-gray-400">{translate('calendar_extra', 'open_maps')}</p>
+                </div>
+              </a>
               {scheduleDisplay && !isOnetime && (
                 <div className="flex items-center gap-2.5">
                   <CalendarDays size={14} className="text-gray-400 flex-shrink-0" />
@@ -413,6 +421,15 @@ async function handleSendInvoice() {
                   <p className="text-[13px] text-gray-500 italic">{client.notes}</p>
                 </div>
               )}
+              <a
+                href={`/api/ical/${id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-[13px] text-brand-600 font-medium hover:underline pt-1 border-t border-gray-100"
+              >
+                <CalendarDays size={14} />
+                {translate('calendar_extra', 'add_calendar')}
+              </a>
             </div>
           </Card>
 

@@ -256,7 +256,7 @@ export default function ClientsPage() {
                         )}
                       </div>
                     </div>
-                    <Badge label={client.status} variant={client.status} />
+                    <Badge label={translate('status', client.status) || client.status} variant={client.status} />
                   </div>
                 </Card>
               ))}
