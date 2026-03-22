@@ -8,7 +8,7 @@ import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Skeleton, EmptyState, Modal } from '@/components/ui'
-import { getClients, updateSchedule } from '@/lib/db'
+import { getClients, updateSchedule, saveICalEvent } from '@/lib/db'
 import { getSchedulesFromToday } from '@/lib/db'
 import { MessageSquare, CheckCircle2, Clock, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -116,6 +116,21 @@ async function loadData() {
     }
     setSending(schedule.id)
     try {
+      // Write iCal event data for calendar link in SMS
+      if (schedule.id && schedule.clientId) {
+        const client = getClient(schedule.clientId)
+        await saveICalEvent(schedule.id, {
+          clientId:     schedule.clientId,
+          clientName:   resolveClientName(schedule),
+          businessName: profile?.businessName || 'YardSync',
+          serviceLabel: client?.packageLabel || 'Lawn Care Service',
+          serviceDate:  schedule.serviceDate,
+          time:         schedule.time || '9:00 AM',
+          address:      client?.address || '',
+          description:  (client?.packageDesc || client?.packageLabel || '') + (client?.notes ? '\n' + client.notes : ''),
+        })
+      }
+
       const res = await fetch('/api/twilio/send', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },

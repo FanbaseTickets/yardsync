@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { formatDate } from '@/lib/date'
 import { formatDateForSMS } from '@/lib/i18n'
-import { collection, getDocs, query, where, doc, updateDoc } from 'firebase/firestore'
+import { collection, getDocs, query, where, doc, updateDoc, setDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 
 const TWILIO_SID   = process.env.TWILIO_ACCOUNT_SID
@@ -85,7 +85,18 @@ export async function GET(request) {
         const to     = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
 
         try {
-          // Append calendar link for the client to add to their phone calendar
+          // Write iCal event data to public collection for client calendar link
+          await setDoc(doc(db, 'icalEvents', schedule.id), {
+            clientId:     schedule.clientId,
+            clientName:   client.name || '',
+            businessName: gardener.businessName || 'YardSync',
+            serviceLabel: client.packageLabel || 'Lawn Care Service',
+            serviceDate:  schedule.serviceDate,
+            time:         schedule.time || '9:00 AM',
+            address:      client.address || '',
+            description:  (client.packageDesc || client.packageLabel || '') + (client.notes ? '\n' + client.notes : ''),
+          })
+
           const appUrl  = process.env.NEXT_PUBLIC_APP_URL || 'https://yardsync.vercel.app'
           const calUrl  = `${appUrl}/api/ical/${schedule.clientId}?scheduleId=${schedule.id}`
           const calLine = clientLang === 'es'

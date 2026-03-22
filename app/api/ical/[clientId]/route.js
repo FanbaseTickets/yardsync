@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,50 +39,31 @@ export async function GET(request, { params }) {
     const scheduleId = searchParams.get('scheduleId')
 
     if (!scheduleId) {
-      return NextResponse.json({ error: 'Missing scheduleId query parameter' }, { status: 400 })
+      return NextResponse.json({ error: 'Missing scheduleId' }, { status: 400 })
     }
 
-    // Lazy-load Admin SDK at runtime (not during build)
-    const { getAdminDb } = await import('@/lib/firebaseAdmin')
-    const adminDb = getAdminDb()
-    const scheduleSnap = await adminDb.collection('schedules').doc(scheduleId).get()
-    if (!scheduleSnap.exists) {
-      return NextResponse.json({ error: 'Schedule not found' }, { status: 404 })
+    // Read from public icalEvents collection (no auth required — public read rule)
+    const snap = await getDoc(doc(db, 'icalEvents', scheduleId))
+    if (!snap.exists()) {
+      return NextResponse.json({ error: 'Calendar event not found' }, { status: 404 })
     }
-    const schedule = { id: scheduleSnap.id, ...scheduleSnap.data() }
+    const data = snap.data()
 
-    // Security: verify schedule belongs to this client
-    if (schedule.clientId !== clientId) {
-      return NextResponse.json({ error: 'Schedule does not match client' }, { status: 403 })
+    // Security: verify clientId matches
+    if (data.clientId !== clientId) {
+      return NextResponse.json({ error: 'Event does not match client' }, { status: 403 })
     }
 
-    // Fetch client
-    const clientSnap = await adminDb.collection('clients').doc(clientId).get()
-    if (!clientSnap.exists) {
-      return NextResponse.json({ error: 'Client not found' }, { status: 404 })
-    }
-    const client = { id: clientSnap.id, ...clientSnap.data() }
-
-    // Fetch gardener for business name
-    let businessName = 'YardSync'
-    if (client.gardenerUid) {
-      const gardenerSnap = await adminDb.collection('users').doc(client.gardenerUid).get()
-      if (gardenerSnap.exists) {
-        const g = gardenerSnap.data()
-        businessName = g.businessName || g.name || 'YardSync'
-      }
-    }
-
-    // Build single-event iCal
-    const dtStart = toICalDate(schedule.serviceDate, schedule.time)
+    // Build iCal from stored event data
+    const dtStart = toICalDate(data.serviceDate, data.time)
     const dtEnd   = addHour(dtStart)
-    const summary = `${client.packageLabel || 'Lawn Care Service'} — ${businessName}`
+    const summary = `${data.serviceLabel || 'Lawn Care Service'} — ${data.businessName || 'YardSync'}`
 
     const ical = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
       'PRODID:-//YardSync//EN',
-      `X-WR-CALNAME:${esc(businessName)}`,
+      `X-WR-CALNAME:${esc(data.businessName || 'YardSync')}`,
       'CALSCALE:GREGORIAN',
       'METHOD:PUBLISH',
       'BEGIN:VEVENT',
@@ -89,13 +72,13 @@ export async function GET(request, { params }) {
       `DTSTART:${dtStart}`,
       `DTEND:${dtEnd}`,
       `SUMMARY:${esc(summary)}`,
-      `DESCRIPTION:${esc((client.packageDesc || client.packageLabel || '') + (client.notes ? '\\n' + client.notes : ''))}`,
-      `LOCATION:${esc(client.address || '')}`,
+      `DESCRIPTION:${esc(data.description || '')}`,
+      `LOCATION:${esc(data.address || '')}`,
       'END:VEVENT',
       'END:VCALENDAR',
     ].join('\r\n')
 
-    const safeName = client.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
+    const safeName = (data.clientName || 'client').replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
 
     return new NextResponse(ical, {
       headers: {
