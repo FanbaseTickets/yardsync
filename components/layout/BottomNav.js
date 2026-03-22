@@ -30,6 +30,7 @@ export default function BottomNav() {
             <Link
               key={href}
               href={href}
+              aria-label={label}
               className={clsx(
                 'flex flex-col items-center justify-center flex-1 gap-0.5 transition-colors',
                 active ? 'text-brand-600' : 'text-gray-400 hover:text-gray-600'

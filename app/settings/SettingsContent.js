@@ -22,8 +22,8 @@ const REMINDER_OPTIONS = [
 ]
 
 const LANGUAGE_OPTIONS = [
-  { value: 'en', label: '🇺🇸 English' },
-  { value: 'es', label: '🇲🇽 Español' },
+  { value: 'en', label: 'English (US)' },
+  { value: 'es', label: 'Español (MX)' },
 ]
 
 export default function SettingsPage() {

@@ -62,8 +62,19 @@ export default function AppShell({ children }) {
     )
   }
 
-  if (!user) return null
-  if (subStatus !== 'active') return null
+  if (!user || subStatus !== 'active') {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-brand-600 flex items-center justify-center">
+            <Leaf size={22} className="text-white" />
+          </div>
+          <div className="w-8 h-8 rounded-full border-2 border-brand-600 border-t-transparent animate-spin" />
+          <span className="text-sm text-gray-400 font-medium">Loading YardSync...</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-start justify-center">

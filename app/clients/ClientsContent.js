@@ -183,7 +183,13 @@ export default function ClientsPage() {
           title={translate('clients', 'title')}
           subtitle={`${activeCount} ${translate('clients', 'active')}${inactiveCount > 0 ? ` · ${inactiveCount} ${translate('clients', 'inactive')}` : ''}`}
           actions={
-            <Button icon={Plus} size="sm" onClick={() => setShowAdd(true)}>
+            <Button icon={Plus} size="sm" onClick={() => {
+              if (services.length === 0 && !loading) {
+                toast.error(lang === 'es' ? 'Primero crea un paquete de servicio' : 'Create a service package first')
+                return
+              }
+              setShowAdd(true)
+            }}>
               {translate('clients', 'add')}
             </Button>
           }

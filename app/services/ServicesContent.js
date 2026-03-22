@@ -62,6 +62,7 @@ export default function ServicesPage() {
 
   const DAY_OPTIONS = [
     { value: '',          label: lang === 'es' ? 'Sin preferencia' : 'No preference' },
+    { value: 'sunday',    label: lang === 'es' ? 'Domingo'   : 'Sunday'    },
     { value: 'monday',    label: lang === 'es' ? 'Lunes'     : 'Monday'    },
     { value: 'tuesday',   label: lang === 'es' ? 'Martes'    : 'Tuesday'   },
     { value: 'wednesday', label: lang === 'es' ? 'Miércoles' : 'Wednesday' },

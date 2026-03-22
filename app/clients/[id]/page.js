@@ -54,8 +54,8 @@ export default function ClientDetailPage() {
   ]
 
   const BILLING_OPTIONS = [
-    { value: 'upfront',   label: lang === 'es' ? 'Por adelantado (antes de la visita)' : 'Upfront (before visit)'   },
-    { value: 'postvisit', label: lang === 'es' ? 'Después de la visita'                : 'Post-visit (after visit)' },
+    { value: 'upfront',   label: lang === 'es' ? 'Por adelantado (factura antes de la visita)' : 'Upfront (invoice before visit)'   },
+    { value: 'postvisit', label: lang === 'es' ? 'Después de la visita (factura después)'      : 'Post-visit (invoice after visit)' },
   ]
 
   const RECURRENCE_LABELS = lang === 'es' ? RECURRENCE_LABELS_ES : RECURRENCE_LABELS_EN
@@ -606,12 +606,14 @@ async function handleSendInvoice() {
             <p className="text-[11px] font-medium text-brand-700 uppercase tracking-wide mb-2">
               {lang === 'es' ? 'Total de factura' : 'Invoice total'}
             </p>
-            <div className="flex justify-between text-[13px]">
-              <span className="text-brand-700">
-                {lang === 'es' ? 'Subtotal base' : 'Base subtotal'}
-              </span>
-              <span className="font-medium text-brand-900">{formatCents(totalCharge)}</span>
-            </div>
+            {addonSubtotal > 0 && (
+              <div className="flex justify-between text-[13px]">
+                <span className="text-brand-700">
+                  {lang === 'es' ? 'Subtotal base' : 'Base subtotal'}
+                </span>
+                <span className="font-medium text-brand-900">{formatCents(totalCharge)}</span>
+              </div>
+            )}
             {addonSubtotal > 0 && (
               <>
                 <div className="flex justify-between text-[13px]">

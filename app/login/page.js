@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { Input, Button } from '@/components/ui'
 import toast from 'react-hot-toast'
-import { Leaf } from 'lucide-react'
+import { Leaf, Eye, EyeOff } from 'lucide-react'
 
 export default function LoginPage() {
   const { user, loading, signIn, signUp, signInWithGoogle, resetPassword } = useAuth()
@@ -19,17 +19,23 @@ export default function LoginPage() {
   const [busy,     setBusy]     = useState(false)
   const [googleBusy, setGoogleBusy] = useState(false)
   const [errors,   setErrors]   = useState({})
+  const [showPassword, setShowPassword] = useState(false)
+  const [failedAttempts, setFailedAttempts] = useState(0)
 
   useEffect(() => {
     if (!loading && user) router.replace('/dashboard')
   }, [user, loading, router])
+
+  function clearError(field) {
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: null }))
+  }
 
   function validate() {
     const e = {}
     if (!email)                               e.email    = 'Email is required'
     else if (!email.includes('@'))            e.email    = 'Enter a valid email'
     if (mode !== 'reset' && !password)        e.password = 'Password is required'
-    if (mode !== 'reset' && password.length < 8) e.password = 'Min 8 characters'
+    else if (mode !== 'reset' && password.length < 8) e.password = 'Min 8 characters'
     if (mode === 'signup' && !name)           e.name     = 'Your name is required'
     if (mode === 'signup' && !bizName)        e.bizName  = 'Business name is required'
     setErrors(e)
@@ -39,10 +45,15 @@ export default function LoginPage() {
   async function handleSubmit(e) {
     e.preventDefault()
     if (!validate()) return
+    if (mode === 'login' && failedAttempts >= 5) {
+      toast.error('Too many failed attempts. Please wait a moment before trying again.')
+      return
+    }
     setBusy(true)
     try {
       if (mode === 'login') {
         await signIn(email, password)
+        setFailedAttempts(0)
         router.replace('/dashboard')
       } else if (mode === 'signup') {
         await signUp(email, password, name, bizName)
@@ -53,11 +64,13 @@ export default function LoginPage() {
         setMode('login')
       }
     } catch (err) {
+      if (mode === 'login') setFailedAttempts(prev => prev + 1)
       const msg =
-        err.code === 'auth/user-not-found'       ? 'No account with that email' :
-        err.code === 'auth/wrong-password'        ? 'Incorrect password' :
+        err.code === 'auth/user-not-found'       ? 'Invalid email or password' :
+        err.code === 'auth/wrong-password'        ? 'Invalid email or password' :
+        err.code === 'auth/invalid-credential'    ? 'Invalid email or password' :
         err.code === 'auth/email-already-in-use'  ? 'Email already registered' :
-        'Something went wrong — try again'
+        'Invalid email or password'
       toast.error(msg)
     } finally {
       setBusy(false)
@@ -74,6 +87,13 @@ export default function LoginPage() {
     } finally {
       setGoogleBusy(false)
     }
+  }
+
+  function switchMode(newMode) {
+    setMode(newMode)
+    setErrors({})
+    setShowPassword(false)
+    if (newMode === 'signup') setPassword('')
   }
 
   if (loading) return null
@@ -122,6 +142,14 @@ export default function LoginPage() {
           </>
         )}
 
+        {failedAttempts >= 5 && mode === 'login' && (
+          <div className="bg-red-50 border border-red-100 rounded-xl p-3 mb-4">
+            <p className="text-[13px] text-red-700 font-medium">
+              Too many failed attempts. Please wait a moment before trying again.
+            </p>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {mode === 'signup' && (
             <>
@@ -130,7 +158,7 @@ export default function LoginPage() {
                 type="text"
                 placeholder="Marco Rodriguez"
                 value={name}
-                onChange={e => setName(e.target.value)}
+                onChange={e => { setName(e.target.value); clearError('name') }}
                 error={errors.name}
               />
               <Input
@@ -138,7 +166,7 @@ export default function LoginPage() {
                 type="text"
                 placeholder="Rodriguez Lawn Care"
                 value={bizName}
-                onChange={e => setBizName(e.target.value)}
+                onChange={e => { setBizName(e.target.value); clearError('bizName') }}
                 error={errors.bizName}
               />
             </>
@@ -148,19 +176,29 @@ export default function LoginPage() {
             type="email"
             placeholder="you@example.com"
             value={email}
-            onChange={e => setEmail(e.target.value)}
+            onChange={e => { setEmail(e.target.value); clearError('email') }}
             error={errors.email}
             autoCapitalize="none"
           />
           {mode !== 'reset' && (
-            <Input
-              label="Password"
-              type="password"
-              placeholder={mode === 'signup' ? 'Min 6 characters' : '••••••••'}
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              error={errors.password}
-            />
+            <div className="relative">
+              <Input
+                label="Password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder={mode === 'signup' ? 'Min 8 characters' : '••••••••'}
+                value={password}
+                onChange={e => { setPassword(e.target.value); clearError('password') }}
+                error={errors.password}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="absolute right-3 top-[34px] text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           )}
           <Button type="submit" loading={busy} fullWidth size="lg" className="mt-1">
             {mode === 'login'  ? 'Sign In' :
@@ -173,13 +211,13 @@ export default function LoginPage() {
           {mode === 'login' && (
             <>
               <button
-                onClick={() => { setMode('reset'); setErrors({}) }}
+                onClick={() => switchMode('reset')}
                 className="text-[13px] text-gray-400 hover:text-brand-600 transition-colors"
               >
                 Forgot password?
               </button>
               <button
-                onClick={() => { setMode('signup'); setErrors({}) }}
+                onClick={() => switchMode('signup')}
                 className="text-[13px] text-brand-600 font-medium hover:underline"
               >
                 Create an account
@@ -188,7 +226,7 @@ export default function LoginPage() {
           )}
           {mode !== 'login' && (
             <button
-              onClick={() => { setMode('login'); setErrors({}) }}
+              onClick={() => switchMode('login')}
               className="text-[13px] text-brand-600 font-medium hover:underline"
             >
               Back to sign in

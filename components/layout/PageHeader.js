@@ -13,6 +13,7 @@ export default function PageHeader({ title, subtitle, back, actions, className }
         {back && (
           <button
             onClick={() => router.back()}
+            aria-label="Go back"
             className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-50 transition-colors -ml-1"
           >
             <ArrowLeft size={18} className="text-gray-600" />

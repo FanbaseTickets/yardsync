@@ -241,6 +241,10 @@ export default function CalendarPage() {
 
   function openAddModal() {
     if (!selectedDay) return
+    if (clients.length === 0) {
+      toast.error(lang === 'es' ? 'Agrega un cliente antes de programar un trabajo' : 'Add a client first before scheduling a job')
+      return
+    }
     const firstClient = clients[0]
     setSelectedClient(firstClient?.id || '')
     setSelectedTime('9:00 AM')
@@ -313,7 +317,11 @@ export default function CalendarPage() {
   }
 
   async function handleAddWalkIn() {
-    if (!walkInName.trim() || !selectedDay) return
+    if (!walkInName.trim()) {
+      toast.error(lang === 'es' ? 'El nombre es requerido' : 'Name is required')
+      return
+    }
+    if (!selectedDay) return
     if (walkInPhone.trim() && !validatePhone(walkInPhone)) {
       setWalkInPhoneError(lang === 'es' ? 'Ingresa un número válido (10 dígitos)' : 'Enter a valid phone number (10 digits)')
       return
@@ -413,11 +421,11 @@ export default function CalendarPage() {
         <div className="px-4 py-4 max-w-lg mx-auto space-y-4">
 
           <div className="flex items-center justify-between">
-            <button onClick={() => setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() - 1))} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
+            <button onClick={() => { setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() - 1)); setSelectedDay(null) }} aria-label="Previous month" className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
               <ChevronLeft size={18} className="text-gray-600" />
             </button>
             <h2 className="text-[16px] font-semibold text-gray-900">{fmt(currentDate, 'MMMM yyyy')}</h2>
-            <button onClick={() => setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() + 1))} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
+            <button onClick={() => { setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() + 1)); setSelectedDay(null) }} aria-label="Next month" className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
               <ChevronRight size={18} className="text-gray-600" />
             </button>
           </div>
@@ -473,10 +481,6 @@ export default function CalendarPage() {
                 <Card className="text-center py-6">
                   <CalendarDays size={24} className="text-gray-300 mx-auto mb-2" />
                   <p className="text-[13px] text-gray-400">{translate('calendar', 'no_jobs')}</p>
-                  <div className="flex items-center justify-center gap-2 mt-3">
-                    <Button variant="secondary" size="sm" icon={Zap} onClick={openWalkInModal}>{lang === 'es' ? 'Ocasional' : 'Walk-in'}</Button>
-                    <Button variant="brand" size="sm" onClick={openAddModal} disabled={clients.length === 0}>{translate('calendar', 'add_job')}</Button>
-                  </div>
                 </Card>
               ) : (
                 <div className="space-y-2">
@@ -513,16 +517,16 @@ export default function CalendarPage() {
                           </div>
                           <div className="flex items-center gap-1">
                             {schedule.isWalkIn && !done && (
-                              <button onClick={() => openWalkInInvoice(schedule)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-brand-50 transition-colors">
+                              <button onClick={() => openWalkInInvoice(schedule)} aria-label="Invoice walk-in" className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-brand-50 transition-colors">
                                 <DollarSign size={14} className="text-brand-600" />
                               </button>
                             )}
                             {!done && (
-                              <button onClick={() => handleComplete(schedule)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-brand-50 transition-colors">
+                              <button onClick={() => handleComplete(schedule)} aria-label="Mark complete" className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-brand-50 transition-colors">
                                 <CheckCircle2 size={16} className="text-brand-600" />
                               </button>
                             )}
-                            <button onClick={() => promptDelete(schedule)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-50 transition-colors">
+                            <button onClick={() => promptDelete(schedule)} aria-label="Delete schedule" className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-50 transition-colors">
                               <Trash2 size={14} className="text-red-400" />
                             </button>
                           </div>
