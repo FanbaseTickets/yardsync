@@ -9,7 +9,7 @@ import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Input, Select } from '@/components/ui'
 import PhoneInput from '@/components/ui/PhoneInput'
-import { saveGardenerProfile, getInvoices, getFeePayments, saveFeePayment, markQuarterFeesCollected, getQuarterlyFeesOwed } from '@/lib/db'
+import { saveGardenerProfile, getFeePayments, saveFeePayment, markQuarterFeesCollected, getQuarterlyFeesOwed } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { Bell, Globe, User, Clock, BarChart2, CreditCard, Link2, AlertTriangle, Wallet, CheckCircle2 } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
@@ -34,19 +34,13 @@ export default function SettingsPage() {
   const { user, profile, refreshProfile } = useAuth()
   const { translate, lang } = useLang()
   const searchParams = useSearchParams()
-  const [quarterlyFees, setQuarterlyFees] = useState([])
-  const [feesLoading,   setFeesLoading]   = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
   const [cardLoading,    setCardLoading]    = useState(false)
   const [showCardModal,  setShowCardModal]  = useState(false)
-  const [cardNumber,     setCardNumber]     = useState('')
-  const [cardExpiry,     setCardExpiry]     = useState('')
-  const [cardCvc,        setCardCvc]        = useState('')
   const [cardError,      setCardError]      = useState('')
   const [squareRedirecting, setSquareRedirecting] = useState(false)
   const [payingQuarter, setPayingQuarter] = useState(null)
-  const [feePayments,   setFeePayments]  = useState([])
   const [quarterFees,   setQuarterFees]   = useState([])
 
   // Handle Square OAuth callback redirect
@@ -75,37 +69,6 @@ export default function SettingsPage() {
       window.history.replaceState({}, '', '/settings')
     }
   }, [user, searchParams])
-
-  useEffect(() => {
-    if (user) loadQuarterlyFees()
-  }, [user])
-
-  async function loadQuarterlyFees() {
-    setFeesLoading(true)
-    try {
-      const invoices = await getInvoices(user.uid)
-      const now      = new Date()
-      const quarters = [0,1,2,3].map(q => {
-        const qStart = new Date(now.getFullYear(), q * 3, 1)
-        const qEnd   = new Date(now.getFullYear(), q * 3 + 3, 0)
-        const qInvs  = invoices.filter(inv => {
-          if (inv.status !== 'paid') return false
-          const d = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
-          return d >= qStart && d <= qEnd
-        })
-        const fees = qInvs.reduce((s, inv) => {
-          const feeLines = inv.lineItems?.filter(l => l.category === 'fee') || []
-          return s + feeLines.reduce((fs, l) => fs + (l.amountCents || 0), 0)
-        }, 0)
-        return { label: `Q${q+1}`, fees, invoices: qInvs.length }
-      })
-      setQuarterlyFees(quarters)
-    } catch (err) {
-      console.error('Failed to load quarterly fees:', err)
-    } finally {
-      setFeesLoading(false)
-    }
-  }
 
   const [form,    setForm]    = useState({
     name:           '',
@@ -143,7 +106,6 @@ export default function SettingsPage() {
   async function loadFeeData() {
     try {
       const payments = await getFeePayments(user.uid)
-      setFeePayments(payments)
       const now = new Date()
       const year = now.getFullYear()
       const fees = []
