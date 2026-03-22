@@ -135,16 +135,19 @@ async function loadData() {
         }
       }
 
+      const smsPayload = {
+        scheduleId:  schedule.id || null,
+        clientId:    schedule.clientId || null,
+        clientPhone: phone,
+        message:     buildPreview(schedule),
+        language:    resolveClientLanguage(schedule),
+      }
+      console.log('SmsContent — sending SMS with:', { scheduleId: smsPayload.scheduleId, clientId: smsPayload.clientId })
+
       const res = await fetch('/api/twilio/send', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          scheduleId:  schedule.id,
-          clientId:    schedule.clientId || null,
-          clientPhone: phone,
-          message:     buildPreview(schedule),
-          language:    resolveClientLanguage(schedule),
-        }),
+        body:    JSON.stringify(smsPayload),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))

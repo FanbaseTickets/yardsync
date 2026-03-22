@@ -85,18 +85,24 @@ export async function GET(request) {
         const to     = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
 
         try {
-          // Write iCal event data to public collection for client calendar link
-          await setDoc(doc(db, 'icalEvents', schedule.id), {
-            clientId:     schedule.clientId,
-            clientName:   client.name || '',
-            businessName: gardener.businessName || 'YardSync',
-            serviceLabel: client.packageLabel || 'Lawn Care Service',
-            serviceDate:  schedule.serviceDate,
-            time:         schedule.time || '9:00 AM',
-            address:      client.address || '',
-            description:  (client.packageDesc || client.packageLabel || '') + (client.notes ? '\n' + client.notes : ''),
-          })
+          // Write iCal event data — fail silently so SMS still sends
+          try {
+            await setDoc(doc(db, 'icalEvents', schedule.id), {
+              clientId:     schedule.clientId,
+              clientName:   client.name || '',
+              businessName: gardener.businessName || 'YardSync',
+              serviceLabel: client.packageLabel || 'Lawn Care Service',
+              serviceDate:  schedule.serviceDate,
+              time:         schedule.time || '9:00 AM',
+              address:      client.address || '',
+              description:  (client.packageDesc || client.packageLabel || '') + (client.notes ? '\n' + client.notes : ''),
+            })
+          } catch (icalErr) {
+            console.error('iCal write failed (SMS will still send):', icalErr.message)
+          }
 
+          // Always append calendar link — even if icalEvent write failed
+          // the collection may populate on a future SMS or the gardener can retry
           const appUrl  = process.env.NEXT_PUBLIC_APP_URL || 'https://yardsync.vercel.app'
           const calUrl  = `${appUrl}/api/ical/${schedule.clientId}?scheduleId=${schedule.id}`
           const calLine = clientLang === 'es'

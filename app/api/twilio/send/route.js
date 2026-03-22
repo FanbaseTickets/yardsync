@@ -31,10 +31,15 @@ export async function POST(request) {
 
     // ── STEP 2: Append calendar link if this is a scheduled visit ──────────
     let finalMessage = message
+    console.log('SMS route — scheduleId:', scheduleId, 'clientId:', clientId, 'language:', language)
     if (scheduleId && clientId) {
-      const calUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://yardsync.vercel.app'}/api/ical/${clientId}?scheduleId=${scheduleId}`
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://yardsync.vercel.app'
+      const calUrl = `${appUrl}/api/ical/${clientId}?scheduleId=${scheduleId}`
       const calLabel = language === 'es' ? 'Agregar al calendario' : 'Add to calendar'
       finalMessage += `\n📅 ${calLabel}: ${calUrl}`
+      console.log('SMS route — calendar link appended:', calUrl)
+    } else {
+      console.log('SMS route — calendar link SKIPPED (missing scheduleId or clientId)')
     }
 
     // ── STEP 3: Send SMS via Twilio REST API ─────────────────────────────────
