@@ -7,9 +7,9 @@ import { useAuth } from '@/context/AuthContext'
 import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import { StatCard, Card, Badge, Button, Skeleton } from '@/components/ui'
-import { getClients, getTodaySchedules, getInvoices, updateSchedule, saveGardenerProfile } from '@/lib/db'
+import { getClients, getTodaySchedules, getInvoices, getServices, getSchedules, updateSchedule, saveGardenerProfile } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
-import { Users, CalendarCheck, DollarSign, MessageSquare, CheckCircle2, Clock, Leaf, LogOut, Settings } from 'lucide-react'
+import { Users, CalendarCheck, DollarSign, MessageSquare, CheckCircle2, Clock, Leaf, LogOut, Settings, CreditCard, Link2, Package, UserPlus, CalendarPlus, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -22,11 +22,13 @@ export default function DashboardPage() {
   const router       = useRouter()
   const searchParams = useSearchParams()
 
-  const [clients,    setClients]    = useState([])
-  const [todayJobs,  setTodayJobs]  = useState([])
-  const [invoices,   setInvoices]   = useState([])
-  const [loading,    setLoading]    = useState(true)
-  const [completing, setCompleting] = useState(null)
+  const [clients,       setClients]       = useState([])
+  const [todayJobs,     setTodayJobs]     = useState([])
+  const [invoices,      setInvoices]      = useState([])
+  const [services,      setServices]      = useState([])
+  const [allSchedules,  setAllSchedules]  = useState([])
+  const [loading,       setLoading]       = useState(true)
+  const [completing,    setCompleting]    = useState(null)
 
   const todayStr    = format(new Date(), 'yyyy-MM-dd')
   const displayDate = format(new Date(), 'EEEE, MMMM d')
@@ -66,14 +68,20 @@ export default function DashboardPage() {
   async function loadData() {
     setLoading(true)
     try {
-      const [c, j, inv] = await Promise.all([
+      const monthStart = format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd')
+      const monthEnd   = format(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0), 'yyyy-MM-dd')
+      const [c, j, inv, svc, sched] = await Promise.all([
         getClients(user.uid),
         getTodaySchedules(user.uid, todayStr),
         getInvoices(user.uid),
+        getServices(user.uid),
+        getSchedules(user.uid, monthStart, monthEnd),
       ])
       setClients(c)
       setTodayJobs(j)
       setInvoices(inv)
+      setServices(svc)
+      setAllSchedules(sched)
     } catch {
       toast.error(translate('common', 'error'))
     } finally {
@@ -153,6 +161,104 @@ export default function DashboardPage() {
         </div>
 
         <div className="px-4 py-4 max-w-lg mx-auto space-y-5">
+
+          {/* Onboarding Checklist */}
+          {!loading && !profile?.onboardingComplete && (() => {
+            const steps = [
+              { key: 'step_card',     done: !!profile?.cardLast4,        href: '/settings', icon: CreditCard },
+              { key: 'step_square',   done: !!profile?.squareConnected,  href: '/settings', icon: Link2 },
+              { key: 'step_service',  done: services.length > 0,         href: '/services', icon: Package },
+              { key: 'step_client',   done: clients.length > 0,          href: '/clients',  icon: UserPlus },
+              { key: 'step_schedule', done: allSchedules.length > 0,     href: '/calendar', icon: CalendarPlus },
+            ]
+            const completed = steps.filter(s => s.done).length
+            const allDone   = completed === steps.length
+            return (
+              <Card className="border-brand-100 bg-brand-50/50 animate-fade-up">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="text-[14px] font-semibold text-brand-900">
+                      {translate('onboarding', 'title')}
+                    </p>
+                    <p className="text-[12px] text-brand-600 mt-0.5">
+                      {translate('onboarding', 'subtitle')}
+                    </p>
+                  </div>
+                  {allDone && (
+                    <button
+                      onClick={async () => {
+                        await saveGardenerProfile(user.uid, { onboardingComplete: true })
+                        refreshProfile()
+                      }}
+                      className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+                      aria-label="Dismiss checklist"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+                {/* Progress bar */}
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[11px] font-medium text-brand-700">
+                      {completed}/{steps.length} {translate('onboarding', 'progress')}
+                    </p>
+                    <p className="text-[11px] font-medium text-brand-700">
+                      {Math.round((completed / steps.length) * 100)}%
+                    </p>
+                  </div>
+                  <div className="w-full h-2 bg-brand-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-brand-600 rounded-full transition-all duration-500"
+                      style={{ width: `${(completed / steps.length) * 100}%` }}
+                    />
+                  </div>
+                </div>
+                {/* Steps */}
+                <div className="space-y-1.5">
+                  {steps.map(step => (
+                    <Link
+                      key={step.key}
+                      href={step.done ? '#' : step.href}
+                      onClick={e => step.done && e.preventDefault()}
+                      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
+                        step.done
+                          ? 'bg-white/60'
+                          : 'bg-white hover:bg-brand-100 cursor-pointer'
+                      }`}
+                    >
+                      {step.done ? (
+                        <CheckCircle2 size={18} className="text-brand-600 flex-shrink-0" />
+                      ) : (
+                        <step.icon size={18} className="text-brand-400 flex-shrink-0" />
+                      )}
+                      <p className={`text-[13px] font-medium flex-1 ${
+                        step.done ? 'text-brand-400 line-through decoration-brand-300' : 'text-brand-900'
+                      }`}>
+                        {translate('onboarding', step.key)}
+                      </p>
+                      {!step.done && (
+                        <span className="text-[11px] text-brand-500 font-medium">→</span>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+                {/* Dismiss button when all done */}
+                {allDone && (
+                  <button
+                    onClick={async () => {
+                      await saveGardenerProfile(user.uid, { onboardingComplete: true })
+                      refreshProfile()
+                      toast.success('🌿')
+                    }}
+                    className="w-full mt-3 text-[13px] text-brand-700 bg-brand-100 hover:bg-brand-200 font-medium rounded-xl py-2.5 transition-colors"
+                  >
+                    {translate('onboarding', 'dismiss')}
+                  </button>
+                )}
+              </Card>
+            )
+          })()}
 
           {/* Stats */}
           {loading ? (
