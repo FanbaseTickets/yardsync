@@ -10,6 +10,7 @@ import { Card, Badge, Button, Skeleton, Modal, Input, Select } from '@/component
 import { getClient, updateClient, deleteClient, getClientInvoices, getServices, saveInvoice } from '@/lib/db'
 import { formatCents, getPackageFee, getFeeDescription, buildInvoiceLineItems, getAddonFee } from '@/lib/fee'
 import { Phone, MapPin, Mail, CalendarDays, DollarSign, Pencil, FileText, CheckCircle2, RefreshCw } from 'lucide-react'
+import PhoneInput from '@/components/ui/PhoneInput'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 
@@ -660,19 +661,10 @@ async function handleSendInvoice() {
       >
         <div className="space-y-4">
           <Input label={translate('clients', 'full_name')} value={form.name}    onChange={e => setField('name', e.target.value)}    />
-          <Input label={translate('clients', 'phone')} value={form.phone} type="tel"
-            onChange={e => {
-              const digits = e.target.value.replace(/\D/g, '').slice(0, 10)
-              let formatted = digits
-              if (digits.length > 6) {
-                formatted = `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`
-              } else if (digits.length > 3) {
-                formatted = `(${digits.slice(0,3)}) ${digits.slice(3)}`
-              } else if (digits.length > 0) {
-                formatted = `(${digits}`
-              }
-              setField('phone', formatted)
-            }}
+          <PhoneInput
+            label={translate('clients', 'phone')}
+            value={form.phone}
+            onChange={val => setField('phone', val)}
           />
           <Input label={translate('clients', 'email')}     value={form.email}   onChange={e => setField('email', e.target.value)}   type="email" />
           <Input label={translate('clients', 'address')}   value={form.address} onChange={e => setField('address', e.target.value)} />

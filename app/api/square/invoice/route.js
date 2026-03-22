@@ -1,20 +1,5 @@
 import { NextResponse } from 'next/server'
-
-const SQUARE_BASE_URL    = 'https://connect.squareupsandbox.com'
-const SQUARE_TOKEN       = process.env.SQUARE_ACCESS_TOKEN
-const SQUARE_LOCATION_ID = process.env.SQUARE_LOCATION_ID
-
-function squareHeaders() {
-  return {
-    'Square-Version': '2024-01-18',
-    'Authorization':  `Bearer ${SQUARE_TOKEN}`,
-    'Content-Type':   'application/json',
-  }
-}
-
-function idempotencyKey() {
-  return `ys-${Date.now()}-${Math.random().toString(36).slice(2)}`
-}
+import { getSquareBaseUrl, getSquareHeaders, idempotencyKey } from '@/lib/square'
 
 export async function POST(request) {
   try {
@@ -26,7 +11,15 @@ export async function POST(request) {
       clientPhone,
       lineItems,
       totalCents,
+      // Per-gardener OAuth tokens (preferred) — falls back to env vars for sandbox
+      gardenerAccessToken,
+      gardenerLocationId,
     } = await request.json()
+
+    const baseUrl    = getSquareBaseUrl()
+    const token      = gardenerAccessToken || process.env.SQUARE_ACCESS_TOKEN
+    const locationId = gardenerLocationId  || process.env.SQUARE_LOCATION_ID
+    const headers    = getSquareHeaders(token)
 
     console.log('YardSync → Square invoice request:', { clientId, totalCents })
 
@@ -34,9 +27,9 @@ export async function POST(request) {
     let squareCustomerId = null
 
     if (clientEmail) {
-      const searchRes = await fetch(`${SQUARE_BASE_URL}/v2/customers/search`, {
+      const searchRes = await fetch(`${baseUrl}/v2/customers/search`, {
         method:  'POST',
-        headers: squareHeaders(),
+        headers,
         body: JSON.stringify({
           query: { filter: { email_address: { exact: clientEmail } } }
         })
@@ -52,9 +45,9 @@ export async function POST(request) {
       const givenName  = nameParts[0] || clientName
       const familyName = nameParts.slice(1).join(' ') || ''
 
-      const createRes  = await fetch(`${SQUARE_BASE_URL}/v2/customers`, {
+      const createRes  = await fetch(`${baseUrl}/v2/customers`, {
         method:  'POST',
-        headers: squareHeaders(),
+        headers,
         body: JSON.stringify({
           idempotency_key: idempotencyKey(),
           given_name:      givenName,
@@ -70,13 +63,13 @@ export async function POST(request) {
     }
 
     // ── STEP 2: Create Square order ─────────────────────────────────────────
-    const orderRes = await fetch(`${SQUARE_BASE_URL}/v2/orders`, {
+    const orderRes = await fetch(`${baseUrl}/v2/orders`, {
       method:  'POST',
-      headers: squareHeaders(),
+      headers,
       body: JSON.stringify({
         idempotency_key: idempotencyKey(),
         order: {
-          location_id:  SQUARE_LOCATION_ID,
+          location_id:  locationId,
           reference_id: clientId,
           customer_id:  squareCustomerId,
           line_items: [{
@@ -95,13 +88,13 @@ export async function POST(request) {
     tomorrow.setDate(tomorrow.getDate() + 1)
     const dueDateStr = tomorrow.toISOString().split('T')[0]
 
-    const invoiceRes = await fetch(`${SQUARE_BASE_URL}/v2/invoices`, {
+    const invoiceRes = await fetch(`${baseUrl}/v2/invoices`, {
       method:  'POST',
-      headers: squareHeaders(),
+      headers,
       body: JSON.stringify({
         idempotency_key: idempotencyKey(),
         invoice: {
-          location_id:      SQUARE_LOCATION_ID,
+          location_id:      locationId,
           order_id:         orderData.order.id,
           title:            `YardSync — ${clientName}`,
           description:      'Lawn care service via YardSync',
@@ -124,10 +117,10 @@ export async function POST(request) {
 
     // ── STEP 4: Publish invoice ─────────────────────────────────────────────
     const publishRes = await fetch(
-      `${SQUARE_BASE_URL}/v2/invoices/${invoiceData.invoice.id}/publish`,
+      `${baseUrl}/v2/invoices/${invoiceData.invoice.id}/publish`,
       {
         method:  'POST',
-        headers: squareHeaders(),
+        headers,
         body: JSON.stringify({
           idempotency_key: idempotencyKey(),
           version:         invoiceData.invoice.version,

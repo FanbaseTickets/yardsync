@@ -185,8 +185,67 @@ export async function GET(request) {
       }
     }
 
-    console.log('Cron complete:', results, '| Summaries:', summaryResults)
-    return NextResponse.json({ success: true, clientReminders: results, gardenerSummaries: summaryResults })
+    // ── PHASE 3: Quarterly fee reminder (runs on 1st of Mar, Jun, Sep, Dec) ──
+    const feeReminderResults = { sent: 0, skipped: 0 }
+    const dayOfMonth = now.getDate()
+    const monthNum   = now.getMonth() // 0-indexed
+    const isReminderDay = dayOfMonth === 1 && [2, 5, 8, 11].includes(monthNum)
+
+    if (isReminderDay) {
+      const currentQ = Math.floor(monthNum / 3) + 1
+      const qLabel   = `Q${currentQ}`
+      const qStart   = new Date(now.getFullYear(), (currentQ - 1) * 3, 1)
+      const qEnd     = new Date(now.getFullYear(), currentQ * 3, 0, 23, 59, 59)
+
+      const allInvoicesSnap = await getDocs(collection(db, 'invoices'))
+      const allInvoices     = allInvoicesSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+
+      for (const gDoc of usersSnap.docs) {
+        const g = { id: gDoc.id, ...gDoc.data() }
+        if (!g.phone) continue
+
+        const uncollected = allInvoices.filter(inv => {
+          if (inv.gardenerUid !== g.id || inv.feeCollected) return false
+          const d = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
+          return d >= qStart && d <= qEnd
+        })
+        if (uncollected.length === 0) { feeReminderResults.skipped++; continue }
+
+        const totalFees = uncollected.reduce((s, inv) => {
+          const feeLines = inv.lineItems?.filter(l => l.category === 'fee') || []
+          return s + feeLines.reduce((fs, l) => fs + (l.amountCents || 0), 0)
+        }, 0)
+        if (totalFees <= 0) { feeReminderResults.skipped++; continue }
+
+        const firstName = g.name?.split(' ')[0] || 'there'
+        const amount    = (totalFees / 100).toFixed(2)
+        const msg = g.language === 'es'
+          ? `Hola ${firstName}! Tus tarifas de plataforma YardSync de ${qLabel} son $${amount}. Vencen al final del trimestre. Paga en yardsync.vercel.app/settings — YardSync`
+          : `Hi ${firstName}! Your YardSync ${qLabel} platform fees are $${amount}. Due end of quarter. Pay at yardsync.vercel.app/settings — YardSync`
+
+        try {
+          const digits = g.phone.replace(/\D/g, '')
+          if (digits.length < 10) { feeReminderResults.skipped++; continue }
+          const to   = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
+          const body = new URLSearchParams({ To: to, From: TWILIO_FROM, Body: msg })
+          await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'Authorization': 'Basic ' + Buffer.from(`${TWILIO_SID}:${TWILIO_TOKEN}`).toString('base64'),
+            },
+            body: body.toString(),
+          })
+          feeReminderResults.sent++
+          console.log(`Fee reminder SMS → uid:${g.id} fees:${totalFees} quarter:${qLabel}`)
+        } catch (err) {
+          console.error(`Fee reminder failed → uid:${g.id}`, err.message)
+        }
+      }
+    }
+
+    console.log('Cron complete:', results, '| Summaries:', summaryResults, '| Fee reminders:', feeReminderResults)
+    return NextResponse.json({ success: true, clientReminders: results, gardenerSummaries: summaryResults, feeReminders: feeReminderResults })
 
   } catch (err) {
     console.error('Cron job failed:', err)

@@ -12,6 +12,7 @@ import { getClients, getSchedules, addSchedule, updateSchedule, deleteSchedule, 
 import { deleteAllClientSchedules } from '@/lib/db'
 import { formatCents, buildInvoiceLineItems } from '@/lib/fee'
 import { validatePhone, formatPhone } from '@/lib/phone'
+import PhoneInput from '@/components/ui/PhoneInput'
 import {
   ChevronLeft, ChevronRight, Plus, CalendarDays,
   Trash2, CheckCircle2, RefreshCw, AlertTriangle, Zap, DollarSign
@@ -615,26 +616,12 @@ export default function CalendarPage() {
           </div>
           <Input label={lang === 'es' ? 'Nombre del cliente *' : 'Client name *'} placeholder={lang === 'es' ? 'Juan García' : 'John Smith'} value={walkInName} onChange={e => setWalkInName(e.target.value)} />
           <div>
-            <Input
+            <PhoneInput
               label={lang === 'es' ? 'Teléfono (opcional)' : 'Phone (optional)'}
-              placeholder="(210) 555-0100"
-              type="tel"
               value={walkInPhone}
-              onChange={e => {
-                const digits = e.target.value.replace(/\D/g, '').slice(0, 10)
-                let formatted = digits
-                if (digits.length > 6) {
-                  formatted = `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`
-                } else if (digits.length > 3) {
-                  formatted = `(${digits.slice(0,3)}) ${digits.slice(3)}`
-                } else if (digits.length > 0) {
-                  formatted = `(${digits}`
-                }
-                setWalkInPhone(formatted)
-                setWalkInPhoneError('')
-              }}
+              onChange={val => { setWalkInPhone(val); setWalkInPhoneError('') }}
+              error={walkInPhoneError}
             />
-            {walkInPhoneError && <p className="text-[12px] text-red-500 mt-1">{walkInPhoneError}</p>}
             <p className="text-[11px] text-gray-400 mt-1">{lang === 'es' ? 'Necesario para SMS o factura' : 'Needed to send SMS or invoice'}</p>
           </div>
           <Input

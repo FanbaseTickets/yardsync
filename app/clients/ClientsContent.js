@@ -12,6 +12,7 @@ import { Card, Badge, Button, EmptyState, Skeleton, Modal, Input, Select } from 
 import { getClients, addClient, getServices } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { validatePhone, formatPhone } from '@/lib/phone'
+import PhoneInput from '@/components/ui/PhoneInput'
 import { Users, Plus, Search, MapPin, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
@@ -304,23 +305,10 @@ export default function ClientsPage() {
             error={errors.name}
           />
           <div>
-            <Input
+            <PhoneInput
               label={translate('clients', 'phone') + ' *'}
-              placeholder="(210) 555-0100"
-              type="tel"
               value={form.phone}
-              onChange={e => {
-                const digits = e.target.value.replace(/\D/g, '').slice(0, 10)
-                let formatted = digits
-                if (digits.length > 6) {
-                  formatted = `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`
-                } else if (digits.length > 3) {
-                  formatted = `(${digits.slice(0,3)}) ${digits.slice(3)}`
-                } else if (digits.length > 0) {
-                  formatted = `(${digits}`
-                }
-                setField('phone', formatted)
-              }}
+              onChange={val => setField('phone', val)}
               error={errors.phone}
             />
             {!errors.phone && form.phone && validatePhone(form.phone) && (

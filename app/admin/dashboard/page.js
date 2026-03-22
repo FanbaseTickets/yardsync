@@ -9,7 +9,8 @@ import { db } from '@/lib/firebase'
 import {
   Shield, LogOut, Users, DollarSign,
   TrendingUp, AlertCircle, RefreshCw,
-  ChevronDown, ChevronUp, CheckCircle, Plus, Calendar, Download, Clock
+  ChevronDown, ChevronUp, CheckCircle, Plus, Calendar, Download, Clock,
+  CreditCard, AlertOctagon, History
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { fmt as format } from '@/lib/date'
@@ -37,8 +38,9 @@ export default function AdminDashboard() {
   const { user, loading, signOut } = useAuth()
   const router = useRouter()
 
-  const [gardeners,   setGardeners]   = useState([])
-  const [allInvoicesRaw, setAllInvoicesRaw] = useState([])
+  const [gardeners,       setGardeners]       = useState([])
+  const [allInvoicesRaw,  setAllInvoicesRaw]  = useState([])
+  const [allFeePayments,  setAllFeePayments]  = useState([])
   const [dataLoading, setDataLoading] = useState(true)
   const [expanded,    setExpanded]    = useState(null)
   const [refreshing,  setRefreshing]  = useState(false)
@@ -62,11 +64,15 @@ export default function AdminDashboard() {
   async function loadData() {
     setDataLoading(true)
     try {
-      const [usersSnap, invoicesSnap, clientsSnap] = await Promise.all([
+      const [usersSnap, invoicesSnap, clientsSnap, feePaySnap] = await Promise.all([
         getDocs(collection(db, 'users')),
         getDocs(collection(db, 'invoices')),
         getDocs(collection(db, 'clients')),
+        getDocs(collection(db, 'feePayments')),
       ])
+
+      const allFeePaymentsData = feePaySnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      setAllFeePayments(allFeePaymentsData)
 
       const allInvoices = invoicesSnap.docs.map(d => ({ id: d.id, ...d.data() }))
       const allClients  = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -123,16 +129,27 @@ export default function AdminDashboard() {
           })
           .slice(0, 5)
 
+        const gFeePayments = allFeePaymentsData.filter(fp => fp.gardenerUid === d.id)
+        const uncollectedFees = gInvoices
+          .filter(inv => !inv.feeCollected)
+          .reduce((s, inv) => {
+            const fl = inv.lineItems?.filter(l => l.category === 'fee') || []
+            return s + fl.reduce((fs, l) => fs + (l.amountCents || 0), 0)
+          }, 0)
+
         return {
           ...g,
-          invoiceCount:  gInvoices.length,
-          activeClients: gClients.filter(c => c.status === 'active').length,
-          allClients:    gClients,
-          allInvoices:   gInvoices,
-          allTime:       allTimeTotals,
-          thisMonth:     thisMonthTotals,
+          invoiceCount:    gInvoices.length,
+          activeClients:   gClients.filter(c => c.status === 'active').length,
+          allClients:      gClients,
+          allInvoices:     gInvoices,
+          allTime:         allTimeTotals,
+          thisMonth:       thisMonthTotals,
           quarters,
           recentInvoices,
+          feePayments:     gFeePayments,
+          uncollectedFees,
+          hasCard:         !!g.stripePaymentMethodId,
         }
       })
 
@@ -154,6 +171,52 @@ export default function AdminDashboard() {
       loadData()
     } catch (err) {
       toast.error('Failed to mark paid')
+    }
+  }
+
+  async function handleMarkCollected(gardener, quarter, year) {
+    try {
+      // Calculate fees for this quarter
+      const qIndex = parseInt(quarter.replace('Q', '')) - 1
+      const qStart = new Date(year, qIndex * 3, 1)
+      const qEnd   = new Date(year, qIndex * 3 + 3, 0, 23, 59, 59)
+      const qInvoices = gardener.allInvoices.filter(inv => {
+        if (inv.feeCollected) return false
+        const d = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
+        return d >= qStart && d <= qEnd
+      })
+      const totalFees = qInvoices.reduce((s, inv) => {
+        const fl = inv.lineItems?.filter(l => l.category === 'fee') || []
+        return s + fl.reduce((fs, l) => fs + (l.amountCents || 0), 0)
+      }, 0)
+
+      if (totalFees <= 0) { toast.error('No uncollected fees for this quarter'); return }
+
+      // Save fee payment record
+      await addDoc(collection(db, 'feePayments'), {
+        gardenerUid: gardener.id,
+        quarter, year,
+        amountCents: totalFees,
+        stripePaymentIntentId: 'manual',
+        status: 'paid',
+        chargeMethod: 'manual',
+        paidAt: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+      })
+
+      // Mark invoices as collected
+      await Promise.all(qInvoices.map(inv =>
+        updateDoc(doc(db, 'invoices', inv.id), {
+          feeCollected: true,
+          feeCollectedAt: new Date().toISOString(),
+          feePaymentIntentId: 'manual',
+        })
+      ))
+
+      toast.success(`${quarter} ${year} marked collected for ${gardener.name} (${formatCents(totalFees)})`)
+      loadData()
+    } catch (err) {
+      toast.error('Failed to mark collected')
     }
   }
 
@@ -514,6 +577,91 @@ export default function AdminDashboard() {
                               <Calendar size={14} /> Add Schedule
                             </button>
                           </div>
+
+                          {/* Outstanding fees + card status */}
+                          <div className="mb-4">
+                            <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">Fee Collection Status</p>
+                            <div className="flex items-center gap-2 mb-2">
+                              {g.hasCard ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] bg-green-900/40 text-green-400 px-2 py-1 rounded-full font-medium">
+                                  <CreditCard size={10} /> Card on file
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[11px] bg-red-900/40 text-red-400 px-2 py-1 rounded-full font-medium">
+                                  <AlertOctagon size={10} /> No card on file
+                                </span>
+                              )}
+                              {g.uncollectedFees > 0 ? (
+                                <span className="text-[11px] bg-amber-900/40 text-amber-400 px-2 py-1 rounded-full font-medium">
+                                  {formatCents(g.uncollectedFees)} outstanding
+                                </span>
+                              ) : (
+                                <span className="text-[11px] bg-green-900/40 text-green-400 px-2 py-1 rounded-full font-medium">
+                                  All fees collected
+                                </span>
+                              )}
+                            </div>
+                            {g.uncollectedFees > 0 && (
+                              <div className="grid grid-cols-4 gap-2 mt-2">
+                                {g.quarters.map(q => {
+                                  const qPaid = g.feePayments?.find(fp =>
+                                    fp.quarter === q.label.split(' ')[0] &&
+                                    fp.year === parseInt(q.label.split(' ')[1]) &&
+                                    (fp.status === 'paid' || fp.status === 'auto_charged')
+                                  )
+                                  const qLabel  = q.label.split(' ')[0]
+                                  const qYear   = parseInt(q.label.split(' ')[1])
+                                  return (
+                                    <div key={q.label} className={`rounded-lg p-2 text-center ${qPaid ? 'bg-green-900/30' : q.fees > 0 ? 'bg-amber-900/30' : 'bg-gray-800'}`}>
+                                      <p className="text-[10px] text-gray-400">{qLabel}</p>
+                                      <p className="text-[12px] font-bold text-white">{formatCents(q.fees)}</p>
+                                      {qPaid ? (
+                                        <p className="text-[9px] text-green-400 mt-0.5">Collected</p>
+                                      ) : q.fees > 0 ? (
+                                        <button
+                                          onClick={() => handleMarkCollected(g, qLabel, qYear)}
+                                          className="text-[9px] text-amber-400 hover:text-amber-300 mt-0.5 underline"
+                                        >
+                                          Mark collected
+                                        </button>
+                                      ) : (
+                                        <p className="text-[9px] text-gray-600 mt-0.5">—</p>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Fee payment history */}
+                          {g.feePayments?.length > 0 && (
+                            <div className="mb-4">
+                              <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+                                <History size={10} /> Fee Payment History
+                              </p>
+                              <div className="space-y-1.5">
+                                {g.feePayments
+                                  .sort((a, b) => (b.paidAt || '').localeCompare(a.paidAt || ''))
+                                  .map(fp => (
+                                    <div key={fp.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
+                                      <div className="flex items-center gap-2">
+                                        <CheckCircle size={12} className="text-green-400" />
+                                        <span className="text-[12px] text-white font-medium">{fp.quarter} {fp.year}</span>
+                                        <span className="text-[10px] bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded font-medium">
+                                          {fp.chargeMethod === 'auto' ? 'Auto' : 'Manual'}
+                                        </span>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="text-[12px] text-brand-400 font-medium">{formatCents(fp.amountCents)}</p>
+                                        {fp.paidAt && <p className="text-[10px] text-gray-500">{new Date(fp.paidAt).toLocaleDateString()}</p>}
+                                      </div>
+                                    </div>
+                                  ))
+                                }
+                              </div>
+                            </div>
+                          )}
 
                           {g.recentInvoices.length > 0 && (
                             <div>
