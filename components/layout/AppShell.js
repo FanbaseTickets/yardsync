@@ -26,6 +26,9 @@ export default function AppShell({ children }) {
   }, [user])
 
   async function checkSubscription() {
+    // Guard — user may have been cleared by signOut before this runs
+    if (!user) { setSubLoading(false); return }
+
     // Admin email bypasses subscription check
     if (user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
       setSubStatus('active')
@@ -37,6 +40,7 @@ export default function AppShell({ children }) {
     // their Firestore document written yet when this first runs
     const maxRetries = 3
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      if (!user) { setSubLoading(false); return }
       try {
         const profile = await getGardenerProfile(user.uid)
         if (profile) {
