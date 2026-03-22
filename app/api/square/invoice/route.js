@@ -11,6 +11,7 @@ export async function POST(request) {
       clientPhone,
       lineItems,
       totalCents,
+      materials,
       // Per-gardener OAuth tokens (preferred) — falls back to env vars for sandbox
       gardenerAccessToken,
       gardenerLocationId,
@@ -72,11 +73,25 @@ export async function POST(request) {
           location_id:  locationId,
           reference_id: clientId,
           customer_id:  squareCustomerId,
-          line_items: [{
-            name:             'Lawn care service',
-            quantity:         '1',
-            base_price_money: { amount: totalCents, currency: 'USD' },
-          }],
+          line_items: [
+            // Base service (includes service + fee, excludes materials)
+            {
+              name:             'Lawn care service',
+              quantity:         '1',
+              base_price_money: {
+                amount: materials?.length
+                  ? totalCents - materials.reduce((s, m) => s + (m.totalCents || 0), 0)
+                  : totalCents,
+                currency: 'USD',
+              },
+            },
+            // Material line items (pass-through, no YardSync fee)
+            ...(materials || []).map(m => ({
+              name:             m.name || 'Material',
+              quantity:         String(m.qty || 1),
+              base_price_money: { amount: m.unitCostCents || 0, currency: 'USD' },
+            })),
+          ],
         }
       })
     })

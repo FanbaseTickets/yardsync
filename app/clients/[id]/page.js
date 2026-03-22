@@ -7,7 +7,7 @@ import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, Skeleton, Modal, Input, Select } from '@/components/ui'
-import { getClient, updateClient, deleteClient, getClientInvoices, getServices, saveInvoice } from '@/lib/db'
+import { getClient, updateClient, deleteClient, getClientInvoices, getServices, saveInvoice, getMostRecentSchedule } from '@/lib/db'
 import { formatCents, getPackageFee, getFeeDescription, buildInvoiceLineItems, getAddonFee } from '@/lib/fee'
 import { Phone, MapPin, Mail, CalendarDays, DollarSign, Pencil, FileText, CheckCircle2, RefreshCw } from 'lucide-react'
 import PhoneInput from '@/components/ui/PhoneInput'
@@ -68,7 +68,8 @@ export default function ClientDetailPage() {
   const [loading,       setLoading]       = useState(true)
   const [showEdit,      setShowEdit]      = useState(false)
   const [showDelete,    setShowDelete]    = useState(false)
-  const [showInvoice,   setShowInvoice]   = useState(false) // ← new invoice modal
+  const [showInvoice,   setShowInvoice]   = useState(false)
+  const [jobMaterials,  setJobMaterials]  = useState([])
   const [form,          setForm]          = useState({})
   const [saving,        setSaving]        = useState(false)
   const [deleting,      setDeleting]      = useState(false)
@@ -160,9 +161,17 @@ export default function ClientDetailPage() {
     return fixed + variable
   }
 
-  function openInvoiceModal() {
+  async function openInvoiceModal() {
     setSelectedAddons([])
     setVariableInputs({})
+    setJobMaterials([])
+    // Fetch materials from most recent scheduled job
+    try {
+      const recentJob = await getMostRecentSchedule(user.uid, id)
+      if (recentJob?.materials?.length > 0) {
+        setJobMaterials(recentJob.materials)
+      }
+    } catch {}
     setShowInvoice(true)
   }
 
@@ -227,14 +236,23 @@ async function handleSendInvoice() {
       packageType:     client.packageType,
       addons:          finalAddons,
     })
+    // Add materials as pass-through line items (no YardSync fee)
+    const materialLineItems = jobMaterials.map(m => ({
+      label: m.name, amountCents: m.totalCents || 0, category: 'material',
+    }))
+    const allLineItems = [...lineItems, ...materialLineItems]
+    const materialsTotal = jobMaterials.reduce((s, m) => s + (m.totalCents || 0), 0)
+    const grandTotal = totalCents + materialsTotal
+
     const res = await fetch('/api/square/invoice', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
         clientId:    id,
         gardenerUid: user.uid,
-        lineItems,
-        totalCents,
+        lineItems:   allLineItems,
+        totalCents:  grandTotal,
+        materials:   jobMaterials,
         clientName:  client.name,
         clientEmail: client.email  || '',
         clientPhone: client.phone  || '',
@@ -249,13 +267,13 @@ async function handleSendInvoice() {
       clientName:       client.name,
       clientEmail:      client.email || '',
       clientPhone:      client.phone || '',
-      totalCents,
+      totalCents:       grandTotal,
       squareInvoiceId:  data.invoiceId,
       squareOrderId:    data.squareOrderId,
       squareCustomerId: data.squareCustomerId,
       squarePublicUrl:  data.invoiceUrl || null,
       status:           'sent',
-      lineItems,
+      lineItems:        allLineItems,
     })
 
     toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent via Square!')
@@ -310,7 +328,8 @@ async function handleSendInvoice() {
   // Live invoice total preview
   const addonSubtotal  = getAddonSubtotal()
   const addonFee       = addonSubtotal > 0 ? Math.round(addonSubtotal * 0.10) : 0
-  const invoiceTotal   = totalCharge + addonSubtotal + addonFee
+  const jobMaterialsTotal = jobMaterials.reduce((s, m) => s + (m.totalCents || 0), 0)
+  const invoiceTotal   = totalCharge + addonSubtotal + addonFee + jobMaterialsTotal
 
   return (
     <AppShell>
@@ -629,6 +648,23 @@ async function handleSendInvoice() {
                     {lang === 'es' ? 'Tarifa adicionales (+10%)' : 'Add-on fee (+10%)'}
                   </span>
                   <span className="text-brand-600">+{formatCents(addonFee)}</span>
+                </div>
+              </>
+            )}
+            {jobMaterials.length > 0 && (
+              <>
+                <div className="flex justify-between text-[12px] pt-1">
+                  <span className="text-amber-700 font-medium">{translate('materials', 'title')}</span>
+                </div>
+                {jobMaterials.map(m => (
+                  <div key={m.id} className="flex justify-between text-[12px]">
+                    <span className="text-amber-600">{m.name} ({m.qty} × {formatCents(m.unitCostCents)})</span>
+                    <span className="text-amber-700">{formatCents(m.totalCents)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between text-[12px]">
+                  <span className="text-amber-700 font-medium">{translate('materials', 'subtotal')}</span>
+                  <span className="text-amber-700 font-medium">{formatCents(jobMaterialsTotal)}</span>
                 </div>
               </>
             )}

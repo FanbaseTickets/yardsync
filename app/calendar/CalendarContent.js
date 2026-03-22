@@ -8,14 +8,14 @@ import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Badge, Modal, Select, EmptyState, Skeleton, Input } from '@/components/ui'
-import { getClients, getSchedules, addSchedule, updateSchedule, deleteSchedule, getServices } from '@/lib/db'
+import { getClients, getSchedules, addSchedule, updateSchedule, deleteSchedule, getServices, updateScheduleMaterials } from '@/lib/db'
 import { deleteAllClientSchedules } from '@/lib/db'
 import { formatCents, buildInvoiceLineItems } from '@/lib/fee'
 import { validatePhone, formatPhone } from '@/lib/phone'
 import PhoneInput from '@/components/ui/PhoneInput'
 import {
   ChevronLeft, ChevronRight, Plus, CalendarDays,
-  Trash2, CheckCircle2, RefreshCw, AlertTriangle, Zap, DollarSign
+  Trash2, CheckCircle2, RefreshCw, AlertTriangle, Zap, DollarSign, Package, X
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -197,6 +197,9 @@ export default function CalendarPage() {
   const [deleteTarget,    setDeleteTarget]    = useState(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting,        setDeleting]        = useState(false)
+  const [materialsTarget, setMaterialsTarget] = useState(null)
+  const [materialsRows,   setMaterialsRows]   = useState([])
+  const [materialsSaving, setMaterialsSaving] = useState(false)
 
   const monthStart = startOfMonth(currentDate)
   const monthEnd   = endOfMonth(currentDate)
@@ -402,6 +405,51 @@ export default function CalendarPage() {
     finally { setDeleting(false) }
   }
 
+  function openMaterials(schedule) {
+    setMaterialsTarget(schedule)
+    setMaterialsRows(schedule.materials?.length > 0
+      ? schedule.materials.map(m => ({ ...m }))
+      : [{ id: Date.now().toString(), name: '', qty: 1, unitCostCents: 0, totalCents: 0 }]
+    )
+  }
+
+  function addMaterialRow() {
+    setMaterialsRows(prev => [...prev, { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, name: '', qty: 1, unitCostCents: 0, totalCents: 0 }])
+  }
+
+  function updateMaterialRow(id, field, value) {
+    setMaterialsRows(prev => prev.map(r => {
+      if (r.id !== id) return r
+      const updated = { ...r, [field]: value }
+      updated.totalCents = (updated.qty || 0) * (updated.unitCostCents || 0)
+      return updated
+    }))
+  }
+
+  function removeMaterialRow(id) {
+    setMaterialsRows(prev => prev.filter(r => r.id !== id))
+  }
+
+  async function handleSaveMaterials() {
+    if (!materialsTarget) return
+    setMaterialsSaving(true)
+    try {
+      const cleaned = materialsRows.filter(r => r.name.trim()).map(r => ({
+        ...r, name: r.name.trim(), totalCents: (r.qty || 0) * (r.unitCostCents || 0),
+      }))
+      await updateScheduleMaterials(materialsTarget.id, cleaned)
+      toast.success(translate('materials', 'saved'))
+      setMaterialsTarget(null)
+      loadData()
+    } catch {
+      toast.error(translate('common', 'error'))
+    } finally {
+      setMaterialsSaving(false)
+    }
+  }
+
+  const materialsSubtotal = materialsRows.reduce((s, r) => s + ((r.qty || 0) * (r.unitCostCents || 0)), 0)
+
   const selectedDaySchedules = selectedDay ? getSchedulesForDay(selectedDay) : []
   const clientMap             = Object.fromEntries(clients.map(c => [c.id, c]))
   const selectedClientObj     = clients.find(c => c.id === selectedClient)
@@ -517,6 +565,11 @@ export default function CalendarPage() {
                                 </div>
                               )}
                               {hasAddons && <span className="text-[10px] bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded-full font-medium">+{schedule.addons.length} {lang === 'es' ? 'adicionales' : 'add-ons'}</span>}
+                              {schedule.materials?.length > 0 && (
+                                <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">
+                                  📦 {translate('materials', 'attachedBadge')}: {formatCents(schedule.materialsTotal || 0)}
+                                </span>
+                              )}
                               {schedule.smsSent && <span className="text-[11px] text-brand-600 font-medium">SMS ✓</span>}
                             </div>
                           </div>
@@ -524,6 +577,11 @@ export default function CalendarPage() {
                             {schedule.isWalkIn && !done && (
                               <button onClick={() => openWalkInInvoice(schedule)} aria-label="Invoice walk-in" className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-brand-50 transition-colors">
                                 <DollarSign size={14} className="text-brand-600" />
+                              </button>
+                            )}
+                            {!done && (
+                              <button onClick={() => openMaterials(schedule)} aria-label="Add materials" className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-amber-50 transition-colors">
+                                <Package size={14} className="text-amber-600" />
                               </button>
                             )}
                             {!done && (
@@ -723,6 +781,83 @@ export default function CalendarPage() {
         ) : (
           <p className="text-[14px] text-gray-600">{translate('calendar', 'remove_visit')} — <strong>{clientMap[deleteTarget?.clientId]?.name || deleteTarget?.clientName}</strong>?</p>
         )}
+      </Modal>
+
+      {/* Materials modal */}
+      <Modal
+        open={!!materialsTarget}
+        onClose={() => setMaterialsTarget(null)}
+        title={`${translate('materials', 'title')} — ${clientMap[materialsTarget?.clientId]?.name || materialsTarget?.clientName || ''}`}
+        footer={
+          <>
+            <Button variant="secondary" fullWidth onClick={() => setMaterialsTarget(null)}>
+              {translate('common', 'cancel')}
+            </Button>
+            <Button fullWidth loading={materialsSaving} onClick={handleSaveMaterials}>
+              {translate('materials', 'save')}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          {materialsRows.length === 0 ? (
+            <p className="text-[13px] text-gray-400 text-center py-4">{translate('materials', 'noMaterials')}</p>
+          ) : (
+            materialsRows.map((row, i) => (
+              <div key={row.id} className="bg-gray-50 rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] text-gray-400 font-medium">#{i + 1}</p>
+                  <button onClick={() => removeMaterialRow(row.id)} className="text-red-400 hover:text-red-500 transition-colors" aria-label={translate('materials', 'remove')}>
+                    <X size={14} />
+                  </button>
+                </div>
+                <Input
+                  label={translate('materials', 'materialName')}
+                  placeholder={translate('materials', 'placeholder')}
+                  value={row.name}
+                  onChange={e => updateMaterialRow(row.id, 'name', e.target.value)}
+                />
+                <div className="grid grid-cols-3 gap-2">
+                  <Input
+                    label={translate('materials', 'qty')}
+                    type="number"
+                    min="1"
+                    value={row.qty}
+                    onChange={e => updateMaterialRow(row.id, 'qty', parseInt(e.target.value) || 0)}
+                    onWheel={e => e.target.blur()}
+                  />
+                  <Input
+                    label={translate('materials', 'unitCost')}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={(row.unitCostCents / 100).toFixed(2)}
+                    onChange={e => updateMaterialRow(row.id, 'unitCostCents', Math.round(parseFloat(e.target.value || 0) * 100))}
+                    onWheel={e => e.target.blur()}
+                  />
+                  <div>
+                    <p className="text-[13px] font-medium text-gray-700 mb-1">{translate('materials', 'total')}</p>
+                    <p className="text-[14px] font-semibold text-gray-900 bg-white border border-gray-200 rounded-xl px-3 py-2.5">
+                      {formatCents((row.qty || 0) * (row.unitCostCents || 0))}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+          <button
+            onClick={addMaterialRow}
+            className="w-full text-[13px] text-brand-600 font-medium bg-brand-50 hover:bg-brand-100 rounded-xl py-2.5 transition-colors"
+          >
+            {translate('materials', 'addMaterial')}
+          </button>
+          {materialsSubtotal > 0 && (
+            <div className="flex justify-between items-center bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+              <span className="text-[13px] font-medium text-amber-800">{translate('materials', 'subtotal')}</span>
+              <span className="text-[15px] font-bold text-amber-900">{formatCents(materialsSubtotal)}</span>
+            </div>
+          )}
+        </div>
       </Modal>
     </AppShell>
   )
