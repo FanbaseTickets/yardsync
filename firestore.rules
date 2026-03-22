@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'admin@fanbasetickets.net';
+    }
+    match /users/{uid} {
+      allow read, write: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+    }
+    match /subscriptions/{uid} {
+      allow read, write: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+    }
+    match /clients/{doc} {
+      allow read, write: if isAdmin() || request.auth != null;
+    }
+    match /schedules/{doc} {
+      allow read, write: if isAdmin() || request.auth != null;
+    }
+    match /services/{doc} {
+      allow read, write: if isAdmin() || request.auth != null;
+    }
+    match /invoices/{doc} {
+      allow read, write: if isAdmin() || request.auth != null;
+    }
+    match /feePayments/{doc} {
+      allow read, write: if isAdmin() || request.auth != null;
+    }
+  }
+}
