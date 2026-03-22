@@ -21,6 +21,9 @@ export default function LoginPage() {
   const [errors,   setErrors]   = useState({})
   const [showPassword, setShowPassword] = useState(false)
   const [failedAttempts, setFailedAttempts] = useState(0)
+  const [signupLang, setSignupLang] = useState('en')
+
+  const isEs = mode === 'signup' && signupLang === 'es'
 
   useEffect(() => {
     if (!loading && user) router.replace('/dashboard')
@@ -56,7 +59,7 @@ export default function LoginPage() {
         setFailedAttempts(0)
         router.replace('/dashboard')
       } else if (mode === 'signup') {
-        await signUp(email, password, name, bizName)
+        await signUp(email, password, name, bizName, signupLang)
         router.replace('/dashboard')
       } else {
         await resetPassword(email)
@@ -107,7 +110,7 @@ export default function LoginPage() {
         <h1 className="text-3xl font-display text-white tracking-tight">YardSync</h1>
         <p className="text-brand-200 text-sm mt-1">
           {mode === 'login'  ? 'Sign in to your account' :
-           mode === 'signup' ? 'Create your account' :
+           mode === 'signup' ? (isEs ? 'Crea tu cuenta' : 'Create your account') :
                                'Reset your password'}
         </p>
       </div>
@@ -153,8 +156,25 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {mode === 'signup' && (
             <>
+              {/* Language toggle */}
+              <div className="flex rounded-xl overflow-hidden border border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setSignupLang('en')}
+                  className={`flex-1 py-2 text-[13px] font-medium transition-colors ${signupLang === 'en' ? 'bg-brand-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                >
+                  English
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSignupLang('es')}
+                  className={`flex-1 py-2 text-[13px] font-medium transition-colors ${signupLang === 'es' ? 'bg-brand-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                >
+                  Español
+                </button>
+              </div>
               <Input
-                label="Your name"
+                label={isEs ? 'Tu nombre' : 'Your name'}
                 type="text"
                 placeholder="Marco Rodriguez"
                 value={name}
@@ -162,7 +182,7 @@ export default function LoginPage() {
                 error={errors.name}
               />
               <Input
-                label="Business name"
+                label={isEs ? 'Nombre del negocio' : 'Business name'}
                 type="text"
                 placeholder="Rodriguez Lawn Care"
                 value={bizName}
@@ -172,7 +192,7 @@ export default function LoginPage() {
             </>
           )}
           <Input
-            label="Email"
+            label={isEs ? 'Correo electrónico' : 'Email'}
             type="email"
             placeholder="you@example.com"
             value={email}
@@ -183,9 +203,9 @@ export default function LoginPage() {
           {mode !== 'reset' && (
             <div className="relative">
               <Input
-                label="Password"
+                label={isEs ? 'Contraseña' : 'Password'}
                 type={showPassword ? 'text' : 'password'}
-                placeholder={mode === 'signup' ? 'Min 8 characters' : '••••••••'}
+                placeholder={mode === 'signup' ? (isEs ? 'Mínimo 8 caracteres' : 'Min 8 characters') : '••••••••'}
                 value={password}
                 onChange={e => { setPassword(e.target.value); clearError('password') }}
                 error={errors.password}
@@ -202,7 +222,7 @@ export default function LoginPage() {
           )}
           <Button type="submit" loading={busy} fullWidth size="lg" className="mt-1">
             {mode === 'login'  ? 'Sign In' :
-             mode === 'signup' ? 'Create Account' :
+             mode === 'signup' ? (isEs ? 'Crear cuenta' : 'Create Account') :
                                  'Send Reset Link'}
           </Button>
         </form>

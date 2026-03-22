@@ -204,16 +204,16 @@ export default function DashboardPage() {
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-1">
                     <p className="text-[11px] font-medium text-brand-700">
-                      {completed}/{steps.length} {translate('onboarding', 'progress')}
+                      {requiredSteps.filter(s => s.done).length}/{requiredSteps.length} {translate('onboarding', 'progress')}
                     </p>
                     <p className="text-[11px] font-medium text-brand-700">
-                      {Math.round((completed / steps.length) * 100)}%
+                      {Math.round((requiredSteps.filter(s => s.done).length / requiredSteps.length) * 100)}%
                     </p>
                   </div>
                   <div className="w-full h-2 bg-brand-100 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-brand-600 rounded-full transition-all duration-500"
-                      style={{ width: `${(completed / steps.length) * 100}%` }}
+                      style={{ width: `${(requiredSteps.filter(s => s.done).length / requiredSteps.length) * 100}%` }}
                     />
                   </div>
                 </div>

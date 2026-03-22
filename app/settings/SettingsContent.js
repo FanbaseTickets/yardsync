@@ -372,12 +372,16 @@ export default function SettingsPage() {
     setSaving(true)
     try {
       await saveGardenerProfile(user.uid, form)
+      // Wait for profile refresh to complete before showing toast
+      // This ensures LangContext picks up the new language value
       await refreshProfile()
-      // Use the form's language for the toast, not the current context lang
+      // Small delay to let React re-render with new profile data
+      await new Promise(r => setTimeout(r, 100))
       const toastMsg = form.language === 'es' ? 'Configuración guardada' : 'Settings saved'
       toast.success(toastMsg + ' ✓')
     } catch {
-      toast.error(translate('common', 'error'))
+      const errMsg = form.language === 'es' ? 'Algo salió mal' : 'Something went wrong'
+      toast.error(errMsg)
     } finally {
       setSaving(false)
     }

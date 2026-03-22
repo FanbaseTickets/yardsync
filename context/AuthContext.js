@@ -39,13 +39,13 @@ export function AuthProvider({ children }) {
     return await signInWithEmailAndPassword(auth, email, password)
   }
 
-  async function signUp(email, password, name, businessName) {
+  async function signUp(email, password, name, businessName, language) {
     const cred = await createUserWithEmailAndPassword(auth, email, password)
     const profileData = {
       name,
       businessName,
       email,
-      language: 'en',
+      language: language || 'en',
       basePackages: {
         monthly:   { label: 'Monthly',   visits: 2,  basePriceCents: 6500  },
         quarterly: { label: 'Quarterly', visits: 6,  basePriceCents: 18500 },

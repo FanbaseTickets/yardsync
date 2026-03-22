@@ -508,7 +508,7 @@ export default function CalendarPage() {
                             </p>
                             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                               <span className="text-[11px] text-gray-400">{schedule.time}</span>
-                              {!schedule.isWalkIn && <Badge label={client?.packageType || 'monthly'} variant={client?.packageType || 'monthly'} />}
+                              {!schedule.isWalkIn && <Badge label={translate('packages', client?.packageType || 'monthly') || client?.packageType || 'monthly'} variant={client?.packageType || 'monthly'} />}
                               {schedule.isWalkIn && schedule.basePrice > 0 && <span className="text-[11px] text-brand-600 font-medium">{formatCents(schedule.basePrice)}</span>}
                               {schedule.isRecurring && (
                                 <div className="flex items-center gap-0.5">
@@ -561,7 +561,7 @@ export default function CalendarPage() {
       >
         <div className="space-y-4">
           <Select label={translate('calendar', 'client')} value={selectedClient} onChange={e => handleClientSelect(e.target.value)}>
-            {clients.map(c => <option key={c.id} value={c.id}>{c.name} — {c.packageType}</option>)}
+            {clients.map(c => <option key={c.id} value={c.id}>{c.name} — {translate('packages', c.packageType) || c.packageType}</option>)}
           </Select>
           <Select label={translate('calendar', 'time')} value={selectedTime} onChange={e => setSelectedTime(e.target.value)}>
             {TIMES.map(t => <option key={t} value={t}>{t}</option>)}
