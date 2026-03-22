@@ -38,10 +38,10 @@ function addMonths(date, n) { const d = new Date(date); d.setMonth(d.getMonth() 
 function addDays(date, n)   { const d = new Date(date); d.setDate(d.getDate() + n); return d }
 
 const TIMES = [
-  '7:00 AM','7:30 AM','8:00 AM','8:30 AM','9:00 AM','9:30 AM',
+  '6:00 AM','6:30 AM','7:00 AM','7:30 AM','8:00 AM','8:30 AM','9:00 AM','9:30 AM',
   '10:00 AM','10:30 AM','11:00 AM','11:30 AM','12:00 PM','12:30 PM',
   '1:00 PM','1:30 PM','2:00 PM','2:30 PM','3:00 PM','3:30 PM',
-  '4:00 PM','4:30 PM','5:00 PM',
+  '4:00 PM','4:30 PM','5:00 PM','5:30 PM','6:00 PM','6:30 PM','7:00 PM',
 ]
 
 const OCCURRENCE_OPTIONS = [
@@ -122,6 +122,7 @@ function AddonSelector({ addonServices, lang, fixedAddons, setFixedAddons, varia
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
                     <input type="number" placeholder="0.00" value={variables[service.id] || ''}
                       onChange={e => setVariables(prev => ({ ...prev, [service.id]: e.target.value }))}
+                      onWheel={e => e.target.blur()}
                       className="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-200 text-[13px] focus:outline-none focus:ring-2 focus:ring-brand-500" />
                   </div>
                 </div>
@@ -310,7 +311,9 @@ export default function CalendarPage() {
         serviceDate: toDateStr(date), time: selectedTime,
         status: 'scheduled', recurrence: repeatMode, isRecurring: repeatMode !== 'none', addons: finalAddons,
       })))
-      toast.success(datesToAdd.length === 1 ? translate('calendar', 'add_job') + ' ✓' : `${datesToAdd.length} ${translate('calendar', 'visits')} ✓`)
+      toast.success(datesToAdd.length === 1
+        ? `${translate('calendar', 'add_job')} ✓`
+        : `${datesToAdd.length} ${translate('calendar', 'visits')} ${lang === 'es' ? 'programadas para' : 'scheduled for'} ${client?.name || ''}!`)
       setShowAddModal(false); loadData()
     } catch { toast.error(translate('common', 'error')) }
     finally { setSaving(false) }

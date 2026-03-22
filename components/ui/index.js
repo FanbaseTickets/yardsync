@@ -52,6 +52,7 @@ export function Input({ label, id, error, hint, prefix, suffix, className, conta
             suffix ? 'pr-10' : 'pr-3',
             'py-2.5', className
           )}
+          {...(props.type === 'number' ? { onWheel: e => e.target.blur() } : {})}
           {...props}
         />
         {suffix && <span className="absolute right-3 text-gray-400 text-sm pointer-events-none">{suffix}</span>}
@@ -151,21 +152,22 @@ export function StatCard({ label, value, sub, icon: Icon, accent }) {
 export function Modal({ open, onClose, title, children, footer }) {
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl animate-fade-up">
-        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100">
+      <div className="relative bg-white w-full max-w-lg max-h-[85vh] rounded-t-3xl sm:rounded-3xl shadow-2xl animate-fade-up flex flex-col">
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
           <h2 className="text-[17px] font-semibold text-gray-900">{title}</h2>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
           >
             <X size={16} className="text-gray-500" />
           </button>
         </div>
-        <div className="px-5 py-4 overflow-y-auto max-h-[70vh]">{children}</div>
+        <div className="px-5 py-4 overflow-y-auto flex-1 min-h-0">{children}</div>
         {footer && (
-          <div className="px-5 pb-6 pt-2 border-t border-gray-100 flex gap-2">{footer}</div>
+          <div className="px-5 pb-6 pt-2 border-t border-gray-100 flex gap-2 flex-shrink-0">{footer}</div>
         )}
       </div>
     </div>

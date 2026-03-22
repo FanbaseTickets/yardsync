@@ -589,6 +589,7 @@ async function handleSendInvoice() {
                               placeholder="0.00"
                               value={variableInputs[service.id] || ''}
                               onChange={e => setVariableInputs(prev => ({ ...prev, [service.id]: e.target.value }))}
+                              onWheel={e => e.target.blur()}
                               className="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-200 text-[13px] focus:outline-none focus:ring-2 focus:ring-brand-500"
                             />
                           </div>
