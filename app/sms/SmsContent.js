@@ -7,7 +7,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
-import { Card, Button, Skeleton, EmptyState } from '@/components/ui'
+import { Card, Button, Skeleton, EmptyState, Modal } from '@/components/ui'
 import { getClients, updateSchedule } from '@/lib/db'
 import { getSchedulesFromToday } from '@/lib/db'
 import { MessageSquare, CheckCircle2, Clock, Send } from 'lucide-react'
@@ -21,7 +21,7 @@ function parseISO(str) {
 
 export default function SMSPage() {
   const { user, profile } = useAuth()
-  const { translate } = useLang()
+  const { translate, lang } = useLang()
 
   const [schedules,  setSchedules]  = useState([])
   const [clients,    setClients]    = useState([])
@@ -29,6 +29,7 @@ export default function SMSPage() {
   const [template,   setTemplate]   = useState('')
   const [editingTpl, setEditingTpl] = useState(false)
   const [sending,    setSending]    = useState(null)
+  const [confirmTarget, setConfirmTarget] = useState(null)
 
   useEffect(() => {
     if (!user) return
@@ -278,7 +279,7 @@ async function loadData() {
                                 size="sm"
                                 variant={schedule.smsSent ? 'secondary' : 'brand'}
                                 loading={sending === schedule.id}
-                                onClick={() => handleSendSMS(schedule)}
+                                onClick={() => setConfirmTarget(schedule)}
                                 icon={Send}
                                 disabled={!hasPhone}
                               >
@@ -305,6 +306,43 @@ async function loadData() {
 
         </div>
       </div>
+      <Modal
+        open={!!confirmTarget}
+        onClose={() => setConfirmTarget(null)}
+        title={confirmTarget?.smsSent
+          ? (translate('sms', 'resend') + ' SMS')
+          : (translate('sms', 'send') + ' SMS')}
+        footer={
+          <>
+            <Button variant="secondary" fullWidth onClick={() => setConfirmTarget(null)}>
+              {translate('common', 'cancel')}
+            </Button>
+            <Button fullWidth loading={sending === confirmTarget?.id} onClick={() => {
+              handleSendSMS(confirmTarget)
+              setConfirmTarget(null)
+            }}>
+              {translate('sms', 'send')}
+            </Button>
+          </>
+        }
+      >
+        {confirmTarget && (
+          <div className="space-y-3">
+            <p className="text-[14px] text-gray-700">
+              {translate('sms', 'send')} {confirmTarget.smsSent ? '(again) ' : ''}
+              {lang === 'es' ? 'recordatorio a' : 'reminder to'}{' '}
+              <strong>{resolveClientName(confirmTarget)}</strong>{' '}
+              {lang === 'es' ? 'para' : 'for'}{' '}
+              <strong>{formatServiceDate(confirmTarget.serviceDate)}</strong>?
+            </p>
+            <Card className="bg-gray-50">
+              <p className="text-[12px] text-gray-500 italic leading-relaxed">
+                &quot;{buildPreview(confirmTarget)}&quot;
+              </p>
+            </Card>
+          </div>
+        )}
+      </Modal>
     </AppShell>
   )
 }

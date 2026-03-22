@@ -10,7 +10,7 @@ import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Input, Select } from '@/components/ui'
 import { saveGardenerProfile, getInvoices } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
-import { Bell, Globe, User, Clock, BarChart2 } from 'lucide-react'
+import { Bell, Globe, User, Clock, BarChart2, CreditCard } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const REMINDER_OPTIONS = [
@@ -280,6 +280,34 @@ export default function SettingsPage() {
                   <span className="text-brand-800 font-medium">+10%</span>
                 </div>
               </div>
+            </Card>
+          </section>
+
+          {/* Payment Integrations */}
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <CreditCard size={14} className="text-brand-600" />
+              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                {lang === 'es' ? 'Integración de Pagos' : 'Payment Integration'}
+              </p>
+            </div>
+            <Card>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-[11px] font-bold">SQ</span>
+                </div>
+                <div>
+                  <p className="text-[13px] font-medium text-gray-800">Square</p>
+                  <p className="text-[11px] text-green-600 font-medium">
+                    {lang === 'es' ? 'Conectado' : 'Connected'}
+                  </p>
+                </div>
+              </div>
+              <p className="text-[12px] text-gray-500">
+                {lang === 'es'
+                  ? 'Las facturas se envían automáticamente a través de Square cuando facturas a un cliente. No se necesita configuración adicional.'
+                  : 'Invoices are sent automatically via Square when you invoice a client. No additional setup needed.'}
+              </p>
             </Card>
           </section>
 
