@@ -147,9 +147,7 @@ export default function SettingsPage() {
       const fees = []
       for (let q = 1; q <= 4; q++) {
         const label = `Q${q}`
-        let { totalFees, invoiceCount } = await getQuarterlyFeesOwed(user.uid, label, year)
-        // TODO: REMOVE AFTER TESTING — seed $1.00 on Q1 for Pay Now test
-        if (label === 'Q1' && totalFees === 0) { totalFees = 100; invoiceCount = 1 }
+        const { totalFees, invoiceCount } = await getQuarterlyFeesOwed(user.uid, label, year)
         const paid = payments.find(p => p.quarter === label && p.year === year && (p.status === 'paid' || p.status === 'auto_charged'))
         fees.push({ label, year, totalFees, invoiceCount, paid: !!paid, paidAt: paid?.paidAt })
       }
