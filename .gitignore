@@ -40,3 +40,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 YARDSYNC_MASTER_CODEBASE.txt
+YARDSYNC_CLAUDE_IMPORT.md
