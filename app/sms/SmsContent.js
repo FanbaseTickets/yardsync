@@ -116,19 +116,23 @@ async function loadData() {
     }
     setSending(schedule.id)
     try {
-      // Write iCal event data for calendar link in SMS
+      // Write iCal event data for calendar link in SMS — fail silently
       if (schedule.id && schedule.clientId) {
-        const client = getClient(schedule.clientId)
-        await saveICalEvent(schedule.id, {
-          clientId:     schedule.clientId,
-          clientName:   resolveClientName(schedule),
-          businessName: profile?.businessName || 'YardSync',
-          serviceLabel: client?.packageLabel || 'Lawn Care Service',
-          serviceDate:  schedule.serviceDate,
-          time:         schedule.time || '9:00 AM',
-          address:      client?.address || '',
-          description:  (client?.packageDesc || client?.packageLabel || '') + (client?.notes ? '\n' + client.notes : ''),
-        })
+        try {
+          const cl = getClient(schedule.clientId)
+          await saveICalEvent(schedule.id, {
+            clientId:     schedule.clientId,
+            clientName:   resolveClientName(schedule),
+            businessName: profile?.businessName || 'YardSync',
+            serviceLabel: cl?.packageLabel || 'Lawn Care Service',
+            serviceDate:  schedule.serviceDate,
+            time:         schedule.time || '9:00 AM',
+            address:      cl?.address || '',
+            description:  (cl?.packageDesc || cl?.packageLabel || '') + (cl?.notes ? '\n' + cl.notes : ''),
+          })
+        } catch (icalErr) {
+          console.error('iCal event write failed (SMS will still send):', icalErr)
+        }
       }
 
       const res = await fetch('/api/twilio/send', {
@@ -147,12 +151,17 @@ async function loadData() {
         throw new Error(data.error || 'SMS failed')
       }
       const data = await res.json()
+      // Save SMS status — don't let Firestore errors mask a successful SMS send
       if (schedule.id) {
-        await updateSchedule(schedule.id, {
-          smsSent:      true,
-          smsSentAt:    new Date().toISOString(),
-          twilioSmsSid: data.sid,
-        })
+        try {
+          await updateSchedule(schedule.id, {
+            smsSent:      true,
+            smsSentAt:    new Date().toISOString(),
+            twilioSmsSid: data.sid || null,
+          })
+        } catch (dbErr) {
+          console.error('Failed to save SMS status (SMS was sent):', dbErr)
+        }
       }
       toast.success(translate('sms', 'sms_sent_check'))
       loadData()

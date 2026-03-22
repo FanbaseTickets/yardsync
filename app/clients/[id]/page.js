@@ -85,6 +85,7 @@ export default function ClientDetailPage() {
   }, [id, user])
 
   async function loadData() {
+    if (!user) return
     setLoading(true)
     try {
       const [c, inv, svc] = await Promise.all([

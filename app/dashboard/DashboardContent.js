@@ -115,7 +115,7 @@ export default function DashboardPage() {
     }
   }
 
-  const activeClients    = clients.filter(c => c.status === 'active' && c.gardenerUid === user.uid).length
+  const activeClients    = clients.filter(c => c.status === 'active' && c.gardenerUid === user?.uid).length
   const completedToday   = todayJobs.filter(j => j.status === 'completed').length
   const thisMonthRevenue = invoices
     .filter(inv => {

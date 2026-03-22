@@ -92,6 +92,11 @@ export function AuthProvider({ children }) {
   }
 
   async function signOut() {
+    // Navigate away before Firebase clears auth state to prevent
+    // components from accessing user.uid during teardown
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login'
+    }
     await firebaseSignOut(auth)
   }
 

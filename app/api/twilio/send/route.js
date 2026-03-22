@@ -63,11 +63,12 @@ export async function POST(request) {
       throw new Error(twilioData.message || 'Twilio send failed')
     }
 
-    console.log('SMS sent — SID:', twilioData.sid)
+    const messageSid = twilioData.sid || twilioData.message_sid || null
+    console.log('SMS sent — SID:', messageSid, 'status:', twilioData.status)
 
     return NextResponse.json({
       success: true,
-      sid:     twilioData.sid,
+      sid:     messageSid,
     })
 
   } catch (error) {
