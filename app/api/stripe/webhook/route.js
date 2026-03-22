@@ -65,6 +65,67 @@ export async function POST(request) {
         )
 
         console.log(`Subscription activated for ${gardenerUid} — ${plan}`)
+
+        // Check if setup package was purchased
+        const lineItems = await stripe.checkout.sessions.listLineItems(session.id)
+        const setupPriceId = process.env.STRIPE_PRICE_SETUP
+        const hasSetup = setupPriceId && lineItems.data.some(li => li.price?.id === setupPriceId)
+
+        if (hasSetup) {
+          // Get gardener name/email from the user doc we just wrote
+          let gardenerName = 'Unknown'
+          let gardenerEmail = ''
+          try {
+            const userSnap = await getDocs(query(collection(db, 'users'), where('__name__', '==', gardenerUid)))
+            if (!userSnap.empty) {
+              const u = userSnap.docs[0].data()
+              gardenerName  = u.name || 'Unknown'
+              gardenerEmail = u.email || session.customer_email || ''
+            }
+          } catch { /* best-effort */ }
+
+          await setDoc(
+            doc(db, 'users', gardenerUid),
+            {
+              setupFeePaid:      true,
+              setupPaidAt:       new Date().toISOString(),
+              setupContacted:    false,
+              setupContactedAt:  null,
+              setupNotes:        '',
+            },
+            { merge: true }
+          )
+          console.log(`Setup package purchased by ${gardenerUid}`)
+
+          // SMS alert to admin — fail silently if ADMIN_PHONE_NUMBER not set
+          const adminPhone = process.env.ADMIN_PHONE_NUMBER
+          if (adminPhone) {
+            try {
+              const twilioSid   = process.env.TWILIO_ACCOUNT_SID
+              const twilioToken = process.env.TWILIO_AUTH_TOKEN
+              const twilioFrom  = process.env.TWILIO_PHONE_NUMBER
+              const digits      = adminPhone.replace(/\D/g, '')
+              const to          = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
+              const smsBody     = new URLSearchParams({
+                To:   to,
+                From: twilioFrom,
+                Body: `New YardSync setup purchase — ${gardenerName} (${gardenerEmail}). Log in to admin: https://yardsync.vercel.app/admin`,
+              })
+              await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
+                method:  'POST',
+                headers: {
+                  'Content-Type':  'application/x-www-form-urlencoded',
+                  'Authorization': 'Basic ' + Buffer.from(`${twilioSid}:${twilioToken}`).toString('base64'),
+                },
+                body: smsBody.toString(),
+              })
+              console.log('Admin SMS sent for setup purchase')
+            } catch (smsErr) {
+              console.error('Admin SMS failed (non-fatal):', smsErr.message)
+            }
+          }
+        }
+
         break
       }
 

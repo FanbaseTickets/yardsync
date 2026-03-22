@@ -10,7 +10,7 @@ import {
   Shield, LogOut, Users, DollarSign,
   TrendingUp, AlertCircle, RefreshCw,
   ChevronDown, ChevronUp, CheckCircle, Plus, Calendar, Download, Clock,
-  CreditCard, AlertOctagon, History
+  CreditCard, AlertOctagon, History, Zap
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { fmt as format } from '@/lib/date'
@@ -60,6 +60,9 @@ export default function AdminDashboard() {
   const [actionGardener, setActionGardener] = useState(null)
   const [actionForm,     setActionForm]     = useState({})
   const [actionLoading,  setActionLoading]  = useState(false)
+  const [setupTarget,    setSetupTarget]    = useState(null)
+  const [setupNotes,     setSetupNotes]     = useState('')
+  const [setupSaving,    setSetupSaving]    = useState(false)
 
   async function loadData() {
     setDataLoading(true)
@@ -217,6 +220,26 @@ export default function AdminDashboard() {
       loadData()
     } catch (err) {
       toast.error('Failed to mark collected')
+    }
+  }
+
+  async function handleMarkSetupContacted() {
+    if (!setupTarget) return
+    setSetupSaving(true)
+    try {
+      await updateDoc(doc(db, 'users', setupTarget.id), {
+        setupContacted: true,
+        setupContactedAt: new Date().toISOString(),
+        setupNotes: setupNotes,
+      })
+      toast.success(`${setupTarget.name || 'Gardener'} marked as contacted`)
+      setSetupTarget(null)
+      setSetupNotes('')
+      loadData()
+    } catch {
+      toast.error('Failed to update')
+    } finally {
+      setSetupSaving(false)
     }
   }
 
@@ -473,7 +496,17 @@ export default function AdminDashboard() {
                           {g.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2) || '??'}
                         </div>
                         <div className="flex-1 min-w-0 text-left">
-                          <p className="text-[14px] font-semibold text-white truncate">{g.name || 'Unknown'}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-[14px] font-semibold text-white truncate">{g.name || 'Unknown'}</p>
+                            {g.setupFeePaid && !g.setupContacted && (
+                              <span
+                                onClick={e => { e.stopPropagation(); setSetupTarget(g); setSetupNotes(g.setupNotes || '') }}
+                                className="inline-flex items-center gap-1 text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-semibold animate-pulse cursor-pointer hover:bg-amber-500/30 transition-colors"
+                              >
+                                <Zap size={10} /> Setup Needed
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[12px] text-gray-400 truncate">{g.businessName || g.email}</p>
                         </div>
                         <div className="hidden md:flex items-center gap-6 flex-shrink-0">
@@ -747,6 +780,48 @@ export default function AdminDashboard() {
             <div className="flex gap-3 mt-5">
               <button onClick={() => { setActionModal(null); setActionForm({}) }} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white text-[14px] font-medium rounded-xl py-3 transition-colors">Cancel</button>
               <button onClick={handleAddClient} disabled={actionLoading} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-[14px] font-medium rounded-xl py-3 transition-colors disabled:opacity-50">{actionLoading ? 'Adding...' : 'Add Client'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {setupTarget && (
+        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md p-6">
+            <div className="flex items-center gap-2 mb-1">
+              <Zap size={16} className="text-amber-400" />
+              <p className="text-[16px] font-semibold text-white">Setup Package — {setupTarget.name || 'Gardener'}</p>
+            </div>
+            <p className="text-[12px] text-gray-400 mb-4">Purchased the $99 setup package</p>
+            <div className="space-y-3 mb-4">
+              <div className="bg-gray-800 rounded-xl p-3 space-y-1.5">
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-gray-400">Email</span>
+                  <span className="text-white">{setupTarget.email || '—'}</span>
+                </div>
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-gray-400">Phone</span>
+                  <span className="text-white">{setupTarget.phone || '—'}</span>
+                </div>
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-gray-400">Purchased</span>
+                  <span className="text-white">{setupTarget.setupPaidAt ? new Date(setupTarget.setupPaidAt).toLocaleDateString() : '—'}</span>
+                </div>
+              </div>
+              <div>
+                <p className="text-[12px] text-gray-400 mb-1">Notes</p>
+                <textarea
+                  value={setupNotes}
+                  onChange={e => setSetupNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Add notes about the setup call..."
+                  className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-[14px] text-white placeholder-gray-500 focus:outline-none focus:border-brand-500 resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => { setSetupTarget(null); setSetupNotes('') }} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white text-[14px] font-medium rounded-xl py-3 transition-colors">Cancel</button>
+              <button onClick={handleMarkSetupContacted} disabled={setupSaving} className="flex-1 bg-green-600 hover:bg-green-700 text-white text-[14px] font-medium rounded-xl py-3 transition-colors disabled:opacity-50">{setupSaving ? 'Saving...' : 'Mark Contacted'}</button>
             </div>
           </div>
         </div>
