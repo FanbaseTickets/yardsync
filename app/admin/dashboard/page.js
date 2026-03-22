@@ -146,8 +146,17 @@ export default function AdminDashboard() {
     setActionLoading(true)
     try {
       await addDoc(collection(db, 'clients'), {
-        ...actionForm, gardenerUid: actionGardener.id, status: 'active',
-        createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+        ...actionForm,
+        gardenerUid: actionGardener.id,
+        status: 'active',
+        packageType: 'monthly',
+        basePriceCents: 0,
+        packageLabel: 'Unassigned',
+        recurrence: 'monthly',
+        billingMode: 'upfront',
+        language: 'en',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       })
       toast.success(`Client added for ${actionGardener.name}`)
       setActionModal(null); setActionForm({}); loadData()
@@ -456,13 +465,20 @@ export default function AdminDashboard() {
       </div>
 
       {actionModal === 'addClient' && actionGardener && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
           <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md p-6">
             <p className="text-[16px] font-semibold text-white mb-1">Add Client</p>
             <p className="text-[12px] text-gray-400 mb-4">For {actionGardener.name || actionGardener.email}</p>
             <div className="space-y-3">
               <input placeholder="Client name *" value={actionForm.name || ''} onChange={e => setActionForm(f => ({...f, name: e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-[14px] text-white placeholder-gray-500 focus:outline-none focus:border-brand-500" />
-              <input placeholder="Phone *" value={actionForm.phone || ''} onChange={e => setActionForm(f => ({...f, phone: e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-[14px] text-white placeholder-gray-500 focus:outline-none focus:border-brand-500" />
+              <input placeholder="Phone * — (210) 555-0100" value={actionForm.phone || ''} onChange={e => {
+                const digits = e.target.value.replace(/\D/g, '').slice(0, 10)
+                let formatted = digits
+                if (digits.length > 6) formatted = `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`
+                else if (digits.length > 3) formatted = `(${digits.slice(0,3)}) ${digits.slice(3)}`
+                else if (digits.length > 0) formatted = `(${digits}`
+                setActionForm(f => ({...f, phone: formatted}))
+              }} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-[14px] text-white placeholder-gray-500 focus:outline-none focus:border-brand-500" />
               <input placeholder="Email" value={actionForm.email || ''} onChange={e => setActionForm(f => ({...f, email: e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-[14px] text-white placeholder-gray-500 focus:outline-none focus:border-brand-500" />
               <input placeholder="Address" value={actionForm.address || ''} onChange={e => setActionForm(f => ({...f, address: e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-[14px] text-white placeholder-gray-500 focus:outline-none focus:border-brand-500" />
             </div>
@@ -475,7 +491,7 @@ export default function AdminDashboard() {
       )}
 
       {actionModal === 'addSchedule' && actionGardener && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
           <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md p-6">
             <p className="text-[16px] font-semibold text-white mb-1">Add Schedule</p>
             <p className="text-[12px] text-gray-400 mb-4">For {actionGardener.name || actionGardener.email}</p>
@@ -491,7 +507,9 @@ export default function AdminDashboard() {
                 <input placeholder="Walk-in name *" value={actionForm.clientName || ''} onChange={e => setActionForm(f => ({...f, clientName: e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-[14px] text-white placeholder-gray-500 focus:outline-none focus:border-brand-500" />
               )}
               <input type="date" value={actionForm.serviceDate || ''} onChange={e => setActionForm(f => ({...f, serviceDate: e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-[14px] text-white focus:outline-none focus:border-brand-500" />
-              <input placeholder="Time (e.g. 9:00 AM)" value={actionForm.time || ''} onChange={e => setActionForm(f => ({...f, time: e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-[14px] text-white placeholder-gray-500 focus:outline-none focus:border-brand-500" />
+              <select value={actionForm.time || '9:00 AM'} onChange={e => setActionForm(f => ({...f, time: e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-[14px] text-white focus:outline-none focus:border-brand-500">
+                {['6:00 AM','6:30 AM','7:00 AM','7:30 AM','8:00 AM','8:30 AM','9:00 AM','9:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM','12:00 PM','12:30 PM','1:00 PM','1:30 PM','2:00 PM','2:30 PM','3:00 PM','3:30 PM','4:00 PM','4:30 PM','5:00 PM','5:30 PM','6:00 PM','6:30 PM','7:00 PM'].map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
             </div>
             <div className="flex gap-3 mt-5">
               <button onClick={() => { setActionModal(null); setActionForm({}) }} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white text-[14px] font-medium rounded-xl py-3 transition-colors">Cancel</button>
