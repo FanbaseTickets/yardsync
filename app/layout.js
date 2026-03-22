@@ -21,19 +21,20 @@ export const metadata = {
   title: 'YardSync',
   description: 'Lawn care management for professionals',
   manifest: '/manifest.json',
-  themeColor: '#0F6E56',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
     title: 'YardSync',
   },
   formatDetection: { telephone: false },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
+}
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: '#0F6E56',
 }
 
 export default function RootLayout({ children }) {
