@@ -9,7 +9,7 @@ import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Input, Select } from '@/components/ui'
 import PhoneInput from '@/components/ui/PhoneInput'
-import { saveGardenerProfile, getFeePayments, saveFeePayment, markQuarterFeesCollected, getQuarterlyFeesOwed } from '@/lib/db'
+import { saveGardenerProfile, getGardenerProfile, getFeePayments, saveFeePayment, markQuarterFeesCollected, getQuarterlyFeesOwed } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { Bell, Globe, User, Clock, BarChart2, CreditCard, Link2, AlertTriangle, Wallet, CheckCircle2, ArrowUpCircle } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
@@ -302,62 +302,87 @@ export default function SettingsPage() {
   }
 
   async function handleUpgradeToAnnual() {
+    console.log('upgrade step 1 — handler fired', { uid: user?.uid })
     setUpgrading(true)
     try {
+      console.log('upgrade step 2 — profile fields', {
+        stripeSubscriptionId: profile?.stripeSubscriptionId || 'NULL',
+        stripeCustomerId: profile?.stripeCustomerId || 'NULL',
+      })
+
       // If stripeSubscriptionId is missing, retry refreshProfile up to 3 times
-      let subId = profile?.stripeSubscriptionId
-      let custId = profile?.stripeCustomerId
+      let subId = profile?.stripeSubscriptionId || null
+      let custId = profile?.stripeCustomerId || null
+
       if (!subId || !custId) {
+        console.log('upgrade step 2b — fields missing, retrying profile...')
         for (let i = 0; i < 3; i++) {
+          console.log(`upgrade retry ${i + 1}/3 — waiting 1s...`)
           await new Promise(r => setTimeout(r, 1000))
           await refreshProfile()
-          const fresh = await import('@/lib/db').then(m => m.getGardenerProfile(user.uid))
-          subId  = fresh?.stripeSubscriptionId
-          custId = fresh?.stripeCustomerId
-          if (subId && custId) break
+          try {
+            const fresh = await getGardenerProfile(user.uid)
+            subId  = fresh?.stripeSubscriptionId || null
+            custId = fresh?.stripeCustomerId || null
+            console.log(`upgrade retry ${i + 1} result:`, { subId: subId || 'NULL', custId: custId || 'NULL' })
+            if (subId && custId) break
+          } catch (fetchErr) {
+            console.error(`upgrade retry ${i + 1} fetch error:`, fetchErr)
+          }
         }
       }
+
+      console.log('upgrade step 3 — after retries', { subId: subId || 'NULL', custId: custId || 'NULL' })
+
       if (!subId || !custId) {
+        console.log('upgrade BLOCKED — fields still null after all retries')
         toast.error(lang === 'es'
           ? 'Datos de suscripción no encontrados. Intenta de nuevo en unos segundos.'
           : 'Subscription details not found. Please try again in a few seconds.')
-        setShowUpgradeModal(false)
-        setUpgrading(false)
         return
       }
 
-      // Attempt upgrade with auto-retry on 422 (webhook hasn't written yet)
-      let lastError = null
+      // Attempt upgrade with auto-retry on 422
       for (let attempt = 0; attempt < 3; attempt++) {
+        console.log(`upgrade step 4 — calling API (attempt ${attempt + 1}/3)`)
         const res = await fetch('/api/stripe/upgrade', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ stripeSubscriptionId: subId, gardenerUid: user.uid }),
         })
         const data = await res.json()
+        console.log('upgrade step 5 — API response', { status: res.status, data })
+
         if (res.ok) {
+          console.log('upgrade step 6 — SUCCESS, updating Firestore')
           await saveGardenerProfile(user.uid, { subscriptionPlan: 'annual' })
           await refreshProfile()
           toast.success(translate('settings', 'upgrade_success'))
           setShowUpgradeModal(false)
           return
         }
+
         if (res.status === 422 && data.retry) {
-          // Webhook hasn't written yet — wait and retry
+          console.log(`upgrade API returned 422 — retrying in 2s (attempt ${attempt + 1})`)
           await new Promise(r => setTimeout(r, 2000))
           await refreshProfile()
-          const fresh = await import('@/lib/db').then(m => m.getGardenerProfile(user.uid))
-          if (fresh?.stripeSubscriptionId) subId = fresh.stripeSubscriptionId
+          try {
+            const fresh = await getGardenerProfile(user.uid)
+            if (fresh?.stripeSubscriptionId) subId = fresh.stripeSubscriptionId
+          } catch {}
           continue
         }
-        lastError = data.error || 'Upgrade failed'
-        break
+
+        // Non-retryable error
+        throw new Error(data.error || 'Upgrade failed')
       }
-      throw new Error(lastError || 'Upgrade failed after retries')
+
+      throw new Error('Upgrade failed after all retry attempts')
     } catch (err) {
-      console.error('upgrade error:', err)
+      console.error('upgrade CATCH:', err)
       toast.error(err.message || (lang === 'es' ? 'Error al cambiar de plan' : 'Upgrade failed. Please try again.'))
     } finally {
+      console.log('upgrade FINALLY — resetting state')
       setUpgrading(false)
     }
   }
