@@ -458,6 +458,11 @@ export default function SettingsPage() {
               <p className="text-[11px] text-gray-400 mt-2">
                 {translate('settings', 'sms_note')}
               </p>
+              <p className="text-[11px] text-gray-400 mt-1">
+                {lang === 'es'
+                  ? 'Guarda la configuración para aplicar el cambio de idioma.'
+                  : 'Save settings to apply language change.'}
+              </p>
             </Card>
           </section>
 
