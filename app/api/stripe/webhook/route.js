@@ -56,10 +56,11 @@ export async function POST(request) {
         await setDoc(
           doc(db, 'users', gardenerUid),
           {
-            subscriptionStatus: 'active',
-            subscriptionPlan:   plan,
-            stripeCustomerId:   customerId,
-            updatedAt:          new Date().toISOString(),
+            subscriptionStatus:   'active',
+            subscriptionPlan:     plan,
+            stripeCustomerId:     customerId,
+            stripeSubscriptionId: subscriptionId,
+            updatedAt:            new Date().toISOString(),
           },
           { merge: true }
         )
@@ -180,6 +181,31 @@ export async function POST(request) {
         )
 
         console.log(`Payment failed for ${uid}`)
+        break
+      }
+
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object
+        const customerId   = subscription.customer
+        const q    = query(collection(db, 'users'), where('stripeCustomerId', '==', customerId))
+        const snap = await getDocs(q)
+        if (!snap.empty) {
+          const userDoc  = snap.docs[0]
+          const priceId  = subscription.items.data[0]?.price?.id
+          const plan     = priceId === process.env.STRIPE_PRICE_ANNUAL ? 'annual' : 'monthly'
+          await setDoc(doc(db, 'users', userDoc.id), {
+            subscriptionPlan:   plan,
+            subscriptionStatus: subscription.status,
+            updatedAt:          new Date().toISOString(),
+          }, { merge: true })
+          await setDoc(doc(db, 'subscriptions', userDoc.id), {
+            plan,
+            status:           subscription.status,
+            currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
+            updatedAt:        new Date().toISOString(),
+          }, { merge: true })
+          console.log(`Subscription updated for ${userDoc.id} — ${plan}`)
+        }
         break
       }
 
