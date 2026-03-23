@@ -14,58 +14,79 @@ export default function AppShell({ children }) {
   const [subStatus,  setSubStatus]  = useState(null)
   const [subLoading, setSubLoading] = useState(true)
   const [setupMsg,   setSetupMsg]   = useState(false)
+
+  const timeoutRef    = useRef(null)
+  const hasChecked    = useRef(false)
   const redirectedRef = useRef(false)
 
+  // Redirect to login if not authenticated
   useEffect(() => {
     if (!loading && !user) {
       router.replace('/login')
     }
   }, [user, loading, router])
 
+  // Run subscription check ONCE when user is available
   useEffect(() => {
     if (!user) return
-    redirectedRef.current = false
-    setSetupMsg(false)
+    if (hasChecked.current) return
+    hasChecked.current = true
 
-    const justSubscribed = typeof window !== 'undefined' && window.location.search.includes('subscribed=true')
+    const isPostPayment = typeof window !== 'undefined' && window.location.search.includes('subscribed=true')
 
-    checkSubscription(justSubscribed)
+    // Clear any stale timeout
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
 
-    // Hard timeout — only for non-payment flows
-    // Post-payment flow gets a longer grace period for webhook to fire
-    const timeoutMs = justSubscribed ? 10000 : 4000
-    const timeout = setTimeout(() => {
-      if (subLoading && !redirectedRef.current) {
-        if (justSubscribed) {
-          // Don't redirect — show "setting up" message and keep polling
+    // Single timeout — only ONE path runs
+    if (isPostPayment) {
+      // Post-payment: long grace period, never redirect to /subscribe
+      timeoutRef.current = setTimeout(() => {
+        if (subLoading && !redirectedRef.current) {
+          console.log('AppShell — post-payment grace period, showing setup message')
           setSetupMsg(true)
-          console.log('AppShell — post-payment timeout, showing setup message')
-        } else {
+          // Don't redirect — fail open after another 5 seconds
+          timeoutRef.current = setTimeout(() => {
+            if (subLoading) {
+              console.log('AppShell — post-payment final fallback, failing open')
+              setSubStatus('active')
+              setSubLoading(false)
+            }
+          }, 5000)
+        }
+      }, 10000)
+    } else {
+      // Normal flow: 4-second hard timeout → redirect to /subscribe
+      timeoutRef.current = setTimeout(() => {
+        if (subLoading && !redirectedRef.current) {
           console.log('AppShell — hard timeout, redirecting to /subscribe')
           redirectedRef.current = true
           setSubStatus('none')
           setSubLoading(false)
           router.replace('/subscribe')
         }
-      }
-    }, timeoutMs)
+      }, 4000)
+    }
 
-    return () => clearTimeout(timeout)
+    checkSubscription(isPostPayment)
+
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    }
   }, [user])
 
-  async function checkSubscription(justSubscribed) {
+  async function checkSubscription(isPostPayment) {
     if (!user?.uid) { setSubLoading(false); return }
 
-    // Admin bypasses subscription check
+    // Admin bypasses
     if (user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
+      clearTimeout(timeoutRef.current)
       setSubStatus('active')
       setSubLoading(false)
       return
     }
 
-    // Post-payment flow: more retries with longer delays for webhook
-    const maxRetries = justSubscribed ? 10 : 3
-    const delayMs    = justSubscribed ? 1000 : 500
+    const maxRetries = isPostPayment ? 12 : 3
+    const delayMs    = isPostPayment ? 1000 : 500
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       if (!user?.uid || redirectedRef.current) { setSubLoading(false); return }
@@ -74,18 +95,22 @@ export default function AppShell({ children }) {
         if (profile) {
           const status = profile.subscriptionStatus || 'none'
           if (status === 'active') {
+            // Success — clear timeout immediately
+            clearTimeout(timeoutRef.current)
             setSubStatus('active')
             setSubLoading(false)
             return
           }
-          // Not active yet — if just subscribed, keep retrying (webhook may not have fired)
-          if (!justSubscribed) {
+          // Not active
+          if (!isPostPayment) {
+            clearTimeout(timeoutRef.current)
             setSubStatus(status)
             setSubLoading(false)
             redirectedRef.current = true
             router.replace('/subscribe')
             return
           }
+          // Post-payment but not active yet — keep retrying
         }
       } catch (err) {
         console.error('Subscription check error:', err)
@@ -96,19 +121,10 @@ export default function AppShell({ children }) {
     }
 
     // Retries exhausted
+    clearTimeout(timeoutRef.current)
     if (!redirectedRef.current) {
-      if (justSubscribed) {
-        // Last resort for post-payment: try one final profile check then activate
-        // The webhook should have fired by now (10+ seconds)
-        try {
-          const profile = await getGardenerProfile(user.uid)
-          if (profile?.subscriptionStatus === 'active') {
-            setSubStatus('active')
-            setSubLoading(false)
-            return
-          }
-        } catch {}
-        // Still not active — show the app anyway (fail open for paying users)
+      if (isPostPayment) {
+        // Fail open for paying users
         console.log('AppShell — post-payment retries exhausted, failing open')
         setSubStatus('active')
         setSubLoading(false)
