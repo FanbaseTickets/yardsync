@@ -302,44 +302,58 @@ export default function SettingsPage() {
   }
 
   async function handleUpgradeToAnnual() {
-    console.log('upgrade attempt', {
-      uid: user?.uid,
-      stripeCustomerId: profile?.stripeCustomerId,
-      stripeSubscriptionId: profile?.stripeSubscriptionId,
-      subscriptionPlan: profile?.subscriptionPlan,
-      subscriptionStatus: profile?.subscriptionStatus,
-    })
     setUpgrading(true)
     try {
-      if (!profile?.stripeSubscriptionId || !profile?.stripeCustomerId) {
+      // If stripeSubscriptionId is missing, retry refreshProfile up to 3 times
+      let subId = profile?.stripeSubscriptionId
+      let custId = profile?.stripeCustomerId
+      if (!subId || !custId) {
+        for (let i = 0; i < 3; i++) {
+          await new Promise(r => setTimeout(r, 1000))
+          await refreshProfile()
+          const fresh = await import('@/lib/db').then(m => m.getGardenerProfile(user.uid))
+          subId  = fresh?.stripeSubscriptionId
+          custId = fresh?.stripeCustomerId
+          if (subId && custId) break
+        }
+      }
+      if (!subId || !custId) {
         toast.error(lang === 'es'
-          ? 'Datos de suscripción no encontrados. Contacta soporte.'
-          : 'Subscription details not found. Please contact support.')
-        console.error('Upgrade blocked — missing fields:', {
-          stripeSubscriptionId: profile?.stripeSubscriptionId || 'MISSING',
-          stripeCustomerId: profile?.stripeCustomerId || 'MISSING',
-        })
+          ? 'Datos de suscripción no encontrados. Intenta de nuevo en unos segundos.'
+          : 'Subscription details not found. Please try again in a few seconds.')
         setShowUpgradeModal(false)
         setUpgrading(false)
         return
       }
-      const res = await fetch('/api/stripe/upgrade', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          stripeSubscriptionId: profile.stripeSubscriptionId,
-          gardenerUid: user.uid,
-        }),
-      })
-      const data = await res.json()
-      console.log('upgrade response:', res.status, data)
-      if (!res.ok) throw new Error(data.error || 'Upgrade failed')
 
-      // Update Firestore with new plan
-      await saveGardenerProfile(user.uid, { subscriptionPlan: 'annual' })
-      await refreshProfile()
-      toast.success(translate('settings', 'upgrade_success'))
-      setShowUpgradeModal(false)
+      // Attempt upgrade with auto-retry on 422 (webhook hasn't written yet)
+      let lastError = null
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const res = await fetch('/api/stripe/upgrade', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stripeSubscriptionId: subId, gardenerUid: user.uid }),
+        })
+        const data = await res.json()
+        if (res.ok) {
+          await saveGardenerProfile(user.uid, { subscriptionPlan: 'annual' })
+          await refreshProfile()
+          toast.success(translate('settings', 'upgrade_success'))
+          setShowUpgradeModal(false)
+          return
+        }
+        if (res.status === 422 && data.retry) {
+          // Webhook hasn't written yet — wait and retry
+          await new Promise(r => setTimeout(r, 2000))
+          await refreshProfile()
+          const fresh = await import('@/lib/db').then(m => m.getGardenerProfile(user.uid))
+          if (fresh?.stripeSubscriptionId) subId = fresh.stripeSubscriptionId
+          continue
+        }
+        lastError = data.error || 'Upgrade failed'
+        break
+      }
+      throw new Error(lastError || 'Upgrade failed after retries')
     } catch (err) {
       console.error('upgrade error:', err)
       toast.error(err.message || (lang === 'es' ? 'Error al cambiar de plan' : 'Upgrade failed. Please try again.'))

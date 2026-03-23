@@ -10,7 +10,7 @@ export async function POST(request) {
     console.log('Upgrade request:', { stripeSubscriptionId, gardenerUid })
 
     if (!stripeSubscriptionId) {
-      return NextResponse.json({ error: 'Missing subscription ID. Your account may not have a linked Stripe subscription.' }, { status: 400 })
+      return NextResponse.json({ error: 'SUBSCRIPTION_NOT_READY', retry: true }, { status: 422 })
     }
 
     // Retrieve current subscription to get the item ID

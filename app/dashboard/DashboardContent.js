@@ -55,7 +55,12 @@ export default function DashboardPage() {
             subscriptionPlan:   searchParams.get('plan') || 'monthly',
           })
           await refreshProfile()
-          const welcomeMsg = profile?.language === 'es'
+          // Wait for webhook to write stripeSubscriptionId + name to hydrate
+          await new Promise(r => setTimeout(r, 1000))
+          await refreshProfile()
+          const freshProfile = await import('@/lib/db').then(m => m.getGardenerProfile(user.uid))
+          const welcomeLang = freshProfile?.language || 'en'
+          const welcomeMsg = welcomeLang === 'es'
             ? 'Suscripción activada. ¡Bienvenido a YardSync!'
             : 'Subscription activated! Welcome to YardSync 🌿'
           toast.success(welcomeMsg)
