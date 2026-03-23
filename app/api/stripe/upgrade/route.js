@@ -5,10 +5,12 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 export async function POST(request) {
   try {
-    const { stripeSubscriptionId } = await request.json()
+    const { stripeSubscriptionId, gardenerUid } = await request.json()
+
+    console.log('Upgrade request:', { stripeSubscriptionId, gardenerUid })
 
     if (!stripeSubscriptionId) {
-      return NextResponse.json({ error: 'Missing subscription ID' }, { status: 400 })
+      return NextResponse.json({ error: 'Missing subscription ID. Your account may not have a linked Stripe subscription.' }, { status: 400 })
     }
 
     // Retrieve current subscription to get the item ID

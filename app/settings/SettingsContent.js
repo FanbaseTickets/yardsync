@@ -302,18 +302,31 @@ export default function SettingsPage() {
   }
 
   async function handleUpgradeToAnnual() {
+    console.log('upgrade handler fired', {
+      stripeSubscriptionId: profile?.stripeSubscriptionId,
+      stripeCustomerId: profile?.stripeCustomerId,
+    })
     setUpgrading(true)
     try {
-      if (!profile?.stripeSubscriptionId) {
-        throw new Error(lang === 'es' ? 'No se encontró la suscripción' : 'Subscription not found')
+      if (!profile?.stripeSubscriptionId || !profile?.stripeCustomerId) {
+        toast.error(lang === 'es'
+          ? 'Datos de suscripción no encontrados. Contacta soporte.'
+          : 'Subscription details not found. Please contact support.')
+        setShowUpgradeModal(false)
+        setUpgrading(false)
+        return
       }
       const res = await fetch('/api/stripe/upgrade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stripeSubscriptionId: profile.stripeSubscriptionId }),
+        body: JSON.stringify({
+          stripeSubscriptionId: profile.stripeSubscriptionId,
+          gardenerUid: user.uid,
+        }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      console.log('upgrade response:', res.status, data)
+      if (!res.ok) throw new Error(data.error || 'Upgrade failed')
 
       // Update Firestore with new plan
       await saveGardenerProfile(user.uid, { subscriptionPlan: 'annual' })
@@ -321,6 +334,7 @@ export default function SettingsPage() {
       toast.success(translate('settings', 'upgrade_success'))
       setShowUpgradeModal(false)
     } catch (err) {
+      console.error('upgrade error:', err)
       toast.error(err.message || (lang === 'es' ? 'Error al cambiar de plan' : 'Upgrade failed. Please try again.'))
     } finally {
       setUpgrading(false)
