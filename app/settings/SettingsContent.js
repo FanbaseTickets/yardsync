@@ -11,7 +11,7 @@ import { Card, Button, Input, Select } from '@/components/ui'
 import PhoneInput from '@/components/ui/PhoneInput'
 import { saveGardenerProfile, getFeePayments, saveFeePayment, markQuarterFeesCollected, getQuarterlyFeesOwed } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
-import { Bell, Globe, User, Clock, BarChart2, CreditCard, Link2, AlertTriangle, Wallet, CheckCircle2 } from 'lucide-react'
+import { Bell, Globe, User, Clock, BarChart2, CreditCard, Link2, AlertTriangle, Wallet, CheckCircle2, ArrowUpCircle } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 
@@ -42,6 +42,8 @@ export default function SettingsPage() {
   const [squareRedirecting, setSquareRedirecting] = useState(false)
   const [payingQuarter, setPayingQuarter] = useState(null)
   const [quarterFees,   setQuarterFees]   = useState([])
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [upgrading,        setUpgrading]        = useState(false)
 
   // Handle Square OAuth callback redirect
   useEffect(() => {
@@ -299,6 +301,32 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleUpgradeToAnnual() {
+    setUpgrading(true)
+    try {
+      if (!profile?.stripeSubscriptionId) {
+        throw new Error(lang === 'es' ? 'No se encontró la suscripción' : 'Subscription not found')
+      }
+      const res = await fetch('/api/stripe/upgrade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stripeSubscriptionId: profile.stripeSubscriptionId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+
+      // Update Firestore with new plan
+      await saveGardenerProfile(user.uid, { subscriptionPlan: 'annual' })
+      await refreshProfile()
+      toast.success(translate('settings', 'upgrade_success'))
+      setShowUpgradeModal(false)
+    } catch (err) {
+      toast.error(err.message || (lang === 'es' ? 'Error al cambiar de plan' : 'Upgrade failed. Please try again.'))
+    } finally {
+      setUpgrading(false)
+    }
+  }
+
   async function handleDisconnectSquare() {
     setDisconnecting(true)
     try {
@@ -479,9 +507,16 @@ export default function SettingsPage() {
               </p>
             </div>
             <Card className="bg-brand-50 border-brand-100">
-              <p className="text-[13px] font-medium text-brand-800">
-                {translate('settings', 'active')}
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[13px] font-medium text-brand-800">
+                  {translate('settings', 'active')}
+                </p>
+                <span className="text-[11px] bg-brand-600 text-white px-2 py-0.5 rounded-full font-medium">
+                  {profile?.subscriptionPlan === 'annual'
+                    ? translate('settings', 'annual_plan')
+                    : translate('settings', 'monthly_plan')}
+                </span>
+              </div>
               <p className="text-[12px] text-brand-600 mt-1">
                 {translate('settings', 'fee_note')}
               </p>
@@ -512,6 +547,31 @@ export default function SettingsPage() {
                 </div>
               </div>
             </Card>
+
+            {/* Upgrade prompt — only show for monthly subscribers */}
+            {profile?.subscriptionStatus === 'active' && profile?.subscriptionPlan !== 'annual' && (
+              <Card className="mt-3 border-brand-200 bg-white">
+                <div className="flex items-start gap-3">
+                  <ArrowUpCircle size={20} className="text-brand-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-[13px] font-semibold text-gray-800">
+                      {translate('settings', 'upgrade_title')}
+                    </p>
+                    <p className="text-[12px] text-gray-500 mt-1">
+                      {translate('settings', 'upgrade_detail')}
+                    </p>
+                    <Button
+                      fullWidth
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => setShowUpgradeModal(true)}
+                    >
+                      {translate('settings', 'upgrade_button')}
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            )}
           </section>
 
           {/* Square Integration */}
@@ -785,6 +845,49 @@ export default function SettingsPage() {
                 className="flex-1 text-[14px] text-white bg-brand-600 hover:bg-brand-700 rounded-xl py-3 font-medium transition-colors disabled:opacity-50"
               >
                 {cardLoading ? '...' : (lang === 'es' ? 'Guardar tarjeta' : 'Save Card')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade to Annual Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <ArrowUpCircle size={24} className="text-brand-600" />
+              <p className="text-[16px] font-semibold text-gray-800">
+                {translate('settings', 'upgrade_button')}
+              </p>
+            </div>
+            <p className="text-[13px] text-gray-600 mb-2">
+              {translate('settings', 'upgrade_modal_body')}
+            </p>
+            <div className="bg-brand-50 border border-brand-100 rounded-xl p-3 mt-3 mb-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] text-brand-800 font-medium">
+                  {translate('settings', 'annual_plan')}
+                </span>
+                <span className="text-[15px] text-brand-800 font-bold">$390{translate('settings', 'per_year')}</span>
+              </div>
+              <p className="text-[11px] text-brand-600 mt-1">
+                {translate('settings', 'upgrade_saving')}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowUpgradeModal(false)}
+                className="flex-1 text-[14px] text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl py-3 font-medium transition-colors"
+              >
+                {translate('common', 'cancel')}
+              </button>
+              <button
+                onClick={handleUpgradeToAnnual}
+                disabled={upgrading}
+                className="flex-1 text-[14px] text-white bg-brand-600 hover:bg-brand-700 rounded-xl py-3 font-medium transition-colors disabled:opacity-50"
+              >
+                {upgrading ? '...' : translate('settings', 'upgrade_confirm')}
               </button>
             </div>
           </div>
