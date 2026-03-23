@@ -250,7 +250,7 @@ export default function LoginPage() {
               onClick={() => switchMode('login')}
               className="text-[13px] text-brand-600 font-medium hover:underline"
             >
-              Back to sign in
+              {isEs ? 'Volver a iniciar sesión' : 'Back to sign in'}
             </button>
           )}
         </div>

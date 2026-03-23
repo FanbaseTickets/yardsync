@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, useRef } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import BottomNav from './BottomNav'
 import { getGardenerProfile } from '@/lib/db'
@@ -9,10 +9,12 @@ import { Leaf } from 'lucide-react'
 
 export default function AppShell({ children }) {
   const { user, loading } = useAuth()
-  const router = useRouter()
+  const router   = useRouter()
+  const pathname = usePathname()
 
   const [subStatus,  setSubStatus]  = useState(null)
   const [subLoading, setSubLoading] = useState(true)
+  const redirectedRef = useRef(false)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -22,12 +24,25 @@ export default function AppShell({ children }) {
 
   useEffect(() => {
     if (!user) return
+    redirectedRef.current = false
     checkSubscription()
+
+    // Hard timeout — never show loading for more than 4 seconds
+    const timeout = setTimeout(() => {
+      if (subLoading && !redirectedRef.current) {
+        console.log('AppShell — hard timeout reached, redirecting to /subscribe')
+        redirectedRef.current = true
+        setSubStatus('none')
+        setSubLoading(false)
+        router.replace('/subscribe')
+      }
+    }, 4000)
+
+    return () => clearTimeout(timeout)
   }, [user])
 
   async function checkSubscription() {
-    // Guard — user may have been cleared by signOut before this runs
-    if (!user) { setSubLoading(false); return }
+    if (!user?.uid) { setSubLoading(false); return }
 
     // Admin email bypasses subscription check
     if (user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
@@ -36,42 +51,41 @@ export default function AppShell({ children }) {
       return
     }
 
-    // Retry up to 3 times with 500ms delay — new signups may not have
-    // their Firestore document written yet when this first runs
-    const maxRetries = 3
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      if (!user) { setSubLoading(false); return }
+    // Retry up to 3 times with 500ms delay
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (!user?.uid || redirectedRef.current) { setSubLoading(false); return }
       try {
         const profile = await getGardenerProfile(user.uid)
         if (profile) {
           const status = profile.subscriptionStatus || 'none'
           setSubStatus(status)
+          setSubLoading(false)
           if (status !== 'active') {
+            redirectedRef.current = true
             router.replace('/subscribe')
           }
-          setSubLoading(false)
           return
-        }
-        // Profile is null — doc may not be written yet
-        if (attempt < maxRetries) {
-          await new Promise(r => setTimeout(r, 500))
         }
       } catch (err) {
-        console.error('Subscription check failed:', err)
-        if (attempt === maxRetries) {
-          setSubStatus('active') // fail open so app doesn't brick
-          setSubLoading(false)
-          return
-        }
+        console.error('Subscription check error:', err)
+      }
+      // Wait 500ms before next retry
+      if (attempt < 2) {
         await new Promise(r => setTimeout(r, 500))
       }
     }
-    // Exhausted retries — redirect to subscribe (new user with no profile yet)
-    setSubStatus('none')
-    setSubLoading(false)
-    router.replace('/subscribe')
+
+    // All retries exhausted, profile still null — redirect to subscribe
+    if (!redirectedRef.current) {
+      console.log('AppShell — retries exhausted, redirecting to /subscribe')
+      redirectedRef.current = true
+      setSubStatus('none')
+      setSubLoading(false)
+      router.replace('/subscribe')
+    }
   }
 
+  // Show branded spinner while loading auth or subscription status
   if (loading || subLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
@@ -86,19 +100,11 @@ export default function AppShell({ children }) {
     )
   }
 
-  if (!user || subStatus !== 'active') {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-brand-600 flex items-center justify-center">
-            <Leaf size={22} className="text-white" />
-          </div>
-          <div className="w-8 h-8 rounded-full border-2 border-brand-600 border-t-transparent animate-spin" />
-          <span className="text-sm text-gray-400 font-medium">Loading YardSync...</span>
-        </div>
-      </div>
-    )
-  }
+  // If not authenticated, show nothing (redirect to /login is firing)
+  if (!user) return null
+
+  // If subscription is not active, show nothing (redirect to /subscribe is firing)
+  if (subStatus !== 'active') return null
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-start justify-center">

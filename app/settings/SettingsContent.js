@@ -302,9 +302,12 @@ export default function SettingsPage() {
   }
 
   async function handleUpgradeToAnnual() {
-    console.log('upgrade handler fired', {
-      stripeSubscriptionId: profile?.stripeSubscriptionId,
+    console.log('upgrade attempt', {
+      uid: user?.uid,
       stripeCustomerId: profile?.stripeCustomerId,
+      stripeSubscriptionId: profile?.stripeSubscriptionId,
+      subscriptionPlan: profile?.subscriptionPlan,
+      subscriptionStatus: profile?.subscriptionStatus,
     })
     setUpgrading(true)
     try {
@@ -312,6 +315,10 @@ export default function SettingsPage() {
         toast.error(lang === 'es'
           ? 'Datos de suscripción no encontrados. Contacta soporte.'
           : 'Subscription details not found. Please contact support.')
+        console.error('Upgrade blocked — missing fields:', {
+          stripeSubscriptionId: profile?.stripeSubscriptionId || 'MISSING',
+          stripeCustomerId: profile?.stripeCustomerId || 'MISSING',
+        })
         setShowUpgradeModal(false)
         setUpgrading(false)
         return
