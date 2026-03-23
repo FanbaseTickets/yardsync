@@ -7,6 +7,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { useLang } from '@/context/LangContext'
 import { t } from '@/lib/i18n'
+import { doc, setDoc } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 import { Leaf, Check, Zap, Star } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -32,11 +34,37 @@ function SubscribeInner() {
   const [setupFee,     setSetupFee]     = useState(false)
   const [loading,      setLoading]      = useState(false)
 
+  // Client-side backup write: if returning from Stripe with session_id,
+  // fetch session data and write stripeCustomerId/stripeSubscriptionId to Firestore
+  // before redirecting to dashboard. This ensures fields are written even if the
+  // webhook is delayed.
   useEffect(() => {
+    const sessionId = searchParams.get('session_id')
+    const plan      = searchParams.get('plan')
+    if (sessionId && user) {
+      ;(async () => {
+        try {
+          const res  = await fetch(`/api/stripe/session?sessionId=${sessionId}`)
+          const data = await res.json()
+          if (data.customerId && data.subscriptionId) {
+            await setDoc(doc(db, 'users', user.uid), {
+              stripeCustomerId:     data.customerId,
+              stripeSubscriptionId: data.subscriptionId,
+            }, { merge: true })
+            console.log('Client-side backup write complete', { uid: user.uid, stripeSubscriptionId: data.subscriptionId })
+          }
+        } catch (err) {
+          console.error('Client-side backup write failed (non-fatal):', err.message)
+        }
+        router.push(`/dashboard?subscribed=true&plan=${plan || 'monthly'}`)
+      })()
+      return
+    }
+
     if (searchParams.get('cancelled')) {
       toast.error(tr('subscribe', 'checkout_cancel'))
     }
-  }, [])
+  }, [user])
 
   async function handleCheckout() {
     if (!user) return

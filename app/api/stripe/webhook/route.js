@@ -28,7 +28,17 @@ export async function POST(request) {
     switch (event.type) {
 
       case 'checkout.session.completed': {
-        if (!gardenerUid) break
+        console.log('webhook checkout.session.completed', {
+          uid: gardenerUid,
+          customer: session.customer,
+          subscription: session.subscription,
+          mode: session.mode,
+        })
+
+        if (!gardenerUid) {
+          console.error('webhook: no gardenerUid found in session metadata — skipping write')
+          break
+        }
         const subscriptionId = session.subscription
         const customerId     = session.customer
 
@@ -65,6 +75,7 @@ export async function POST(request) {
           { merge: true }
         )
 
+        console.log('webhook write complete', { uid: gardenerUid, stripeSubscriptionId: subscriptionId })
         console.log(`Subscription activated for ${gardenerUid} — ${plan}`)
 
         // Check if setup package was purchased
