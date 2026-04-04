@@ -50,6 +50,7 @@ function SubscribeInner() {
             await setDoc(doc(db, 'users', user.uid), {
               stripeCustomerId:     data.customerId,
               stripeSubscriptionId: data.subscriptionId,
+              subscriptionStatus:   'active',
             }, { merge: true })
             console.log('Client-side backup write complete', { uid: user.uid, stripeSubscriptionId: data.subscriptionId })
           }

@@ -26,7 +26,7 @@ export default function PaymentPathContent() {
     try {
       if (selected === 'square') {
         await setDoc(doc(db, 'users', user.uid), { paymentPath: 'square' }, { merge: true })
-        router.push('/dashboard')
+        router.push('/dashboard?subscribed=true')
       } else {
         router.push('/onboarding/connect-stripe')
       }
@@ -43,7 +43,7 @@ export default function PaymentPathContent() {
     } catch (err) {
       console.error('Skip write failed:', err)
     } finally {
-      router.push('/dashboard')
+      router.push('/dashboard?subscribed=true')
     }
   }
 

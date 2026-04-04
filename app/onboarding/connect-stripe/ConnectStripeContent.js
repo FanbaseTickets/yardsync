@@ -79,7 +79,7 @@ export default function ConnectStripeContent() {
       stripeAccountStatus: 'complete',
       paymentPath: 'stripe',
     })
-    router.push('/dashboard')
+    router.push('/dashboard?subscribed=true')
   }
 
   const handleSkip = async () => {
@@ -92,7 +92,7 @@ export default function ConnectStripeContent() {
     } catch (err) {
       console.error('Skip write failed:', err)
     } finally {
-      router.push('/dashboard')
+      router.push('/dashboard?subscribed=true')
     }
   }
 
