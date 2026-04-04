@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import BottomNav from './BottomNav'
-import { getGardenerProfile } from '@/lib/db'
+import { getGardenerProfile, saveGardenerProfile } from '@/lib/db'
 import { Leaf } from 'lucide-react'
 
 export default function AppShell({ children }) {
@@ -97,6 +97,16 @@ export default function AppShell({ children }) {
           if (status === 'active') {
             // Success — clear timeout immediately
             clearTimeout(timeoutRef.current)
+
+            // Payment path gating
+            const pp = profile.paymentPath
+            if (!isPostPayment && !pp) {
+              // Existing user with no paymentPath — default to square silently
+              saveGardenerProfile(user.uid, { paymentPath: 'square' })
+            }
+            // Post-payment with no paymentPath: SubscribeContent already
+            // redirected to /onboarding/payment-path, just allow through
+
             setSubStatus('active')
             setSubLoading(false)
             return
