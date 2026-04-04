@@ -35,17 +35,6 @@ export default function PaymentPathContent() {
     }
   }
 
-  async function handleSkip() {
-    if (!user?.uid) return
-    setLoading(true)
-    try {
-      await setDoc(doc(db, 'users', user.uid), { paymentPath: 'pending' }, { merge: true })
-    } catch (err) {
-      console.error('Skip write failed:', err)
-    } finally {
-      router.push('/dashboard?subscribed=true')
-    }
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -165,14 +154,6 @@ export default function PaymentPathContent() {
           )}
         </button>
 
-        {/* Skip link */}
-        <button
-          onClick={handleSkip}
-          disabled={loading}
-          className="w-full text-center text-gray-400 text-[13px] hover:text-gray-600 transition-colors py-2"
-        >
-          {es ? 'Omitir por ahora' : 'Skip for now'}
-        </button>
       </div>
     </div>
   )
