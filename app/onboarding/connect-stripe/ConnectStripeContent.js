@@ -1,13 +1,17 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { loadConnectAndInitialize } from '@stripe/connect-js'
+import {
+  ConnectComponentsProvider,
+  ConnectAccountOnboarding,
+} from '@stripe/react-connect-js'
 import { useAuth } from '@/context/AuthContext'
 import { useLang } from '@/context/LangContext'
-import { doc, setDoc } from 'firebase/firestore'
+import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import { Leaf, AlertCircle } from 'lucide-react'
-import { loadConnectAndInitialize } from '@stripe/connect-js'
+import { Leaf } from 'lucide-react'
 
 export default function ConnectStripeContent() {
   const { user } = useAuth()
@@ -18,78 +22,70 @@ export default function ConnectStripeContent() {
   const lang = langCtx?.lang || 'en'
   const es = lang === 'es'
 
+  const [stripeConnectInstance, setStripeConnectInstance] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const containerRef = useRef(null)
-  const mountedRef = useRef(false)
-
-  async function initConnect() {
-    if (!user?.uid) return
-    setLoading(true)
-    setError(null)
-
-    try {
-      const res = await fetch('/api/stripe/connect/create-account', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid: user.uid }),
-      })
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || 'Failed to create account')
-      }
-
-      const { accountId, clientSecret } = await res.json()
-
-      // Write account ID to Firestore (client-side)
-      await setDoc(doc(db, 'users', user.uid), {
-        stripeAccountId: accountId,
-        stripeAccountStatus: 'pending',
-      }, { merge: true })
-
-      // Initialize Stripe Connect embedded onboarding
-      const stripeConnectInstance = await loadConnectAndInitialize({
-        publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
-        fetchClientSecret: async () => {
-          return clientSecret
-        },
-      })
-
-      const onboardingElement = stripeConnectInstance.create('account-onboarding')
-
-      onboardingElement.setOnExit(async () => {
-        // Onboarding complete
-        await setDoc(doc(db, 'users', user.uid), {
-          stripeAccountStatus: 'complete',
-          paymentPath: 'stripe',
-        }, { merge: true })
-        router.push('/dashboard')
-      })
-
-      // Clear container and mount
-      if (containerRef.current) {
-        containerRef.current.innerHTML = ''
-        containerRef.current.appendChild(onboardingElement)
-      }
-
-      setLoading(false)
-    } catch (err) {
-      console.error('Stripe Connect init error:', err)
-      setError(err.message)
-      setLoading(false)
-    }
-  }
 
   useEffect(() => {
-    if (mountedRef.current) return
-    mountedRef.current = true
-    initConnect()
+    if (!user) return
+
+    const initStripe = async () => {
+      try {
+        const res = await fetch('/api/stripe/connect/create-account', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid: user.uid }),
+        })
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error(data.error || 'Failed to create account')
+        }
+
+        const { accountId, clientSecret } = await res.json()
+
+        await updateDoc(doc(db, 'users', user.uid), {
+          stripeAccountId: accountId,
+          stripeAccountStatus: 'pending',
+        })
+
+        const instance = loadConnectAndInitialize({
+          publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+          fetchClientSecret: async () => {
+            const sessionRes = await fetch('/api/stripe/connect/account-session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ stripeAccountId: accountId }),
+            })
+            const data = await sessionRes.json()
+            return data.clientSecret
+          },
+        })
+
+        setStripeConnectInstance(instance)
+      } catch (err) {
+        console.error('Stripe Connect init error:', err)
+        setError(err.message || 'Something went wrong. Please try again.')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    initStripe()
   }, [user])
 
-  async function handleSkip() {
-    if (!user?.uid) return
-    await setDoc(doc(db, 'users', user.uid), { paymentPath: 'pending' }, { merge: true })
+  const handleComplete = async () => {
+    await updateDoc(doc(db, 'users', user.uid), {
+      stripeAccountStatus: 'complete',
+      paymentPath: 'stripe',
+    })
+    router.push('/dashboard')
+  }
+
+  const handleSkip = async () => {
+    await updateDoc(doc(db, 'users', user.uid), {
+      paymentPath: 'pending',
+    })
     router.push('/dashboard')
   }
 
@@ -106,36 +102,36 @@ export default function ConnectStripeContent() {
         <h1 className="text-white text-xl font-bold mt-3">
           {es ? 'Conecta tu banco' : 'Connect your bank'}
         </h1>
+        <p className="text-[#5DCAA5] text-xs mt-1">
+          {es ? '' : 'Conecta tu banco'}
+        </p>
         {/* Progress dots — step 4 of 4 */}
         <div className="flex gap-1.5 mt-4">
           {[1, 2, 3, 4].map(s => (
             <div
               key={s}
-              className={`h-1.5 rounded-full flex-1 ${s <= 4 ? 'bg-white' : 'bg-white/30'}`}
+              className="h-1.5 rounded-full flex-1 bg-white"
             />
           ))}
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 px-5 py-6 flex flex-col">
+      <div className="flex-1 px-4 py-6 flex flex-col" style={{ maxWidth: 480, margin: '0 auto', width: '100%' }}>
         {loading && (
           <div className="flex-1 flex flex-col items-center justify-center gap-3">
             <div className="w-8 h-8 rounded-full border-2 border-[#0F6E56] border-t-transparent animate-spin" />
             <p className="text-sm text-gray-400">
-              {es ? 'Preparando conexión segura...' : 'Preparing secure connection...'}
+              {es ? 'Preparando tu cuenta...' : 'Setting up your account...'}
             </p>
           </div>
         )}
 
         {error && (
           <div className="flex-1 flex flex-col items-center justify-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
-              <AlertCircle size={24} className="text-red-500" />
-            </div>
-            <p className="text-sm text-gray-600 text-center">{error}</p>
+            <p className="text-sm text-red-600 text-center">{error}</p>
             <button
-              onClick={() => { mountedRef.current = false; initConnect() }}
+              onClick={() => window.location.reload()}
               className="bg-[#0F6E56] text-white font-semibold text-sm px-6 py-3 rounded-xl hover:bg-[#0B5A46] transition-colors"
             >
               {es ? 'Reintentar' : 'Try again'}
@@ -143,21 +139,21 @@ export default function ConnectStripeContent() {
           </div>
         )}
 
-        {/* Stripe embedded onboarding mounts here */}
-        <div ref={containerRef} className={loading || error ? 'hidden' : ''} />
-
-        {!loading && !error && (
-          <p className="text-[11px] text-gray-400 text-center mt-4">
-            {es
-              ? 'Stripe maneja tu información bancaria de forma segura. YardSync nunca ve tus datos.'
-              : 'Your bank details are handled securely by Stripe. YardSync never sees your account information.'}
-          </p>
+        {stripeConnectInstance && !loading && (
+          <ConnectComponentsProvider connectInstance={stripeConnectInstance}>
+            <ConnectAccountOnboarding onExit={handleComplete} />
+          </ConnectComponentsProvider>
         )}
 
-        {/* Skip link */}
+        <p className="text-[11px] text-gray-400 text-center mt-4 leading-relaxed">
+          {es
+            ? 'Stripe maneja tu información bancaria de forma segura. YardSync nunca ve tus datos.'
+            : 'Your bank details are handled securely by Stripe. YardSync never sees your account information.'}
+        </p>
+
         <button
           onClick={handleSkip}
-          className="w-full text-center text-gray-400 text-[13px] hover:text-gray-600 transition-colors py-2 mt-auto"
+          className="w-full text-center text-gray-400 text-[13px] hover:text-gray-600 transition-colors py-2 mt-4"
         >
           {es ? 'Omitir por ahora' : 'Skip for now'}
         </button>
