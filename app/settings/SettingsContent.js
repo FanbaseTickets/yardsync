@@ -11,7 +11,7 @@ import { Card, Button, Input, Select } from '@/components/ui'
 import PhoneInput from '@/components/ui/PhoneInput'
 import { saveGardenerProfile, getGardenerProfile, getFeePayments, saveFeePayment, markQuarterFeesCollected, getQuarterlyFeesOwed } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
-import { Bell, Globe, User, Clock, BarChart2, CreditCard, Link2, AlertTriangle, Wallet, CheckCircle2, ArrowUpCircle } from 'lucide-react'
+import { Bell, Globe, User, Clock, BarChart2, CreditCard, Link2, AlertTriangle, Wallet, CheckCircle2, ArrowUpCircle, TrendingUp, Lock, Zap } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 
@@ -44,6 +44,7 @@ export default function SettingsPage() {
   const [quarterFees,   setQuarterFees]   = useState([])
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [upgrading,        setUpgrading]        = useState(false)
+  const [monthlyVolume,    setMonthlyVolume]    = useState(0)
 
   // Handle Square OAuth callback redirect
   useEffect(() => {
@@ -102,8 +103,11 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
-    if (user) loadFeeData()
-  }, [user])
+    if (user) {
+      loadFeeData()
+      if (profile?.paymentPath === 'stripe') loadMonthlyVolume()
+    }
+  }, [user, profile?.paymentPath])
 
   async function loadFeeData() {
     try {
@@ -120,6 +124,26 @@ export default function SettingsPage() {
       setQuarterFees(fees)
     } catch (err) {
       console.error('Failed to load fee data:', err)
+    }
+  }
+
+  async function loadMonthlyVolume() {
+    try {
+      const allInvoices = await getInvoices(user.uid)
+      const now = new Date()
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+      let total = 0
+      allInvoices.forEach(inv => {
+        if (inv.status !== 'paid') return
+        const d = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
+        if (d >= monthStart && d <= monthEnd) {
+          total += inv.totalCents || 0
+        }
+      })
+      setMonthlyVolume(total)
+    } catch (err) {
+      console.error('Failed to load monthly volume:', err)
     }
   }
 
@@ -571,47 +595,62 @@ export default function SettingsPage() {
                 {translate('settings', 'subscription')}
               </p>
             </div>
-            <Card className="bg-brand-50 border-brand-100">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[13px] font-medium text-brand-800">
-                  {translate('settings', 'active')}
+            {profile?.paymentPath === 'stripe' ? (
+              <Card className="bg-brand-50 border-brand-100">
+                <div className="flex items-center justify-between">
+                  <p className="text-[13px] font-medium text-brand-800">
+                    YardSync — {lang === 'es' ? 'Activo' : 'Active'}
+                  </p>
+                  <span className="text-[11px] bg-brand-600 text-white px-2 py-0.5 rounded-full font-medium">
+                    {profile?.subscriptionPlan === 'annual'
+                      ? translate('settings', 'annual_plan')
+                      : translate('settings', 'monthly_plan')}
+                  </span>
+                </div>
+              </Card>
+            ) : (
+              <Card className="bg-brand-50 border-brand-100">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[13px] font-medium text-brand-800">
+                    {translate('settings', 'active')}
+                  </p>
+                  <span className="text-[11px] bg-brand-600 text-white px-2 py-0.5 rounded-full font-medium">
+                    {profile?.subscriptionPlan === 'annual'
+                      ? translate('settings', 'annual_plan')
+                      : translate('settings', 'monthly_plan')}
+                  </span>
+                </div>
+                <p className="text-[12px] text-brand-600 mt-1">
+                  {translate('settings', 'fee_note')}
                 </p>
-                <span className="text-[11px] bg-brand-600 text-white px-2 py-0.5 rounded-full font-medium">
-                  {profile?.subscriptionPlan === 'annual'
-                    ? translate('settings', 'annual_plan')
-                    : translate('settings', 'monthly_plan')}
-                </span>
-              </div>
-              <p className="text-[12px] text-brand-600 mt-1">
-                {translate('settings', 'fee_note')}
-              </p>
-              <div className="mt-3 space-y-1">
-                <div className="flex justify-between text-[12px]">
-                  <span className="text-brand-700">{translate('settings', 'fee_monthly')}</span>
-                  <span className="text-brand-800 font-medium">+$15/{lang === 'es' ? 'factura' : 'invoice'}</span>
+                <div className="mt-3 space-y-1">
+                  <div className="flex justify-between text-[12px]">
+                    <span className="text-brand-700">{translate('settings', 'fee_monthly')}</span>
+                    <span className="text-brand-800 font-medium">+$15/{lang === 'es' ? 'factura' : 'invoice'}</span>
+                  </div>
+                  <div className="flex justify-between text-[12px]">
+                    <span className="text-brand-700">{translate('settings', 'fee_quarterly')}</span>
+                    <span className="text-brand-800 font-medium">+$35/{lang === 'es' ? 'factura' : 'invoice'}</span>
+                  </div>
+                  <div className="flex justify-between text-[12px]">
+                    <span className="text-brand-700">{translate('settings', 'fee_annual')}</span>
+                    <span className="text-brand-800 font-medium">+$100/{lang === 'es' ? 'factura' : 'invoice'}</span>
+                  </div>
+                  <div className="flex justify-between text-[12px]">
+                    <span className="text-brand-700">{translate('settings', 'fee_weekly')}</span>
+                    <span className="text-brand-800 font-medium">+$5/{lang === 'es' ? 'factura' : 'invoice'}</span>
+                  </div>
+                  <div className="flex justify-between text-[12px]">
+                    <span className="text-brand-700">{translate('settings', 'fee_onetime')}</span>
+                    <span className="text-brand-800 font-medium">+8% (min $10)</span>
+                  </div>
+                  <div className="flex justify-between text-[12px]">
+                    <span className="text-brand-700">{translate('settings', 'fee_addons')}</span>
+                    <span className="text-brand-800 font-medium">+10%</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-[12px]">
-                  <span className="text-brand-700">{translate('settings', 'fee_quarterly')}</span>
-                  <span className="text-brand-800 font-medium">+$35/{lang === 'es' ? 'factura' : 'invoice'}</span>
-                </div>
-                <div className="flex justify-between text-[12px]">
-                  <span className="text-brand-700">{translate('settings', 'fee_annual')}</span>
-                  <span className="text-brand-800 font-medium">+$100/{lang === 'es' ? 'factura' : 'invoice'}</span>
-                </div>
-                <div className="flex justify-between text-[12px]">
-                  <span className="text-brand-700">{translate('settings', 'fee_weekly')}</span>
-                  <span className="text-brand-800 font-medium">+$5/{lang === 'es' ? 'factura' : 'invoice'}</span>
-                </div>
-                <div className="flex justify-between text-[12px]">
-                  <span className="text-brand-700">{translate('settings', 'fee_onetime')}</span>
-                  <span className="text-brand-800 font-medium">+8% (min $10)</span>
-                </div>
-                <div className="flex justify-between text-[12px]">
-                  <span className="text-brand-700">{translate('settings', 'fee_addons')}</span>
-                  <span className="text-brand-800 font-medium">+10%</span>
-                </div>
-              </div>
-            </Card>
+              </Card>
+            )}
 
             {/* Upgrade prompt — only show for monthly subscribers */}
             {profile?.subscriptionStatus === 'active' && profile?.subscriptionPlan !== 'annual' && (
@@ -638,6 +677,81 @@ export default function SettingsPage() {
               </Card>
             )}
           </section>
+
+          {/* Volume Reward Tracker — Stripe users only */}
+          {profile?.paymentPath === 'stripe' && profile?.stripeAccountStatus === 'complete' && (() => {
+            const volumeDollars = monthlyVolume / 100
+            const tier = volumeDollars >= 3000 ? 3 : volumeDollars >= 1500 ? 2 : 1
+            const progressFill = tier === 1
+              ? Math.min(volumeDollars / 1500, 1)
+              : tier === 2
+              ? Math.min((volumeDollars - 1500) / 1500, 1)
+              : 1
+            const progressLabel = tier === 1
+              ? (lang === 'es' ? 'hacia 50% de descuento' : 'toward 50% off')
+              : tier === 2
+              ? (lang === 'es' ? 'hacia YardSync GRATIS' : 'toward FREE YardSync')
+              : (lang === 'es' ? 'Nivel gratis alcanzado — racha en seguimiento' : 'Free tier reached — streak being tracked')
+            return (
+              <section>
+                <div className="flex items-center gap-2 mb-3">
+                  <TrendingUp size={14} className="text-brand-600" />
+                  <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                    {lang === 'es' ? 'Recompensas YardSync Pay' : 'YardSync Pay Rewards'}
+                  </p>
+                </div>
+                <Card>
+                  <p className="text-[12px] text-gray-500 mb-3">
+                    {lang === 'es'
+                      ? 'Tu suscripción se reduce a medida que crece tu volumen de facturas. El volumen calificado debe mantenerse por 2 meses consecutivos.'
+                      : 'Your subscription reduces as your invoice volume grows. Qualifying volume must be held for 2 consecutive months.'}
+                  </p>
+                  <p className="text-[12px] text-gray-700 font-medium mb-3">
+                    {lang === 'es' ? 'Volumen este mes:' : 'This month\'s volume:'}{' '}
+                    <span className="text-brand-700">${volumeDollars.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                  </p>
+                  <div className="space-y-2 mb-4">
+                    <div className={`flex items-center justify-between rounded-xl px-3 py-2.5 ${tier === 1 ? 'bg-brand-50 border border-brand-200' : 'bg-gray-50 border border-gray-100'}`}>
+                      <div className="flex items-center gap-2">
+                        {tier >= 1 ? <CheckCircle2 size={14} className="text-brand-600" /> : <Lock size={14} className="text-gray-300" />}
+                        <p className="text-[12px] text-gray-700">{lang === 'es' ? 'Menos de' : 'Under'} $1,500/{lang === 'es' ? 'mes' : 'mo'}</p>
+                      </div>
+                      <p className="text-[12px] font-semibold text-gray-800">$39/{lang === 'es' ? 'mes' : 'mo'}</p>
+                    </div>
+                    <div className={`flex items-center justify-between rounded-xl px-3 py-2.5 ${tier === 2 ? 'bg-brand-50 border border-brand-200' : 'bg-gray-50 border border-gray-100'}`}>
+                      <div className="flex items-center gap-2">
+                        {tier >= 2 ? <CheckCircle2 size={14} className="text-brand-600" /> : <Lock size={14} className="text-gray-300" />}
+                        <p className="text-[12px] text-gray-700">$1,500–$2,999/{lang === 'es' ? 'mes' : 'mo'}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">50% off</span>
+                        <p className="text-[12px] font-semibold text-gray-800">$19/{lang === 'es' ? 'mes' : 'mo'}</p>
+                      </div>
+                    </div>
+                    <div className={`flex items-center justify-between rounded-xl px-3 py-2.5 ${tier === 3 ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-100'}`}>
+                      <div className="flex items-center gap-2">
+                        {tier >= 3 ? <Zap size={14} className="text-green-600" /> : <Lock size={14} className="text-gray-300" />}
+                        <p className="text-[12px] text-gray-700">$3,000+/{lang === 'es' ? 'mes' : 'mo'}</p>
+                      </div>
+                      <p className={`text-[12px] font-bold ${tier >= 3 ? 'text-green-600' : 'text-gray-800'}`}>FREE</p>
+                    </div>
+                  </div>
+                  {/* Progress bar */}
+                  <div>
+                    <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${tier === 3 ? 'bg-green-500' : 'bg-brand-600'}`}
+                        style={{ width: `${Math.round(progressFill * 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-1.5">
+                      {tier === 3 ? '🎉 ' : ''}{progressLabel}
+                    </p>
+                  </div>
+                </Card>
+              </section>
+            )
+          })()}
 
           {/* Payment Processing — Stripe users */}
           {profile?.paymentPath === 'stripe' && (
