@@ -639,8 +639,35 @@ export default function SettingsPage() {
             )}
           </section>
 
-          {/* Square Integration */}
-          <section>
+          {/* Payment Processing — Stripe users */}
+          {profile?.paymentPath === 'stripe' && (
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <CreditCard size={14} className="text-brand-600" />
+                <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                  {lang === 'es' ? 'Procesamiento de Pagos' : 'Payment Processing'}
+                </p>
+              </div>
+              <Card>
+                <p className="text-[13px] text-gray-600 mb-3">
+                  {lang === 'es'
+                    ? 'Tus facturas se procesan automáticamente a través de YardSync Pay. JNew Technologies cobra una tarifa del 5.5% por factura. Sin cobros trimestrales.'
+                    : 'Your invoices are processed automatically through YardSync Pay. JNew Technologies collects a 5.5% fee per invoice. No quarterly bills.'}
+                </p>
+                {profile?.stripeAccountStatus === 'complete' && (
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={14} className="text-green-600" />
+                    <p className="text-[13px] text-green-600 font-medium">
+                      {lang === 'es' ? 'Cuenta bancaria conectada' : 'Bank account connected'}
+                    </p>
+                  </div>
+                )}
+              </Card>
+            </section>
+          )}
+
+          {/* Square Integration — only for non-Stripe users */}
+          {profile?.paymentPath !== 'stripe' && <section>
             <div className="flex items-center gap-2 mb-3">
               <CreditCard size={14} className="text-brand-600" />
               <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
@@ -741,10 +768,10 @@ export default function SettingsPage() {
                 </Button>
               </Card>
             )}
-          </section>
+          </section>}
 
-          {/* Card on File */}
-          <section>
+          {/* Card on File — only for non-Stripe users */}
+          {profile?.paymentPath !== 'stripe' && <section>
             <div className="flex items-center gap-2 mb-3">
               <Wallet size={14} className="text-brand-600" />
               <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
@@ -803,10 +830,10 @@ export default function SettingsPage() {
                 </div>
               )}
             </Card>
-          </section>
+          </section>}
 
-          {/* Quarterly Platform Fees */}
-          <section>
+          {/* Quarterly Platform Fees — only for non-Stripe users */}
+          {profile?.paymentPath !== 'stripe' && <section>
             <div className="flex items-center gap-2 mb-3">
               <BarChart2 size={14} className="text-brand-600" />
               <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
@@ -860,7 +887,7 @@ export default function SettingsPage() {
                   : '📲 You\'ll receive an SMS reminder 30 days before each quarter ends.'}
               </p>
             </Card>
-          </section>
+          </section>}
 
           <Button fullWidth size="lg" loading={saving} onClick={handleSave}>
             {translate('settings', 'save')}
