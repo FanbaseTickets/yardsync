@@ -9,7 +9,7 @@ import AppShell from '@/components/layout/AppShell'
 import { StatCard, Card, Badge, Button, Skeleton } from '@/components/ui'
 import { getClients, getTodaySchedules, getInvoices, getServices, getSchedules, updateSchedule, saveGardenerProfile } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
-import { Users, CalendarCheck, DollarSign, MessageSquare, CheckCircle2, Clock, Leaf, LogOut, Settings, CreditCard, Link2, Package, UserPlus, CalendarPlus, X } from 'lucide-react'
+import { Users, CalendarCheck, DollarSign, MessageSquare, CheckCircle2, Clock, Leaf, LogOut, Settings, CreditCard, Link2, Package, UserPlus, CalendarPlus, X, Landmark } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -177,13 +177,21 @@ export default function DashboardPage() {
 
           {/* Onboarding Checklist */}
           {!loading && !profile?.onboardingComplete && (() => {
-            const steps = [
-              { key: 'step_card',     done: !!profile?.cardLast4,        href: '/settings', icon: CreditCard,   optional: false },
-              { key: 'step_square',   done: !!profile?.squareConnected,  href: '/settings', icon: Link2,        optional: true },
-              { key: 'step_service',  done: services.length > 0,         href: '/services', icon: Package,      optional: false },
-              { key: 'step_client',   done: clients.length > 0,          href: '/clients',  icon: UserPlus,     optional: false },
-              { key: 'step_schedule', done: allSchedules.length > 0,     href: '/calendar', icon: CalendarPlus, optional: false },
-            ]
+            const isStripe = profile?.paymentPath === 'stripe'
+            const steps = isStripe
+              ? [
+                  { key: 'step_bank',     done: true,                        href: '#',       icon: Landmark,     optional: false },
+                  { key: 'step_service',  done: services.length > 0,         href: '/services', icon: Package,      optional: false },
+                  { key: 'step_client',   done: clients.length > 0,          href: '/clients',  icon: UserPlus,     optional: false },
+                  { key: 'step_schedule', done: allSchedules.length > 0,     href: '/calendar', icon: CalendarPlus, optional: false },
+                ]
+              : [
+                  { key: 'step_card',     done: !!profile?.cardLast4,        href: '/settings', icon: CreditCard,   optional: false },
+                  { key: 'step_square',   done: !!profile?.squareConnected,  href: '/settings', icon: Link2,        optional: true },
+                  { key: 'step_service',  done: services.length > 0,         href: '/services', icon: Package,      optional: false },
+                  { key: 'step_client',   done: clients.length > 0,          href: '/clients',  icon: UserPlus,     optional: false },
+                  { key: 'step_schedule', done: allSchedules.length > 0,     href: '/calendar', icon: CalendarPlus, optional: false },
+                ]
             const completed     = steps.filter(s => s.done).length
             const requiredSteps = steps.filter(s => !s.optional)
             const requiredDone  = requiredSteps.every(s => s.done)
