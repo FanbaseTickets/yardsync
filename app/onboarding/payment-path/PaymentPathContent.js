@@ -40,9 +40,10 @@ export default function PaymentPathContent() {
     setLoading(true)
     try {
       await setDoc(doc(db, 'users', user.uid), { paymentPath: 'pending' }, { merge: true })
+    } catch (err) {
+      console.error('Skip write failed:', err)
+    } finally {
       router.push('/dashboard')
-    } catch {
-      setLoading(false)
     }
   }
 

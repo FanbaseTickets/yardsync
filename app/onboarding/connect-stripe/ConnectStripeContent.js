@@ -83,10 +83,17 @@ export default function ConnectStripeContent() {
   }
 
   const handleSkip = async () => {
-    await updateDoc(doc(db, 'users', user.uid), {
-      paymentPath: 'pending',
-    })
-    router.push('/dashboard')
+    try {
+      if (user) {
+        await updateDoc(doc(db, 'users', user.uid), {
+          paymentPath: 'pending',
+        })
+      }
+    } catch (err) {
+      console.error('Skip write failed:', err)
+    } finally {
+      router.push('/dashboard')
+    }
   }
 
   return (

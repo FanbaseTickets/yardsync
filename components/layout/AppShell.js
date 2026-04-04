@@ -98,14 +98,19 @@ export default function AppShell({ children }) {
             // Success — clear timeout immediately
             clearTimeout(timeoutRef.current)
 
-            // Payment path gating
-            const pp = profile.paymentPath
-            if (!isPostPayment && !pp) {
-              // Existing user with no paymentPath — default to square silently
-              saveGardenerProfile(user.uid, { paymentPath: 'square' })
+            // If user is currently on an onboarding route, never redirect them
+            // Let the onboarding pages handle their own routing
+            const onOnboardingRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/onboarding')
+            if (!onOnboardingRoute) {
+              // Payment path gating
+              const pp = profile.paymentPath
+              if (!isPostPayment && !pp) {
+                // Existing user with no paymentPath — default to square silently
+                saveGardenerProfile(user.uid, { paymentPath: 'square' })
+              }
+              // Post-payment with no paymentPath: SubscribeContent already
+              // redirected to /onboarding/payment-path, just allow through
             }
-            // Post-payment with no paymentPath: SubscribeContent already
-            // redirected to /onboarding/payment-path, just allow through
 
             setSubStatus('active')
             setSubLoading(false)
