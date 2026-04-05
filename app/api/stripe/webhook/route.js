@@ -1,108 +1,8 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { queryCollection, getDocument, setDocument, updateDocument } from '@/lib/firestoreRest'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
-const BASE_URL = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`
-
-/* ────────────────────────────────────────────
-   Firestore REST API helpers
-   (bypass security rules — no auth needed)
-   ──────────────────────────────────────────── */
-
-function toFirestoreValue(val) {
-  if (val === null || val === undefined) return { nullValue: null }
-  if (typeof val === 'string')  return { stringValue: val }
-  if (typeof val === 'boolean') return { booleanValue: val }
-  if (typeof val === 'number')  return Number.isInteger(val)
-    ? { integerValue: String(val) }
-    : { doubleValue: val }
-  return { stringValue: String(val) }
-}
-
-function fromFirestoreFields(fields) {
-  const out = {}
-  for (const [k, v] of Object.entries(fields)) {
-    if ('stringValue'  in v) out[k] = v.stringValue
-    else if ('booleanValue' in v) out[k] = v.booleanValue
-    else if ('integerValue' in v) out[k] = Number(v.integerValue)
-    else if ('doubleValue'  in v) out[k] = v.doubleValue
-    else if ('nullValue'    in v) out[k] = null
-    else out[k] = v
-  }
-  return out
-}
-
-// Query a collection with a single field == value filter
-async function queryCollection(collectionId, fieldPath, value) {
-  const url = `${BASE_URL}:runQuery`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      structuredQuery: {
-        from: [{ collectionId }],
-        where: {
-          fieldFilter: {
-            field: { fieldPath },
-            op: 'EQUAL',
-            value: { stringValue: value }
-          }
-        },
-        limit: 1
-      }
-    })
-  })
-  const data = await res.json()
-  const doc = data[0]?.document
-  if (!doc) return null
-  // Extract doc ID from the full name path
-  const parts = doc.name.split('/')
-  const id = parts[parts.length - 1]
-  return { id, name: doc.name, data: fromFirestoreFields(doc.fields || {}) }
-}
-
-// Get a single document by collection/docId
-async function getDoc(collectionId, docId) {
-  const url = `${BASE_URL}/${collectionId}/${docId}`
-  const res = await fetch(url)
-  if (!res.ok) return null
-  const doc = await res.json()
-  if (!doc.fields) return null
-  return { id: docId, name: doc.name, data: fromFirestoreFields(doc.fields) }
-}
-
-// Set (create/merge) a document — uses PATCH with updateMask for merge behavior
-async function setDoc(collectionId, docId, fields) {
-  const fieldPaths = Object.keys(fields).map(k => `updateMask.fieldPaths=${k}`).join('&')
-  const url = `${BASE_URL}/${collectionId}/${docId}?${fieldPaths}`
-
-  const firestoreFields = {}
-  for (const [key, value] of Object.entries(fields)) {
-    firestoreFields[key] = toFirestoreValue(value)
-  }
-
-  const res = await fetch(url, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fields: firestoreFields })
-  })
-
-  if (!res.ok) {
-    const errText = await res.text()
-    throw new Error(`Firestore PATCH ${collectionId}/${docId} failed (${res.status}): ${errText}`)
-  }
-}
-
-// Update a document (alias for setDoc since PATCH with updateMask is merge)
-async function updateDoc(collectionId, docId, fields) {
-  return setDoc(collectionId, docId, fields)
-}
-
-
-/* ────────────────────────────────────────────
-   Webhook handler
-   ──────────────────────────────────────────── */
 
 export async function POST(request) {
   console.log('Webhook received:', request.headers.get('stripe-signature') ? 'has signature' : 'no signature')
@@ -142,7 +42,7 @@ export async function POST(request) {
         const priceId      = subscription.items.data[0]?.price?.id
         const plan         = priceId === process.env.STRIPE_PRICE_ANNUAL ? 'annual' : 'monthly'
 
-        await setDoc('subscriptions', gardenerUid, {
+        await setDocument('subscriptions', gardenerUid, {
           gardenerUid,
           stripeCustomerId:     customerId,
           stripeSubscriptionId: subscriptionId,
@@ -154,7 +54,7 @@ export async function POST(request) {
           updatedAt:            new Date().toISOString(),
         })
 
-        await setDoc('users', gardenerUid, {
+        await setDocument('users', gardenerUid, {
           subscriptionStatus:   'active',
           subscriptionPlan:     plan,
           stripeCustomerId:     customerId,
@@ -169,14 +69,14 @@ export async function POST(request) {
         let gardenerName  = ''
         let gardenerEmail = ''
         try {
-          const userDoc = await getDoc('users', gardenerUid)
+          const userDoc = await getDocument('users', gardenerUid)
           if (userDoc) {
             gardenerName  = userDoc.data.name || 'Unknown'
             gardenerEmail = userDoc.data.email || session.customer_email || ''
           }
         } catch { /* best-effort */ }
 
-        await setDoc('users', gardenerUid, {
+        await setDocument('users', gardenerUid, {
           setupFeePaid:     true,
           setupPaidAt:      new Date().toISOString(),
           setupContacted:   false,
@@ -186,7 +86,7 @@ export async function POST(request) {
 
         console.log(`Setup package purchased by ${gardenerUid}`)
 
-        // SMS alert to admin — fail silently if ADMIN_PHONE_NUMBER not set
+        // SMS alert to admin
         const adminPhone = process.env.ADMIN_PHONE_NUMBER
         if (adminPhone) {
           try {
@@ -228,13 +128,12 @@ export async function POST(request) {
           if (subDoc) {
             const uid = subDoc.data.gardenerUid
             const subscription = await stripe.subscriptions.retrieve(subscriptionId)
-            await updateDoc('subscriptions', uid, {
+            await updateDocument('subscriptions', uid, {
               status:           'active',
               currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
               updatedAt:        new Date().toISOString(),
             })
-
-            await setDoc('users', uid, {
+            await setDocument('users', uid, {
               subscriptionStatus: 'active',
               updatedAt:          new Date().toISOString(),
             })
@@ -247,9 +146,8 @@ export async function POST(request) {
         if (piId) {
           const invDoc = await queryCollection('invoices', 'stripePaymentIntentId', piId)
           console.log('Invoice query result – empty:', !invDoc, 'searching for:', piId)
-
           if (invDoc) {
-            await updateDoc('invoices', invDoc.id, {
+            await updateDocument('invoices', invDoc.id, {
               status:    'paid',
               paidAt:    new Date().toISOString(),
               updatedAt: new Date().toISOString(),
@@ -272,12 +170,11 @@ export async function POST(request) {
 
         const uid = subDoc.data.gardenerUid
 
-        await updateDoc('subscriptions', uid, {
+        await updateDocument('subscriptions', uid, {
           status:    'past_due',
           updatedAt: new Date().toISOString(),
         })
-
-        await setDoc('users', uid, {
+        await setDocument('users', uid, {
           subscriptionStatus: 'past_due',
           updatedAt:          new Date().toISOString(),
         })
@@ -294,7 +191,7 @@ export async function POST(request) {
         if (userDoc) {
           const priceId = subscription.items.data[0]?.price?.id
           const plan    = priceId === process.env.STRIPE_PRICE_ANNUAL ? 'annual' : 'monthly'
-          await setDoc('users', userDoc.id, {
+          await setDocument('users', userDoc.id, {
             subscriptionPlan:   plan,
             subscriptionStatus: subscription.status,
             updatedAt:          new Date().toISOString(),
@@ -312,12 +209,11 @@ export async function POST(request) {
 
         const uid = subDoc.data.gardenerUid
 
-        await updateDoc('subscriptions', uid, {
+        await updateDocument('subscriptions', uid, {
           status:    'canceled',
           updatedAt: new Date().toISOString(),
         })
-
-        await setDoc('users', uid, {
+        await setDocument('users', uid, {
           subscriptionStatus: 'canceled',
           updatedAt:          new Date().toISOString(),
         })
@@ -331,12 +227,11 @@ export async function POST(request) {
         const pi = event.data.object
         console.log('payment_intent.succeeded fired:', { id: pi.id, gardenerUid: pi.metadata?.gardenerUid })
 
-        // Find matching invoice by stripePaymentIntentId
         const invDoc = await queryCollection('invoices', 'stripePaymentIntentId', pi.id)
         console.log('Invoice query result – empty:', !invDoc, 'searching for:', pi.id)
 
         if (invDoc) {
-          await updateDoc('invoices', invDoc.id, {
+          await updateDocument('invoices', invDoc.id, {
             status:    'paid',
             paidAt:    new Date().toISOString(),
             updatedAt: new Date().toISOString(),
