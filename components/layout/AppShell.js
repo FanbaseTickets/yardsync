@@ -94,7 +94,7 @@ export default function AppShell({ children }) {
         const profile = await getGardenerProfile(user.uid)
         if (profile) {
           const status = profile.subscriptionStatus || 'none'
-          if (status === 'active') {
+          if (status === 'active' || status === 'canceling') {
             // Success — clear timeout immediately
             clearTimeout(timeoutRef.current)
 
@@ -122,7 +122,8 @@ export default function AppShell({ children }) {
             setSubStatus(status)
             setSubLoading(false)
             redirectedRef.current = true
-            router.replace('/subscribe')
+            const dest = (status === 'canceled' || status === 'cancelled') ? '/reactivate' : '/subscribe'
+            router.replace(dest)
             return
           }
           // Post-payment but not active yet — keep retrying
@@ -169,7 +170,7 @@ export default function AppShell({ children }) {
   }
 
   if (!user) return null
-  if (subStatus !== 'active') return null
+  if (subStatus !== 'active' && subStatus !== 'canceling') return null
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-start justify-center">

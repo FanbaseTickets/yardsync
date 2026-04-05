@@ -57,6 +57,12 @@ export default function ConnectStripeContent() {
       stripeAccountStatus: 'complete',
       paymentPath: 'stripe',
     })
+    // Write stripeAccountId into subscription metadata for reward cron
+    fetch('/api/stripe/connect/save-account-metadata', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid: user.uid }),
+    }).catch(err => console.error('Save metadata failed (non-fatal):', err))
     router.push('/dashboard?subscribed=true')
   }
 

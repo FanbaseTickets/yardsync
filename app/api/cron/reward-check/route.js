@@ -1,0 +1,119 @@
+import { NextResponse } from 'next/server'
+import Stripe from 'stripe'
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+
+export async function GET(req) {
+  // Security check
+  const authHeader = req.headers.get('authorization')
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // Get previous month date range (UTC)
+  const now = new Date()
+  const firstOfLastMonth = new Date(Date.UTC(
+    now.getUTCMonth() === 0 ? now.getUTCFullYear() - 1 : now.getUTCFullYear(),
+    now.getUTCMonth() === 0 ? 11 : now.getUTCMonth() - 1,
+    1
+  ))
+  const firstOfThisMonth = new Date(Date.UTC(
+    now.getUTCFullYear(), now.getUTCMonth(), 1
+  ))
+  const periodStart = Math.floor(firstOfLastMonth.getTime() / 1000)
+  const periodEnd = Math.floor(firstOfThisMonth.getTime() / 1000)
+
+  // List all active subscriptions with stripeAccountId in metadata
+  const subscriptions = await stripe.subscriptions.list({
+    status: 'active',
+    limit: 100,
+    expand: ['data.customer'],
+  })
+
+  const results = []
+
+  for (const sub of subscriptions.data) {
+    const stripeAccountId = sub.metadata?.stripeAccountId
+    if (!stripeAccountId) continue
+
+    // Sum paid charges on connected account for previous month
+    const charges = await stripe.charges.list(
+      {
+        created: { gte: periodStart, lt: periodEnd },
+        limit: 100,
+      },
+      { stripeAccount: stripeAccountId }
+    )
+
+    const volume = charges.data
+      .filter(c => c.paid && !c.refunded)
+      .reduce((sum, c) => sum + c.amount, 0)
+
+    const volumeDollars = volume / 100
+
+    // Determine tier
+    let tier = 'base'
+    if (volumeDollars >= 3000) tier = 'free'
+    else if (volumeDollars >= 1500) tier = 'half'
+
+    // Read current streak from metadata
+    const currentStreak = parseInt(sub.metadata?.rewardStreak || '0')
+    const currentTierHeld = sub.metadata?.rewardTierHeld || 'base'
+
+    let newStreak = 0
+    let newTierHeld = tier
+
+    if (tier !== 'base' && tier === currentTierHeld) {
+      // Same tier held — increment streak
+      newStreak = currentStreak + 1
+    } else if (tier !== 'base') {
+      // New tier reached — start streak at 1
+      newStreak = 1
+    } else {
+      // Fell below threshold — reset
+      newStreak = 0
+      newTierHeld = 'base'
+    }
+
+    // Update metadata
+    await stripe.subscriptions.update(sub.id, {
+      metadata: {
+        ...sub.metadata,
+        rewardStreak: String(newStreak),
+        rewardTierHeld: newTierHeld,
+        lastVolumeCheck: firstOfLastMonth.toISOString().slice(0, 7),
+        lastVolumeAmount: String(volumeDollars),
+      },
+    })
+
+    // Apply discount at streak = 2
+    if (newStreak >= 2) {
+      const couponId = tier === 'free'
+        ? 'YARDSYNC_FREE'
+        : 'YARDSYNC_50OFF'
+
+      // Only apply if not already discounted
+      if (!sub.discount || sub.discount.coupon.id !== couponId) {
+        await stripe.subscriptions.update(sub.id, {
+          coupon: couponId,
+        })
+      }
+    }
+
+    // If fell back below threshold, remove discount
+    if (tier === 'base' && sub.discount) {
+      await stripe.subscriptions.deleteDiscount(sub.id)
+    }
+
+    results.push({
+      subscriptionId: sub.id,
+      stripeAccountId,
+      volumeDollars,
+      tier,
+      newStreak,
+      couponApplied: newStreak >= 2 ? (tier === 'free' ? 'YARDSYNC_FREE' : 'YARDSYNC_50OFF') : null,
+    })
+  }
+
+  return NextResponse.json({ processed: results.length, results })
+}

@@ -230,17 +230,17 @@ export async function POST(request) {
         const uid    = subDoc.data().gardenerUid
 
         await updateDoc(doc(db, 'subscriptions', uid), {
-          status:    'cancelled',
+          status:    'canceled',
           updatedAt: new Date().toISOString(),
         })
 
         await setDoc(
           doc(db, 'users', uid),
-          { subscriptionStatus: 'cancelled', updatedAt: new Date().toISOString() },
+          { subscriptionStatus: 'canceled', updatedAt: new Date().toISOString() },
           { merge: true }
         )
 
-        console.log(`Subscription cancelled for ${uid}`)
+        console.log(`Subscription canceled for ${uid}`)
         break
       }
     }

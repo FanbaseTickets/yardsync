@@ -45,6 +45,8 @@ export default function SettingsPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [upgrading,        setUpgrading]        = useState(false)
   const [monthlyVolume,    setMonthlyVolume]    = useState(0)
+  const [showCancelModal,  setShowCancelModal]  = useState(false)
+  const [canceling,        setCanceling]        = useState(false)
 
   // Handle Square OAuth callback redirect
   useEffect(() => {
@@ -439,6 +441,35 @@ export default function SettingsPage() {
       toast.error(lang === 'es' ? 'Error al desconectar' : 'Failed to disconnect')
     } finally {
       setDisconnecting(false)
+    }
+  }
+
+  async function handleCancelSubscription() {
+    setCanceling(true)
+    try {
+      const res = await fetch('/api/stripe/cancel-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stripeSubscriptionId: profile?.stripeSubscriptionId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+
+      const cancelDate = new Date((data.cancelAt || data.currentPeriodEnd) * 1000)
+      await saveGardenerProfile(user.uid, {
+        subscriptionStatus: 'canceling',
+        cancelAt: cancelDate.toISOString(),
+      })
+      await refreshProfile()
+      const dateStr = cancelDate.toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+      toast.success(lang === 'es'
+        ? `Suscripción cancelada. Acceso hasta ${dateStr}.`
+        : `Subscription canceled. Access continues until ${dateStr}.`)
+      setShowCancelModal(false)
+    } catch (err) {
+      toast.error(err.message || (lang === 'es' ? 'Error al cancelar' : 'Failed to cancel'))
+    } finally {
+      setCanceling(false)
     }
   }
 
@@ -1007,6 +1038,21 @@ export default function SettingsPage() {
             {translate('settings', 'save')}
           </Button>
 
+          {/* Cancel subscription */}
+          {profile?.subscriptionStatus === 'active' && profile?.stripeSubscriptionId && (
+            <div className="pt-4 border-t border-gray-100 mt-4">
+              <p className="text-[11px] text-gray-400 text-center mb-1">
+                {lang === 'es' ? '¿Necesitas irte?' : 'Need to leave?'}
+              </p>
+              <button
+                onClick={() => setShowCancelModal(true)}
+                className="w-full text-center text-red-400 text-[12px] hover:text-red-500 transition-colors py-1"
+              >
+                {lang === 'es' ? 'Cancelar suscripción' : 'Cancel subscription'}
+              </button>
+            </div>
+          )}
+
           <p className="text-center text-[11px] text-gray-300 pb-4">
             {translate('settings', 'footer')}
           </p>
@@ -1094,6 +1140,37 @@ export default function SettingsPage() {
                 className="flex-1 text-[14px] text-white bg-brand-600 hover:bg-brand-700 rounded-xl py-3 font-medium transition-colors disabled:opacity-50"
               >
                 {upgrading ? '...' : translate('settings', 'upgrade_confirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Subscription Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6">
+            <p className="text-[16px] font-semibold text-gray-900 mb-2">
+              {lang === 'es' ? '¿Cancelar tu suscripción?' : 'Cancel your subscription?'}
+            </p>
+            <p className="text-[13px] text-gray-600 mb-1">
+              {lang === 'es'
+                ? 'Mantendrás acceso completo hasta el final de tu período actual. Después tu cuenta será de solo lectura — tus clientes, facturas e historial están guardados y esperando si regresas.'
+                : 'You\'ll keep full access until the end of your current billing period. After that your account will be read-only — your clients, invoices and history are saved and waiting if you come back.'}
+            </p>
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="flex-1 text-[14px] text-white bg-brand-600 hover:bg-brand-700 rounded-xl py-3 font-medium transition-colors"
+              >
+                {lang === 'es' ? 'Mantener mi suscripción' : 'Keep my subscription'}
+              </button>
+              <button
+                onClick={handleCancelSubscription}
+                disabled={canceling}
+                className="flex-1 text-[14px] text-red-600 bg-white border-2 border-red-200 hover:border-red-300 rounded-xl py-3 font-medium transition-colors disabled:opacity-50"
+              >
+                {canceling ? '...' : (lang === 'es' ? 'Sí, cancelar' : 'Yes, cancel')}
               </button>
             </div>
           </div>

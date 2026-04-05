@@ -9,7 +9,7 @@ import AppShell from '@/components/layout/AppShell'
 import { StatCard, Card, Badge, Button, Skeleton } from '@/components/ui'
 import { getClients, getTodaySchedules, getInvoices, getServices, getSchedules, updateSchedule, saveGardenerProfile } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
-import { Users, CalendarCheck, DollarSign, MessageSquare, CheckCircle2, Clock, Leaf, LogOut, Settings, CreditCard, Link2, Package, UserPlus, CalendarPlus, X, Landmark } from 'lucide-react'
+import { Users, CalendarCheck, DollarSign, MessageSquare, CheckCircle2, Clock, Leaf, LogOut, Settings, CreditCard, Link2, Package, UserPlus, CalendarPlus, X, Landmark, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -30,6 +30,7 @@ export default function DashboardPage() {
   const [allSchedules,  setAllSchedules]  = useState([])
   const [loading,       setLoading]       = useState(true)
   const [completing,    setCompleting]    = useState(null)
+  const [reactivating,  setReactivating]  = useState(false)
 
   const todayStr    = format(new Date(), 'yyyy-MM-dd')
   const displayDate = formatDateLocalized(new Date(), 'EEEE, MMMM d', lang)
@@ -70,7 +71,34 @@ export default function DashboardPage() {
         }
       })()
     }
+    if (searchParams.get('reactivated') === 'true') {
+      toast.success(lang === 'es' ? '¡Bienvenido de vuelta! Tu suscripción está activa.' : 'Welcome back! Your subscription is active.')
+      router.replace('/dashboard')
+    }
   }, [user, searchParams])
+
+  async function handleReactivate() {
+    setReactivating(true)
+    try {
+      const res = await fetch('/api/stripe/reactivate-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stripeSubscriptionId: profile?.stripeSubscriptionId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      await saveGardenerProfile(user.uid, {
+        subscriptionStatus: 'active',
+        cancelAt: null,
+      })
+      await refreshProfile()
+      toast.success(lang === 'es' ? 'Suscripción reactivada' : 'Subscription reactivated!')
+    } catch (err) {
+      toast.error(err.message || (lang === 'es' ? 'Error al reactivar' : 'Failed to reactivate'))
+    } finally {
+      setReactivating(false)
+    }
+  }
 
   useEffect(() => {
     if (!user) return
@@ -174,6 +202,27 @@ export default function DashboardPage() {
         </div>
 
         <div className="px-4 py-4 max-w-lg mx-auto space-y-5">
+
+          {/* Canceling banner */}
+          {profile?.subscriptionStatus === 'canceling' && profile?.cancelAt && (
+            <Card className="border-amber-200 bg-amber-50 flex items-center gap-3">
+              <AlertTriangle size={16} className="text-amber-600 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-[13px] font-medium text-amber-800">
+                  {translate('dashboard', 'subscription_ends') || (lang === 'es'
+                    ? `Tu suscripción termina el ${new Date(profile.cancelAt).toLocaleDateString('es-US', { month: 'long', day: 'numeric', year: 'numeric' })}. Todos tus datos están guardados.`
+                    : `Your subscription ends on ${new Date(profile.cancelAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}. All your data is saved.`)}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                loading={reactivating}
+                onClick={handleReactivate}
+              >
+                {lang === 'es' ? 'Reactivar' : 'Reactivate'}
+              </Button>
+            </Card>
+          )}
 
           {/* Onboarding Checklist */}
           {!loading && !profile?.onboardingComplete && (() => {
