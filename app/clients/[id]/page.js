@@ -740,10 +740,10 @@ async function handleSendInvoice() {
                     <p className="text-[11px] text-brand-600">{selectedService.description}</p>
                   )}
                   <p className="text-[12px] font-semibold text-brand-800">
-                    {translate('clients', 'client_pays')} {formatCents(
-                      (selectedService.priceCents || 0) +
-                      (PACKAGE_FEE_MAP[selectedService.packageType] || 1000)
-                    )} / {selectedService.packageType}
+                    {translate('clients', 'client_pays')} {formatCents(selectedService.priceCents || 0)} / {selectedService.packageType}
+                  </p>
+                  <p className="text-[10px] text-gray-400">
+                    {lang === 'es' ? '5.5% deducido de tu pago por factura' : '5.5% deducted from your payout per invoice'}
                   </p>
                 </div>
               )}
