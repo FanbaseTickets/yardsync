@@ -9,17 +9,10 @@ import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Badge, Modal, Input, Select, EmptyState, Skeleton } from '@/components/ui'
 import { getServices, addService, updateService, deleteService } from '@/lib/db'
-import { dollarsToCents, formatCents, getAddonFee } from '@/lib/fee'
+import { dollarsToCents, formatCents } from '@/lib/fee'
 import { Wrench, Plus, Trash2, Pencil, DollarSign, Package, CheckCircle2, Calendar } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-const PACKAGE_FEE_MAP = {
-  monthly:   1500,
-  quarterly: 3500,
-  annual:    10000,
-  weekly:    500,
-  onetime:   1000,
-}
 
 const DEFAULT_FORM = {
   serviceType:   'base',
@@ -234,8 +227,6 @@ export default function ServicesPage() {
             ) : (
               <div className="space-y-3">
                 {baseServices.map((service, i) => {
-                  const fee   = PACKAGE_FEE_MAP[service.packageType] || 1000
-                  const total = service.priceCents ? service.priceCents + fee : null
                   const includesList = service.includes
                     ? service.includes.split(',').map(s => s.trim()).filter(Boolean)
                     : []
@@ -289,10 +280,6 @@ export default function ServicesPage() {
                           {service.priceCents && (
                             <p className="text-[12px] font-semibold text-gray-800">{formatCents(service.priceCents)}</p>
                           )}
-                          <p className="text-[11px] text-brand-600">+{formatCents(fee)} {translate('common', 'yardsync_fee')}</p>
-                          {total && (
-                            <p className="text-[11px] text-gray-400">= {formatCents(total)}</p>
-                          )}
                         </div>
                       </div>
                     </Card>
@@ -324,8 +311,6 @@ export default function ServicesPage() {
             ) : (
               <div className="space-y-2">
                 {addonServices.map(service => {
-                  const fee = service.pricingType === 'fixed' && service.priceCents
-                    ? getAddonFee(service.priceCents) : null
                   return (
                     <Card key={service.id} padding={false}>
                       <div className="p-4 flex items-center gap-3">
@@ -342,13 +327,10 @@ export default function ServicesPage() {
                           )}
                           <div className="flex items-center gap-2 mt-0.5">
                             {service.pricingType === 'fixed' ? (
-                              <>
-                                <p className="text-[12px] text-brand-600 font-medium">{formatCents(service.priceCents)}</p>
-                                {fee && <p className="text-[11px] text-gray-400">+{formatCents(fee)} fee</p>}
-                              </>
+                              <p className="text-[12px] text-brand-600 font-medium">{formatCents(service.priceCents)}</p>
                             ) : (
                               <p className="text-[12px] text-gray-400">
-                                {lang === 'es' ? 'Cotizado · +10% tarifa' : 'Quoted per job · +10% fee'}
+                                {lang === 'es' ? 'Cotizado por trabajo' : 'Quoted per job'}
                               </p>
                             )}
                           </div>
@@ -374,18 +356,10 @@ export default function ServicesPage() {
 
           {/* Fee info */}
           <Card className="bg-brand-50 border-brand-100">
-            <p className="text-[12px] font-medium text-brand-800 mb-1">
-              {translate('services', 'fee_structure')}
-            </p>
             <p className="text-[11px] text-brand-600">
               {lang === 'es'
-                ? 'Mensual +$15 · Trimestral +$35 · Anual +$100 · Semanal +$5 · Una vez 8% (mín $10)'
-                : 'Monthly +$15 · Quarterly +$35 · Annual +$100 · Weekly +$5 · One-time 8% (min $10)'}
-            </p>
-            <p className="text-[11px] text-brand-600 mt-0.5">
-              {lang === 'es'
-                ? 'Adicionales: +10% incluido automáticamente en cada factura'
-                : 'Add-ons: +10% automatically embedded in every invoice'}
+                ? 'YardSync cobra 5.5% por factura automáticamente. Tus clientes pagan tu precio base — sin cargos adicionales.'
+                : 'YardSync collects 5.5% per invoice automatically. Your clients pay your base price — no extra fees added.'}
             </p>
           </Card>
 
