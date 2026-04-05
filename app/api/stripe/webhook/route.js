@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase'
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 export async function POST(request) {
+  console.log('Webhook received:', request.headers.get('stripe-signature') ? 'has signature' : 'no signature')
   const body      = await request.text()
   const signature = request.headers.get('stripe-signature')
 
@@ -21,6 +22,7 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
+  console.log('Webhook event type:', event.type)
   const session     = event.data.object
   const gardenerUid = session.metadata?.gardenerUid || session.subscription_details?.metadata?.gardenerUid
 
@@ -142,30 +144,49 @@ export async function POST(request) {
       }
 
       case 'invoice.payment_succeeded': {
+        console.log('invoice.payment_succeeded fired:', { subscription: session.subscription, payment_intent: session.payment_intent })
+
+        // Handle subscription renewal
         const subscriptionId = session.subscription
-        if (!subscriptionId) break
+        if (subscriptionId) {
+          const q    = query(collection(db, 'subscriptions'), where('stripeSubscriptionId', '==', subscriptionId))
+          const snap = await getDocs(q)
+          if (!snap.empty) {
+            const subDoc = snap.docs[0]
+            const uid    = subDoc.data().gardenerUid
+            const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+            await updateDoc(doc(db, 'subscriptions', uid), {
+              status:           'active',
+              currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
+              updatedAt:        new Date().toISOString(),
+            })
+            await setDoc(
+              doc(db, 'users', uid),
+              { subscriptionStatus: 'active', updatedAt: new Date().toISOString() },
+              { merge: true }
+            )
+            console.log(`Subscription renewed for ${uid}`)
+          }
+        }
 
-        const q    = query(collection(db, 'subscriptions'), where('stripeSubscriptionId', '==', subscriptionId))
-        const snap = await getDocs(q)
-        if (snap.empty) break
-
-        const subDoc = snap.docs[0]
-        const uid    = subDoc.data().gardenerUid
-
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId)
-        await updateDoc(doc(db, 'subscriptions', uid), {
-          status:           'active',
-          currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
-          updatedAt:        new Date().toISOString(),
-        })
-
-        await setDoc(
-          doc(db, 'users', uid),
-          { subscriptionStatus: 'active', updatedAt: new Date().toISOString() },
-          { merge: true }
-        )
-
-        console.log(`Subscription renewed for ${uid}`)
+        // Also check if this is a Connect invoice payment
+        const piId = session.payment_intent
+        if (piId) {
+          const invQ = query(
+            collection(db, 'invoices'),
+            where('stripePaymentIntentId', '==', piId)
+          )
+          const invSnap = await getDocs(invQ)
+          if (!invSnap.empty) {
+            const invDoc = invSnap.docs[0]
+            await updateDoc(doc(db, 'invoices', invDoc.id), {
+              status: 'paid',
+              paidAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            })
+            console.log(`Invoice ${invDoc.id} marked paid via invoice.payment_succeeded (PI: ${piId})`)
+          }
+        }
         break
       }
 
@@ -246,8 +267,7 @@ export async function POST(request) {
 
       case 'payment_intent.succeeded': {
         const pi = event.data.object
-        const gardenerUid = pi.metadata?.gardenerUid
-        if (!gardenerUid) break
+        console.log('payment_intent.succeeded fired:', { id: pi.id, gardenerUid: pi.metadata?.gardenerUid })
 
         // Find matching invoice by stripePaymentIntentId
         const invQ = query(
@@ -255,6 +275,8 @@ export async function POST(request) {
           where('stripePaymentIntentId', '==', pi.id)
         )
         const invSnap = await getDocs(invQ)
+        console.log('Invoice query result — empty:', invSnap.empty, 'searching for:', pi.id)
+
         if (!invSnap.empty) {
           const invDoc = invSnap.docs[0]
           await updateDoc(doc(db, 'invoices', invDoc.id), {
@@ -263,13 +285,15 @@ export async function POST(request) {
             updatedAt: new Date().toISOString(),
           })
           console.log(`Invoice ${invDoc.id} marked paid via PaymentIntent ${pi.id}`)
+        } else {
+          console.log('No invoice found for PaymentIntent:', pi.id)
         }
         break
       }
     }
   } catch (err) {
-    console.error('Webhook handler error:', err)
-    return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 })
+    console.error('Webhook handler error:', err.message, err.stack)
+    return NextResponse.json({ error: 'Webhook handler failed', message: err.message }, { status: 500 })
   }
 
   return NextResponse.json({ received: true })
