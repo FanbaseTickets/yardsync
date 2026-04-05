@@ -209,9 +209,9 @@ export default function DashboardPage() {
               <AlertTriangle size={16} className="text-amber-600 flex-shrink-0" />
               <div className="flex-1">
                 <p className="text-[13px] font-medium text-amber-800">
-                  {translate('dashboard', 'subscription_ends') || (lang === 'es'
+                  {lang === 'es'
                     ? `Tu suscripción termina el ${new Date(profile.cancelAt).toLocaleDateString('es-US', { month: 'long', day: 'numeric', year: 'numeric' })}. Todos tus datos están guardados.`
-                    : `Your subscription ends on ${new Date(profile.cancelAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}. All your data is saved.`)}
+                    : `Your subscription ends on ${new Date(profile.cancelAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}. All your data is saved.`}
                 </p>
               </div>
               <Button
