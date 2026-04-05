@@ -62,6 +62,7 @@ export default function ClientDetailPage() {
   const [showEdit,      setShowEdit]      = useState(false)
   const [showDelete,    setShowDelete]    = useState(false)
   const [showInvoice,   setShowInvoice]   = useState(false)
+  const [viewInvoice,   setViewInvoice]   = useState(null)
   const [jobMaterials,  setJobMaterials]  = useState([])
   const [form,          setForm]          = useState({})
   const [saving,        setSaving]        = useState(false)
@@ -487,7 +488,7 @@ async function handleSendInvoice() {
                     } catch { return null }
                   })()
                   return (
-                    <Card key={inv.id} padding={false}>
+                    <Card key={inv.id} padding={false} onClick={() => setViewInvoice(inv)}>
                       <div className="p-3 flex items-start gap-3">
                         {inv.status === 'paid'
                           ? <CheckCircle2 size={16} className="text-green-600 mt-0.5 flex-shrink-0" />
@@ -504,22 +505,13 @@ async function handleSendInvoice() {
                             />
                           </div>
                           <p className="text-[11px] text-gray-400 mt-0.5">{dateStr}</p>
-                          {inv.status === 'sent' && inv.stripePaymentUrl && (
-                            <a
-                              href={inv.stripePaymentUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[11px] text-brand-600 hover:underline mt-0.5 inline-block"
-                            >
-                              {lang === 'es' ? 'Link de pago ↗' : 'Payment link ↗'}
-                            </a>
-                          )}
                           {inv.status === 'paid' && paidDateStr && (
                             <p className="text-[11px] text-green-600 mt-0.5">
                               {lang === 'es' ? `Pagado el ${paidDateStr}` : `Paid on ${paidDateStr}`}
                             </p>
                           )}
                         </div>
+                        <span className="text-gray-300 text-[11px] mt-1 flex-shrink-0">›</span>
                       </div>
                     </Card>
                   )
@@ -821,6 +813,136 @@ async function handleSendInvoice() {
           {translate('client_detail', 'remove_confirm')} <strong>{client.name}</strong>? {translate('client_detail', 'cannot_undo')}
         </p>
       </Modal>
+
+      {/* ── Invoice detail modal ── */}
+      {viewInvoice && (() => {
+        const inv = viewInvoice
+        const fmtDate = (raw) => {
+          if (!raw) return null
+          try {
+            const d = raw?.toDate ? raw.toDate() : new Date(raw)
+            if (isNaN(d.getTime())) return null
+            return d.toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+          } catch { return null }
+        }
+        const items = Array.isArray(inv.lineItems) ? inv.lineItems : []
+        const baseItems = items.filter(li => li.category === 'base')
+        const addonItems = items.filter(li => li.category === 'addon')
+        const materialItems = items.filter(li => li.category === 'material')
+        return (
+          <Modal
+            open={true}
+            onClose={() => setViewInvoice(null)}
+            title={lang === 'es' ? 'Detalle de factura' : 'Invoice details'}
+            footer={
+              <>
+                {inv.status === 'sent' && inv.stripePaymentUrl && (
+                  <Button fullWidth onClick={() => { navigator.clipboard.writeText(inv.stripePaymentUrl); toast.success(lang === 'es' ? 'Link copiado' : 'Link copied') }}>
+                    {lang === 'es' ? 'Copiar link de pago' : 'Copy payment link'}
+                  </Button>
+                )}
+                <Button variant="secondary" fullWidth onClick={() => setViewInvoice(null)}>
+                  {translate('common', 'cancel')}
+                </Button>
+              </>
+            }
+          >
+            <div className="space-y-4">
+              {/* Status + amount */}
+              <div className="flex items-center justify-between">
+                <p className="text-[20px] font-bold text-gray-900">{formatCents(inv.totalCents || 0)}</p>
+                <Badge
+                  label={inv.status === 'paid' ? (lang === 'es' ? 'Pagado' : 'Paid') : inv.status === 'sent' ? (lang === 'es' ? 'Enviado' : 'Sent') : inv.status || 'sent'}
+                  variant={inv.status === 'paid' ? 'active' : inv.status === 'sent' ? 'scheduled' : 'default'}
+                />
+              </div>
+
+              {/* Dates */}
+              <div className="bg-gray-50 rounded-xl p-3 space-y-1.5">
+                {fmtDate(inv.createdAt) && (
+                  <div className="flex justify-between text-[12px]">
+                    <span className="text-gray-500">{lang === 'es' ? 'Enviado' : 'Sent'}</span>
+                    <span className="text-gray-700">{fmtDate(inv.createdAt)}</span>
+                  </div>
+                )}
+                {inv.status === 'paid' && fmtDate(inv.paidAt) && (
+                  <div className="flex justify-between text-[12px]">
+                    <span className="text-gray-500">{lang === 'es' ? 'Pagado' : 'Paid'}</span>
+                    <span className="text-green-600 font-medium">{fmtDate(inv.paidAt)}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Line items */}
+              <div className="space-y-2">
+                <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                  {lang === 'es' ? 'Detalle de servicios' : 'Service breakdown'}
+                </p>
+
+                {baseItems.map((li, i) => (
+                  <div key={`base-${i}`} className="flex justify-between text-[13px]">
+                    <span className="text-gray-700">{li.label}</span>
+                    <span className="font-medium text-gray-900">{formatCents(li.amountCents || 0)}</span>
+                  </div>
+                ))}
+
+                {addonItems.length > 0 && (
+                  <>
+                    <p className="text-[11px] text-gray-400 mt-2">{lang === 'es' ? 'Adicionales' : 'Add-ons'}</p>
+                    {addonItems.map((li, i) => (
+                      <div key={`addon-${i}`} className="flex justify-between text-[12px]">
+                        <span className="text-gray-600">{li.label}</span>
+                        <span className="text-gray-800">{formatCents(li.amountCents || 0)}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                {materialItems.length > 0 && (
+                  <>
+                    <p className="text-[11px] text-gray-400 mt-2">{lang === 'es' ? 'Materiales' : 'Materials'}</p>
+                    {materialItems.map((li, i) => (
+                      <div key={`mat-${i}`} className="flex justify-between text-[12px]">
+                        <span className="text-amber-700">{li.label}</span>
+                        <span className="text-amber-800">{formatCents(li.amountCents || 0)}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                <div className="border-t border-gray-100 pt-2 mt-2">
+                  <div className="flex justify-between text-[13px]">
+                    <span className="font-medium text-gray-800">{lang === 'es' ? 'Total facturado' : 'Invoice total'}</span>
+                    <span className="font-bold text-gray-900">{formatCents(inv.totalCents || 0)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fee breakdown — contractor view */}
+              <div className="bg-brand-50 border border-brand-100 rounded-xl p-3 space-y-1.5">
+                <p className="text-[11px] font-medium text-brand-700 uppercase tracking-wide mb-1">
+                  {lang === 'es' ? 'Tu recibo' : 'Your earnings'}
+                </p>
+                <div className="flex justify-between text-[12px]">
+                  <span className="text-brand-600">{lang === 'es' ? 'Tarifa YardSync (5.5%)' : 'YardSync fee (5.5%)'}</span>
+                  <span className="text-brand-600">-{formatCents(inv.applicationFee || 0)}</span>
+                </div>
+                <div className="flex justify-between text-[13px] font-medium">
+                  <span className="text-brand-800">{lang === 'es' ? 'Tú recibes' : 'You receive'}</span>
+                  <span className="text-brand-900">{formatCents(inv.contractorReceives || (inv.totalCents - (inv.applicationFee || 0)))}</span>
+                </div>
+              </div>
+
+              {/* Transaction ID */}
+              {inv.stripePaymentIntentId && (
+                <p className="text-[10px] text-gray-300 text-center">
+                  ID: {inv.stripePaymentIntentId}
+                </p>
+              )}
+            </div>
+          </Modal>
+        )
+      })()}
     </AppShell>
   )
 }
