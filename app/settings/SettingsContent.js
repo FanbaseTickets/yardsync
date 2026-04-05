@@ -107,9 +107,9 @@ export default function SettingsPage() {
   useEffect(() => {
     if (user) {
       loadFeeData()
-      if (profile?.paymentPath === 'stripe') loadMonthlyVolume()
+      loadMonthlyVolume()
     }
-  }, [user, profile?.paymentPath])
+  }, [user])
 
   async function loadFeeData() {
     try {
@@ -626,62 +626,18 @@ export default function SettingsPage() {
                 {translate('settings', 'subscription')}
               </p>
             </div>
-            {profile?.paymentPath === 'stripe' ? (
-              <Card className="bg-brand-50 border-brand-100">
-                <div className="flex items-center justify-between">
-                  <p className="text-[13px] font-medium text-brand-800">
-                    YardSync — {lang === 'es' ? 'Activo' : 'Active'}
-                  </p>
-                  <span className="text-[11px] bg-brand-600 text-white px-2 py-0.5 rounded-full font-medium">
-                    {profile?.subscriptionPlan === 'annual'
-                      ? translate('settings', 'annual_plan')
-                      : translate('settings', 'monthly_plan')}
-                  </span>
-                </div>
-              </Card>
-            ) : (
-              <Card className="bg-brand-50 border-brand-100">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[13px] font-medium text-brand-800">
-                    {translate('settings', 'active')}
-                  </p>
-                  <span className="text-[11px] bg-brand-600 text-white px-2 py-0.5 rounded-full font-medium">
-                    {profile?.subscriptionPlan === 'annual'
-                      ? translate('settings', 'annual_plan')
-                      : translate('settings', 'monthly_plan')}
-                  </span>
-                </div>
-                <p className="text-[12px] text-brand-600 mt-1">
-                  {translate('settings', 'fee_note')}
+            <Card className="bg-brand-50 border-brand-100">
+              <div className="flex items-center justify-between">
+                <p className="text-[13px] font-medium text-brand-800">
+                  YardSync — {lang === 'es' ? 'Activo' : 'Active'}
                 </p>
-                <div className="mt-3 space-y-1">
-                  <div className="flex justify-between text-[12px]">
-                    <span className="text-brand-700">{translate('settings', 'fee_monthly')}</span>
-                    <span className="text-brand-800 font-medium">+$15/{lang === 'es' ? 'factura' : 'invoice'}</span>
-                  </div>
-                  <div className="flex justify-between text-[12px]">
-                    <span className="text-brand-700">{translate('settings', 'fee_quarterly')}</span>
-                    <span className="text-brand-800 font-medium">+$35/{lang === 'es' ? 'factura' : 'invoice'}</span>
-                  </div>
-                  <div className="flex justify-between text-[12px]">
-                    <span className="text-brand-700">{translate('settings', 'fee_annual')}</span>
-                    <span className="text-brand-800 font-medium">+$100/{lang === 'es' ? 'factura' : 'invoice'}</span>
-                  </div>
-                  <div className="flex justify-between text-[12px]">
-                    <span className="text-brand-700">{translate('settings', 'fee_weekly')}</span>
-                    <span className="text-brand-800 font-medium">+$5/{lang === 'es' ? 'factura' : 'invoice'}</span>
-                  </div>
-                  <div className="flex justify-between text-[12px]">
-                    <span className="text-brand-700">{translate('settings', 'fee_onetime')}</span>
-                    <span className="text-brand-800 font-medium">+8% (min $10)</span>
-                  </div>
-                  <div className="flex justify-between text-[12px]">
-                    <span className="text-brand-700">{translate('settings', 'fee_addons')}</span>
-                    <span className="text-brand-800 font-medium">+10%</span>
-                  </div>
-                </div>
-              </Card>
-            )}
+                <span className="text-[11px] bg-brand-600 text-white px-2 py-0.5 rounded-full font-medium">
+                  {profile?.subscriptionPlan === 'annual'
+                    ? translate('settings', 'annual_plan')
+                    : translate('settings', 'monthly_plan')}
+                </span>
+              </div>
+            </Card>
 
             {/* Upgrade prompt — only show for monthly subscribers */}
             {profile?.subscriptionStatus === 'active' && profile?.subscriptionPlan !== 'annual' && (
@@ -710,7 +666,7 @@ export default function SettingsPage() {
           </section>
 
           {/* Volume Reward Tracker — Stripe users only */}
-          {profile?.paymentPath === 'stripe' && profile?.stripeAccountStatus === 'complete' && (() => {
+          {profile?.stripeAccountStatus === 'complete' && (() => {
             const volumeDollars = monthlyVolume / 100
             const tier = volumeDollars >= 3000 ? 3 : volumeDollars >= 1500 ? 2 : 1
             const progressFill = tier === 1
@@ -785,7 +741,7 @@ export default function SettingsPage() {
           })()}
 
           {/* Payment Processing — Stripe users */}
-          {profile?.paymentPath === 'stripe' && (
+          {(
             <section>
               <div className="flex items-center gap-2 mb-3">
                 <CreditCard size={14} className="text-brand-600" />
@@ -812,7 +768,7 @@ export default function SettingsPage() {
           )}
 
           {/* Square Integration — only for non-Stripe users */}
-          {profile?.paymentPath !== 'stripe' && <section>
+          {false && <section>
             <div className="flex items-center gap-2 mb-3">
               <CreditCard size={14} className="text-brand-600" />
               <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
@@ -916,7 +872,7 @@ export default function SettingsPage() {
           </section>}
 
           {/* Card on File — only for non-Stripe users */}
-          {profile?.paymentPath !== 'stripe' && <section>
+          {false && <section>
             <div className="flex items-center gap-2 mb-3">
               <Wallet size={14} className="text-brand-600" />
               <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
@@ -978,7 +934,7 @@ export default function SettingsPage() {
           </section>}
 
           {/* Quarterly Platform Fees — only for non-Stripe users */}
-          {profile?.paymentPath !== 'stripe' && <section>
+          {false && <section>
             <div className="flex items-center gap-2 mb-3">
               <BarChart2 size={14} className="text-brand-600" />
               <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">

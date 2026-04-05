@@ -66,15 +66,6 @@ export default function ConnectStripeContent() {
     router.push('/dashboard?subscribed=true')
   }
 
-  const handleUseSquare = async () => {
-    try {
-      if (user) await updateDoc(doc(db, 'users', user.uid), { paymentPath: 'square' })
-    } catch (err) {
-      console.error(err)
-    } finally {
-      router.push('/dashboard?subscribed=true')
-    }
-  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8faf9' }}>
@@ -100,12 +91,6 @@ export default function ConnectStripeContent() {
           YardSync never sees your account information.
         </div>
 
-        <button
-          onClick={handleUseSquare}
-          style={{ display: 'block', width: '100%', marginTop: '16px', padding: '10px', background: 'transparent', border: 'none', color: '#6B7280', fontSize: '13px', cursor: 'pointer', textAlign: 'center' }}
-        >
-          Use Square instead
-        </button>
       </div>
     </div>
   )

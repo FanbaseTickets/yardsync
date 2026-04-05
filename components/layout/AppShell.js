@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import BottomNav from './BottomNav'
-import { getGardenerProfile, saveGardenerProfile } from '@/lib/db'
+import { getGardenerProfile } from '@/lib/db'
 import { Leaf } from 'lucide-react'
 
 export default function AppShell({ children }) {
@@ -98,18 +98,13 @@ export default function AppShell({ children }) {
             // Success — clear timeout immediately
             clearTimeout(timeoutRef.current)
 
-            // If user is currently on an onboarding route, never redirect them
-            // Let the onboarding pages handle their own routing
+            // Stripe-only: check if bank account setup is complete
             const onOnboardingRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/onboarding')
-            if (!onOnboardingRoute) {
-              // Payment path gating
-              const pp = profile.paymentPath
-              if (!isPostPayment && !pp) {
-                // Existing user with no paymentPath — default to square silently
-                saveGardenerProfile(user.uid, { paymentPath: 'square' })
-              }
-              // Post-payment with no paymentPath: SubscribeContent already
-              // redirected to /onboarding/payment-path, just allow through
+            if (!onOnboardingRoute && !isPostPayment && profile.stripeAccountStatus !== 'complete') {
+              // Bank not connected yet — send to Stripe Connect onboarding
+              redirectedRef.current = true
+              router.replace('/onboarding/connect-stripe')
+              return
             }
 
             setSubStatus('active')

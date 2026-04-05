@@ -226,21 +226,12 @@ export default function DashboardPage() {
 
           {/* Onboarding Checklist */}
           {!loading && !profile?.onboardingComplete && (() => {
-            const isStripe = profile?.paymentPath === 'stripe'
-            const steps = isStripe
-              ? [
-                  { key: 'step_bank',     done: true,                        href: '#',       icon: Landmark,     optional: false },
-                  { key: 'step_service',  done: services.length > 0,         href: '/services', icon: Package,      optional: false },
-                  { key: 'step_client',   done: clients.length > 0,          href: '/clients',  icon: UserPlus,     optional: false },
-                  { key: 'step_schedule', done: allSchedules.length > 0,     href: '/calendar', icon: CalendarPlus, optional: false },
-                ]
-              : [
-                  { key: 'step_card',     done: !!profile?.cardLast4,        href: '/settings', icon: CreditCard,   optional: false },
-                  { key: 'step_square',   done: !!profile?.squareConnected,  href: '/settings', icon: Link2,        optional: true },
-                  { key: 'step_service',  done: services.length > 0,         href: '/services', icon: Package,      optional: false },
-                  { key: 'step_client',   done: clients.length > 0,          href: '/clients',  icon: UserPlus,     optional: false },
-                  { key: 'step_schedule', done: allSchedules.length > 0,     href: '/calendar', icon: CalendarPlus, optional: false },
-                ]
+            const steps = [
+              { key: 'step_bank',     done: profile?.stripeAccountStatus === 'complete', href: '/onboarding/connect-stripe', icon: Landmark, optional: false },
+              { key: 'step_service',  done: services.length > 0,         href: '/services', icon: Package,      optional: false },
+              { key: 'step_client',   done: clients.length > 0,          href: '/clients',  icon: UserPlus,     optional: false },
+              { key: 'step_schedule', done: allSchedules.length > 0,     href: '/calendar', icon: CalendarPlus, optional: false },
+            ]
             const completed     = steps.filter(s => s.done).length
             const requiredSteps = steps.filter(s => !s.optional)
             const requiredDone  = requiredSteps.every(s => s.done)

@@ -57,7 +57,7 @@ function SubscribeInner() {
         } catch (err) {
           console.error('Client-side backup write failed (non-fatal):', err.message)
         }
-        router.push(`/onboarding/payment-path?subscribed=true&plan=${plan || 'monthly'}`)
+        router.push(`/onboarding/connect-stripe?subscribed=true&plan=${plan || 'monthly'}`)
       })()
       return
     }

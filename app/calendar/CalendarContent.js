@@ -8,7 +8,7 @@ import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Badge, Modal, Select, EmptyState, Skeleton, Input } from '@/components/ui'
-import { getClients, getSchedules, addSchedule, updateSchedule, deleteSchedule, getServices, updateScheduleMaterials } from '@/lib/db'
+import { getClients, getSchedules, addSchedule, updateSchedule, deleteSchedule, getServices, updateScheduleMaterials, saveInvoice } from '@/lib/db'
 import { deleteAllClientSchedules } from '@/lib/db'
 import { formatCents, buildInvoiceLineItems } from '@/lib/fee'
 import { validatePhone, formatPhone } from '@/lib/phone'
@@ -144,7 +144,7 @@ function AddonSelector({ addonServices, lang, fixedAddons, setFixedAddons, varia
 }
 
 export default function CalendarPage() {
-  const { user }            = useAuth()
+  const { user, profile }   = useAuth()
   const { translate, lang } = useLang()
   const [mounted, setMounted] = useState(false)
 
@@ -360,17 +360,35 @@ export default function CalendarPage() {
       const basePrice   = walkInInvoiceTarget.basePrice || 0
       const finalAddons = buildFinalAddons(walkInInvAddons, walkInInvVariables)
       const { lineItems, totalCents } = buildInvoiceLineItems({ baseAmountCents: basePrice, packageType: 'onetime', addons: finalAddons })
-      const res = await fetch('/api/square/invoice', {
+      const res = await fetch('/api/stripe/invoice', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clientId: null, gardenerUid: user.uid, lineItems, totalCents,
+          stripeAccountId: profile?.stripeAccountId,
+          totalCents,
+          lineItems,
           clientName:  walkInInvoiceTarget.clientName,
           clientEmail: walkInInvoiceTarget.clientEmail || '',
-          clientPhone: walkInInvoiceTarget.clientPhone || '',
+          description: 'YardSync walk-in service invoice',
+          gardenerUid: user.uid,
+          clientId:    null,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Invoice failed')
+      await saveInvoice(user.uid, {
+        clientId:              null,
+        clientName:            walkInInvoiceTarget.clientName,
+        clientEmail:           walkInInvoiceTarget.clientEmail || '',
+        clientPhone:           walkInInvoiceTarget.clientPhone || '',
+        totalCents,
+        stripePaymentIntentId: data.paymentIntentId,
+        stripePaymentUrl:      data.paymentUrl,
+        applicationFee:        data.applicationFee,
+        contractorReceives:    data.contractorReceives,
+        status:                'sent',
+        lineItems,
+        paymentPath:           'stripe',
+      })
       toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent ✓')
       setShowWalkInInvoice(false); loadData()
     } catch (err) { toast.error(err.message || translate('common', 'error')) }

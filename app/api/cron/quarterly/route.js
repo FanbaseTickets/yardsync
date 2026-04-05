@@ -8,6 +8,9 @@ const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN
 const TWILIO_FROM  = process.env.TWILIO_PHONE_NUMBER
 
 export async function GET(request) {
+  // Stripe-only migration — quarterly billing disabled
+  return NextResponse.json({ message: 'Quarterly billing disabled — Stripe-only mode', processed: 0 })
+
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

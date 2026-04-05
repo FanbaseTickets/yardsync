@@ -28,6 +28,9 @@ async function sendSMS(to, message) {
 }
 
 export async function GET(request) {
+  // Stripe-only migration — quarterly billing disabled
+  return NextResponse.json({ message: 'Quarterly billing disabled — Stripe-only mode', processed: 0 })
+
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
