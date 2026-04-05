@@ -368,6 +368,7 @@ export default function CalendarPage() {
           lineItems,
           clientName:  walkInInvoiceTarget.clientName,
           clientEmail: walkInInvoiceTarget.clientEmail || '',
+          clientPhone: walkInInvoiceTarget.clientPhone || '',
           description: 'YardSync walk-in service invoice',
           gardenerUid: user.uid,
           clientId:    null,
@@ -375,20 +376,7 @@ export default function CalendarPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Invoice failed')
-      await saveInvoice(user.uid, {
-        clientId:              null,
-        clientName:            walkInInvoiceTarget.clientName,
-        clientEmail:           walkInInvoiceTarget.clientEmail || '',
-        clientPhone:           walkInInvoiceTarget.clientPhone || '',
-        totalCents,
-        stripePaymentIntentId: data.paymentIntentId,
-        stripePaymentUrl:      data.paymentUrl,
-        applicationFee:        data.applicationFee,
-        contractorReceives:    data.contractorReceives,
-        status:                'sent',
-        lineItems,
-        paymentPath:           'stripe',
-      })
+      // Invoice doc written server-side by /api/stripe/invoice
       toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent ✓')
       setShowWalkInInvoice(false); loadData()
     } catch (err) { toast.error(err.message || translate('common', 'error')) }

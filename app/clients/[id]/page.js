@@ -245,6 +245,7 @@ async function handleSendInvoice() {
         lineItems: allLineItems,
         clientName: client.name,
         clientEmail: client.email || '',
+        clientPhone: client.phone || '',
         description: `YardSync invoice — ${client.name}`,
         gardenerUid: user.uid,
         clientId: id,
@@ -253,20 +254,7 @@ async function handleSendInvoice() {
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Invoice failed')
 
-    await saveInvoice(user.uid, {
-      clientId:              id,
-      clientName:            client.name,
-      clientEmail:           client.email || '',
-      clientPhone:           client.phone || '',
-      totalCents:            grandTotal,
-      stripePaymentIntentId: data.paymentIntentId,
-      stripePaymentUrl:      data.paymentUrl,
-      applicationFee:        data.applicationFee,
-      contractorReceives:    data.contractorReceives,
-      status:                'sent',
-      lineItems:             allLineItems,
-      paymentPath:           'stripe',
-    })
+    // Invoice doc is written server-side by /api/stripe/invoice
 
     // Send payment link via SMS to client
     if (client.phone && data.paymentUrl) {
