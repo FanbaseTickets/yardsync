@@ -483,7 +483,10 @@ async function handleSendInvoice() {
                 {invoices.map(inv => (
                   <Card key={inv.id} padding={false}>
                     <div className="p-3 flex items-center gap-3">
-                      <CheckCircle2 size={16} className={inv.status === 'paid' ? 'text-brand-500' : 'text-amber-400'} />
+                      {inv.status === 'paid'
+                        ? <CheckCircle2 size={16} className="text-green-600" />
+                        : <FileText size={16} className="text-amber-400" />
+                      }
                       <div className="flex-1">
                         <p className="text-[13px] font-medium text-gray-900">
                           {formatCents(inv.totalCents || 0)}
@@ -491,7 +494,7 @@ async function handleSendInvoice() {
                         <p className="text-[11px] text-gray-400">
                           {inv.createdAt?.toDate?.().toLocaleDateString() || '—'}
                         </p>
-                        {inv.stripePaymentUrl && inv.status !== 'paid' && (
+                        {inv.stripePaymentUrl && inv.status === 'sent' && (
                           <a
                             href={inv.stripePaymentUrl}
                             target="_blank"
@@ -503,8 +506,8 @@ async function handleSendInvoice() {
                         )}
                       </div>
                       <Badge
-                        label={inv.status || 'sent'}
-                        variant={inv.status === 'paid' ? 'active' : 'scheduled'}
+                        label={inv.status === 'paid' ? (lang === 'es' ? 'Pagado' : 'Paid') : inv.status === 'sent' ? (lang === 'es' ? 'Enviado' : 'Sent') : inv.status || 'sent'}
+                        variant={inv.status === 'paid' ? 'active' : inv.status === 'sent' ? 'scheduled' : 'default'}
                       />
                     </div>
                   </Card>
