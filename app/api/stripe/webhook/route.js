@@ -243,6 +243,29 @@ export async function POST(request) {
         console.log(`Subscription canceled for ${uid}`)
         break
       }
+
+      case 'payment_intent.succeeded': {
+        const pi = event.data.object
+        const gardenerUid = pi.metadata?.gardenerUid
+        if (!gardenerUid) break
+
+        // Find matching invoice by stripePaymentIntentId
+        const invQ = query(
+          collection(db, 'invoices'),
+          where('stripePaymentIntentId', '==', pi.id)
+        )
+        const invSnap = await getDocs(invQ)
+        if (!invSnap.empty) {
+          const invDoc = invSnap.docs[0]
+          await updateDoc(doc(db, 'invoices', invDoc.id), {
+            status: 'paid',
+            paidAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          })
+          console.log(`Invoice ${invDoc.id} marked paid via PaymentIntent ${pi.id}`)
+        }
+        break
+      }
     }
   } catch (err) {
     console.error('Webhook handler error:', err)

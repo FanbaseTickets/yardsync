@@ -45,7 +45,7 @@ const RECURRENCE_LABELS_ES = {
 export default function ClientDetailPage() {
   const { id }              = useParams()
   const router              = useRouter()
-  const { user }            = useAuth()
+  const { user, profile }   = useAuth()
   const { translate, lang } = useLang()
 
   const STATUS_OPTIONS = [
@@ -245,41 +245,80 @@ async function handleSendInvoice() {
     const materialsTotal = jobMaterials.reduce((s, m) => s + (m.totalCents || 0), 0)
     const grandTotal = totalCents + materialsTotal
 
-    const res = await fetch('/api/square/invoice', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
-        clientId:    id,
-        gardenerUid: user.uid,
-        lineItems:   allLineItems,
-        totalCents:  grandTotal,
-        materials:   jobMaterials,
-        clientName:  client.name,
-        clientEmail: client.email  || '',
-        clientPhone: client.phone  || '',
-      }),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Invoice failed')
+    if (profile?.paymentPath === 'stripe') {
+      // ── STRIPE PATH ──
+      const res = await fetch('/api/stripe/invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stripeAccountId: profile.stripeAccountId,
+          totalCents: grandTotal,
+          lineItems: allLineItems,
+          clientName: client.name,
+          clientEmail: client.email || '',
+          description: `YardSync invoice — ${client.name}`,
+          gardenerUid: user.uid,
+          clientId: id,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Invoice failed')
 
-    // Save to Firestore client-side (authenticated)
-    await saveInvoice(user.uid, {
-      clientId:         id,
-      clientName:       client.name,
-      clientEmail:      client.email || '',
-      clientPhone:      client.phone || '',
-      totalCents:       grandTotal,
-      squareInvoiceId:  data.invoiceId,
-      squareOrderId:    data.squareOrderId,
-      squareCustomerId: data.squareCustomerId,
-      squarePublicUrl:  data.invoiceUrl || null,
-      status:           'sent',
-      lineItems:        allLineItems,
-    })
+      await saveInvoice(user.uid, {
+        clientId:              id,
+        clientName:            client.name,
+        clientEmail:           client.email || '',
+        clientPhone:           client.phone || '',
+        totalCents:            grandTotal,
+        stripePaymentIntentId: data.paymentIntentId,
+        stripePaymentUrl:      data.paymentUrl,
+        applicationFee:        data.applicationFee,
+        contractorReceives:    data.contractorReceives,
+        status:                'sent',
+        lineItems:             allLineItems,
+        paymentPath:           'stripe',
+      })
 
-    toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent via Square!')
-    setShowInvoice(false)
-    loadData()
+      toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent!')
+      setShowInvoice(false)
+      loadData()
+    } else {
+      // ── SQUARE PATH ──
+      const res = await fetch('/api/square/invoice', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          clientId:    id,
+          gardenerUid: user.uid,
+          lineItems:   allLineItems,
+          totalCents:  grandTotal,
+          materials:   jobMaterials,
+          clientName:  client.name,
+          clientEmail: client.email  || '',
+          clientPhone: client.phone  || '',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Invoice failed')
+
+      await saveInvoice(user.uid, {
+        clientId:         id,
+        clientName:       client.name,
+        clientEmail:      client.email || '',
+        clientPhone:      client.phone || '',
+        totalCents:       grandTotal,
+        squareInvoiceId:  data.invoiceId,
+        squareOrderId:    data.squareOrderId,
+        squareCustomerId: data.squareCustomerId,
+        squarePublicUrl:  data.invoiceUrl || null,
+        status:           'sent',
+        lineItems:        allLineItems,
+      })
+
+      toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent via Square!')
+      setShowInvoice(false)
+      loadData()
+    }
   } catch (err) {
     toast.error(err.message || translate('common', 'error'))
   } finally {
