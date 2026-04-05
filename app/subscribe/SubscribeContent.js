@@ -33,15 +33,17 @@ function SubscribeInner() {
   const [selectedPlan, setSelectedPlan] = useState('monthly')
   const [setupFee,     setSetupFee]     = useState(false)
   const [loading,      setLoading]      = useState(false)
+  const [redirecting,  setRedirecting]  = useState(false)
 
   // Client-side backup write: if returning from Stripe with session_id,
   // fetch session data and write stripeCustomerId/stripeSubscriptionId to Firestore
-  // before redirecting to dashboard. This ensures fields are written even if the
+  // before redirecting to onboarding. This ensures fields are written even if the
   // webhook is delayed.
   useEffect(() => {
     const sessionId = searchParams.get('session_id')
     const plan      = searchParams.get('plan')
     if (sessionId && user) {
+      setRedirecting(true)
       ;(async () => {
         try {
           const res  = await fetch(`/api/stripe/session?sessionId=${sessionId}`)
@@ -117,6 +119,22 @@ function SubscribeInner() {
     tr('subscribe', 'setup_3'),
     tr('subscribe', 'setup_4'),
   ]
+
+  if (redirecting) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-brand-800 via-brand-700 to-brand-600 flex flex-col items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center">
+            <Leaf size={30} className="text-white" />
+          </div>
+          <div className="w-8 h-8 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+          <p className="text-white/80 text-sm font-medium">
+            {lang === 'es' ? 'Configurando tu cuenta...' : 'Setting up your account...'}
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-800 via-brand-700 to-brand-600 flex flex-col items-center justify-center px-5 py-10">
