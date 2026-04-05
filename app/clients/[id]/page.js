@@ -268,6 +268,21 @@ async function handleSendInvoice() {
       paymentPath:           'stripe',
     })
 
+    // Send payment link via SMS to client
+    if (client.phone && data.paymentUrl) {
+      const smsBody = lang === 'es'
+        ? `Hola ${client.name}! Tu factura de $${(grandTotal / 100).toFixed(2)} está lista. Paga aquí: ${data.paymentUrl}`
+        : `Hi ${client.name}! Your invoice for $${(grandTotal / 100).toFixed(2)} is ready. Pay here: ${data.paymentUrl}`
+      fetch('/api/twilio/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientPhone: client.phone,
+          message: smsBody,
+        }),
+      }).catch(err => console.error('Invoice SMS failed (non-fatal):', err))
+    }
+
     toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent!')
     setShowInvoice(false)
     loadData()
@@ -476,6 +491,16 @@ async function handleSendInvoice() {
                         <p className="text-[11px] text-gray-400">
                           {inv.createdAt?.toDate?.().toLocaleDateString() || '—'}
                         </p>
+                        {inv.stripePaymentUrl && inv.status !== 'paid' && (
+                          <a
+                            href={inv.stripePaymentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] text-brand-600 hover:underline"
+                          >
+                            {lang === 'es' ? 'Link de pago ↗' : 'Payment link ↗'}
+                          </a>
+                        )}
                       </div>
                       <Badge
                         label={inv.status || 'sent'}
