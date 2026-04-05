@@ -100,7 +100,7 @@ export default function AppShell({ children }) {
 
             // Stripe-only: check if bank account setup is complete
             const onOnboardingRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/onboarding')
-            if (!onOnboardingRoute && !isPostPayment && profile.stripeAccountStatus !== 'complete') {
+            if (!onOnboardingRoute && !isPostPayment && profile.stripeAccountStatus === 'pending') {
               // Bank not connected yet — send to Stripe Connect onboarding
               redirectedRef.current = true
               router.replace('/onboarding/connect-stripe')
