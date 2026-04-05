@@ -8,19 +8,12 @@ import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, Skeleton, Modal, Input, Select } from '@/components/ui'
 import { getClient, updateClient, deleteClient, getClientInvoices, getServices, saveInvoice, getMostRecentSchedule } from '@/lib/db'
-import { formatCents, getPackageFee, getFeeDescription, buildInvoiceLineItems, getAddonFee } from '@/lib/fee'
+import { formatCents } from '@/lib/fee'
 import { Phone, MapPin, Mail, CalendarDays, DollarSign, Pencil, FileText, CheckCircle2, RefreshCw } from 'lucide-react'
 import PhoneInput from '@/components/ui/PhoneInput'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 
-const PACKAGE_FEE_MAP = {
-  monthly:   1500,
-  quarterly: 3500,
-  annual:    10000,
-  weekly:    500,
-  onetime:   1000,
-}
 
 const RECURRENCE_LABELS_EN = {
   weekly:     'Every week',
@@ -232,18 +225,16 @@ async function handleSendInvoice() {
   setInvoicing(true)
   try {
     const finalAddons = buildFinalAddons()
-    const { lineItems, totalCents } = buildInvoiceLineItems({
-      baseAmountCents: client.basePriceCents || 6500,
-      packageType:     client.packageType,
-      addons:          finalAddons,
-    })
-    // Add materials as pass-through line items (no YardSync fee)
+    // Build line items — base + addons + materials (no flat fees, 5.5% deducted from payout)
+    const lineItems = [
+      { label: client.packageLabel || 'Lawn Care Service', amountCents: baseCents, category: 'base' },
+      ...finalAddons.map(a => ({ label: a.label, amountCents: a.amountCents, category: 'addon' })),
+    ]
     const materialLineItems = jobMaterials.map(m => ({
       label: m.name, amountCents: m.totalCents || 0, category: 'material',
     }))
     const allLineItems = [...lineItems, ...materialLineItems]
-    const materialsTotal = jobMaterials.reduce((s, m) => s + (m.totalCents || 0), 0)
-    const grandTotal = totalCents + materialsTotal
+    const grandTotal = invoiceTotal
 
     const res = await fetch('/api/stripe/invoice', {
       method: 'POST',
@@ -311,9 +302,6 @@ async function handleSendInvoice() {
   }
 
   const baseCents   = client.basePriceCents || 6500
-  const packageFee  = getPackageFee(client.packageType, baseCents)
-  const totalCharge = baseCents + packageFee
-  const feeDesc     = getFeeDescription(client.packageType)
   const isOnetime   = client.packageType === 'onetime'
 
   const recurrenceLabel = client.recurrence
@@ -326,11 +314,11 @@ async function handleSendInvoice() {
         : '')
     : null
 
-  // Live invoice total preview
+  // Live invoice total preview — client pays base + addons + materials
+  // YardSync 5.5% is deducted from contractor payout, not added to client total
   const addonSubtotal  = getAddonSubtotal()
-  const addonFee       = addonSubtotal > 0 ? Math.round(addonSubtotal * 0.10) : 0
   const jobMaterialsTotal = jobMaterials.reduce((s, m) => s + (m.totalCents || 0), 0)
-  const invoiceTotal   = totalCharge + addonSubtotal + addonFee + jobMaterialsTotal
+  const invoiceTotal   = baseCents + addonSubtotal + jobMaterialsTotal
 
   return (
     <AppShell>
@@ -436,20 +424,12 @@ async function handleSendInvoice() {
                 <span className="font-medium text-gray-900">{formatCents(baseCents)}</span>
               </div>
               <div className="flex justify-between text-[13px]">
-                <span className="text-gray-500">{translate('client_detail', 'yardsync_fee')}</span>
-                <span className="font-medium text-brand-600">+{formatCents(packageFee)}</span>
+                <span className="text-gray-500">{lang === 'es' ? 'Tarifa YardSync' : 'YardSync fee'}</span>
+                <span className="font-medium text-brand-600">{lang === 'es' ? '5.5% por factura' : '5.5% per invoice'}</span>
               </div>
               <div className="flex justify-between text-[13px] border-t border-gray-100 pt-2">
                 <span className="font-medium text-gray-800">{translate('client_detail', 'client_pays')}</span>
-                <span className="font-semibold text-gray-900">{formatCents(totalCharge)}</span>
-              </div>
-              <div className="flex justify-between text-[12px]">
-                <span className="text-gray-400">{translate('client_detail', 'fee_structure')}</span>
-                <span className="text-brand-600 font-medium">{feeDesc}</span>
-              </div>
-              <div className="flex justify-between text-[12px]">
-                <span className="text-gray-400">{translate('client_detail', 'billing_mode')}</span>
-                <span className="text-gray-500 capitalize">{client.billingMode || 'upfront'}</span>
+                <span className="font-semibold text-gray-900">{formatCents(baseCents)}</span>
               </div>
             </div>
 
@@ -549,14 +529,8 @@ async function handleSendInvoice() {
               <span className="font-medium">{formatCents(baseCents)}</span>
             </div>
             <div className="flex justify-between text-[12px]">
-              <span className="text-gray-400">{translate('common', 'yardsync_fee')}</span>
-              <span className="text-brand-600">+{formatCents(packageFee)}</span>
-            </div>
-            <div className="flex justify-between text-[13px] border-t border-gray-200 pt-1.5">
-              <span className="font-medium text-gray-700">
-                {lang === 'es' ? 'Subtotal base' : 'Base subtotal'}
-              </span>
-              <span className="font-semibold">{formatCents(totalCharge)}</span>
+              <span className="text-gray-400">{lang === 'es' ? 'Tarifa YardSync' : 'YardSync fee'}</span>
+              <span className="text-brand-600">{lang === 'es' ? '5.5% deducido del pago' : '5.5% deducted from payout'}</span>
             </div>
           </div>
 
@@ -593,9 +567,6 @@ async function handleSendInvoice() {
                             <p className="text-[13px] font-semibold text-brand-600">
                               {formatCents(service.priceCents)}
                             </p>
-                            <p className="text-[10px] text-gray-400">
-                              +{formatCents(Math.round(service.priceCents * 0.10))} fee
-                            </p>
                           </div>
                         </label>
                       ) : (
@@ -608,7 +579,7 @@ async function handleSendInvoice() {
                               )}
                             </div>
                             <span className="text-[11px] text-gray-400 ml-2">
-                              {lang === 'es' ? 'Cotizado · +10%' : 'Variable · +10%'}
+                              {lang === 'es' ? 'Cotizado' : 'Variable'}
                             </span>
                           </div>
                           <div className="relative">
@@ -637,26 +608,18 @@ async function handleSendInvoice() {
               {lang === 'es' ? 'Total de factura' : 'Invoice total'}
             </p>
             {addonSubtotal > 0 && (
-              <div className="flex justify-between text-[13px]">
-                <span className="text-brand-700">
-                  {lang === 'es' ? 'Subtotal base' : 'Base subtotal'}
-                </span>
-                <span className="font-medium text-brand-900">{formatCents(totalCharge)}</span>
-              </div>
-            )}
-            {addonSubtotal > 0 && (
               <>
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-brand-700">
+                    {lang === 'es' ? 'Servicio base' : 'Base service'}
+                  </span>
+                  <span className="font-medium text-brand-900">{formatCents(baseCents)}</span>
+                </div>
                 <div className="flex justify-between text-[13px]">
                   <span className="text-brand-700">
                     {lang === 'es' ? 'Adicionales' : 'Add-ons'}
                   </span>
                   <span className="font-medium text-brand-900">{formatCents(addonSubtotal)}</span>
-                </div>
-                <div className="flex justify-between text-[12px]">
-                  <span className="text-brand-600">
-                    {lang === 'es' ? 'Tarifa adicionales (+10%)' : 'Add-on fee (+10%)'}
-                  </span>
-                  <span className="text-brand-600">+{formatCents(addonFee)}</span>
                 </div>
               </>
             )}
