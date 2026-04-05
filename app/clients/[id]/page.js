@@ -468,38 +468,62 @@ async function handleSendInvoice() {
               </Card>
             ) : (
               <div className="space-y-2">
-                {invoices.map(inv => (
-                  <Card key={inv.id} padding={false}>
-                    <div className="p-3 flex items-center gap-3">
-                      {inv.status === 'paid'
-                        ? <CheckCircle2 size={16} className="text-green-600" />
-                        : <FileText size={16} className="text-amber-400" />
-                      }
-                      <div className="flex-1">
-                        <p className="text-[13px] font-medium text-gray-900">
-                          {formatCents(inv.totalCents || 0)}
-                        </p>
-                        <p className="text-[11px] text-gray-400">
-                          {inv.createdAt?.toDate?.().toLocaleDateString() || '—'}
-                        </p>
-                        {inv.stripePaymentUrl && inv.status === 'sent' && (
-                          <a
-                            href={inv.stripePaymentUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[11px] text-brand-600 hover:underline"
-                          >
-                            {lang === 'es' ? 'Link de pago ↗' : 'Payment link ↗'}
-                          </a>
-                        )}
+                {invoices.map((inv, i) => {
+                  const dateStr = (() => {
+                    const raw = inv.createdAt || inv.paidAt
+                    if (!raw) return lang === 'es' ? 'Fecha no disponible' : 'Date unavailable'
+                    try {
+                      const d = raw?.toDate ? raw.toDate() : new Date(raw)
+                      if (isNaN(d.getTime())) return lang === 'es' ? 'Fecha no disponible' : 'Date unavailable'
+                      return d.toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    } catch { return lang === 'es' ? 'Fecha no disponible' : 'Date unavailable' }
+                  })()
+                  const paidDateStr = (() => {
+                    if (inv.status !== 'paid' || !inv.paidAt) return null
+                    try {
+                      const d = inv.paidAt?.toDate ? inv.paidAt.toDate() : new Date(inv.paidAt)
+                      if (isNaN(d.getTime())) return null
+                      return d.toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    } catch { return null }
+                  })()
+                  return (
+                    <Card key={inv.id} padding={false}>
+                      <div className="p-3 flex items-start gap-3">
+                        {inv.status === 'paid'
+                          ? <CheckCircle2 size={16} className="text-green-600 mt-0.5 flex-shrink-0" />
+                          : <FileText size={16} className="text-amber-400 mt-0.5 flex-shrink-0" />
+                        }
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <p className="text-[13px] font-medium text-gray-900">
+                              {formatCents(inv.totalCents || 0)}
+                            </p>
+                            <Badge
+                              label={inv.status === 'paid' ? (lang === 'es' ? 'Pagado' : 'Paid') : inv.status === 'sent' ? (lang === 'es' ? 'Enviado' : 'Sent') : inv.status || 'sent'}
+                              variant={inv.status === 'paid' ? 'active' : inv.status === 'sent' ? 'scheduled' : 'default'}
+                            />
+                          </div>
+                          <p className="text-[11px] text-gray-400 mt-0.5">{dateStr}</p>
+                          {inv.status === 'sent' && inv.stripePaymentUrl && (
+                            <a
+                              href={inv.stripePaymentUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[11px] text-brand-600 hover:underline mt-0.5 inline-block"
+                            >
+                              {lang === 'es' ? 'Link de pago ↗' : 'Payment link ↗'}
+                            </a>
+                          )}
+                          {inv.status === 'paid' && paidDateStr && (
+                            <p className="text-[11px] text-green-600 mt-0.5">
+                              {lang === 'es' ? `Pagado el ${paidDateStr}` : `Paid on ${paidDateStr}`}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <Badge
-                        label={inv.status === 'paid' ? (lang === 'es' ? 'Pagado' : 'Paid') : inv.status === 'sent' ? (lang === 'es' ? 'Enviado' : 'Sent') : inv.status || 'sent'}
-                        variant={inv.status === 'paid' ? 'active' : inv.status === 'sent' ? 'scheduled' : 'default'}
-                      />
-                    </div>
-                  </Card>
-                ))}
+                    </Card>
+                  )
+                })}
               </div>
             )}
           </div>
