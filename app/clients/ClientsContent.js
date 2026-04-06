@@ -75,6 +75,7 @@ export default function ClientsPage() {
   const [services, setServices] = useState([])
   const [loading,  setLoading]  = useState(true)
   const [search,   setSearch]   = useState('')
+  const [filter,   setFilter]   = useState('all')
   const [showAdd,  setShowAdd]  = useState(false)
   const [form,     setForm]     = useState(DEFAULT_FORM)
   const [errors,   setErrors]   = useState({})
@@ -159,10 +160,27 @@ export default function ClientsPage() {
     }
   }
 
-  const filtered      = clients.filter(c =>
-    c.name?.toLowerCase().includes(search.toLowerCase()) ||
-    c.address?.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = (() => {
+    let list = clients.filter(c =>
+      c.name?.toLowerCase().includes(search.toLowerCase()) ||
+      c.address?.toLowerCase().includes(search.toLowerCase())
+    )
+    // Apply package filter
+    if (['monthly', 'quarterly', 'annual', 'weekly'].includes(filter)) {
+      list = list.filter(c => c.packageType === filter)
+    }
+    // Apply sort
+    if (filter === 'recent') {
+      list = [...list].sort((a, b) => {
+        const da = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0)
+        const db = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0)
+        return db - da
+      })
+    } else {
+      list = [...list].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    }
+    return list
+  })()
   const activeCount   = clients.filter(c => c.status === 'active').length
   const inactiveCount = clients.filter(c => c.status !== 'active').length
 
@@ -199,6 +217,31 @@ export default function ClientsPage() {
               onChange={e => setSearch(e.target.value)}
               className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
+          </div>
+
+          {/* Filter chips */}
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {[
+              { value: 'all',       label: lang === 'es' ? 'Todos' : 'All' },
+              { value: 'az',        label: 'A-Z' },
+              { value: 'recent',    label: lang === 'es' ? 'Recientes' : 'Recent' },
+              { value: 'monthly',   label: lang === 'es' ? 'Mensual' : 'Monthly' },
+              { value: 'quarterly', label: lang === 'es' ? 'Trimestral' : 'Quarterly' },
+              { value: 'annual',    label: lang === 'es' ? 'Anual' : 'Annual' },
+              { value: 'weekly',    label: lang === 'es' ? 'Semanal' : 'Weekly' },
+            ].map(chip => (
+              <button
+                key={chip.value}
+                onClick={() => setFilter(chip.value === 'az' ? 'all' : chip.value)}
+                className={`flex-shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full transition-colors ${
+                  (filter === chip.value || (chip.value === 'az' && filter === 'all'))
+                    ? 'bg-brand-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {chip.label}
+              </button>
+            ))}
           </div>
 
           {loading ? (

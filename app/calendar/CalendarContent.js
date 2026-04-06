@@ -347,7 +347,11 @@ export default function CalendarPage() {
         serviceDate: toDateStr(selectedDay), time: walkInTime,
         status: 'scheduled', isWalkIn: true, isRecurring: false, basePrice, addons: finalAddons,
       })
-      toast.success(lang === 'es' ? 'Cliente ocasional agregado ✓' : 'Walk-in added ✓')
+      if (!formattedPhone) {
+        toast.success(lang === 'es' ? 'Trabajo agregado — agrega teléfono para enviar factura' : 'Job added but no payment link sent — add a phone number to send the invoice')
+      } else {
+        toast.success(lang === 'es' ? 'Cliente ocasional agregado ✓' : 'Walk-in added ✓')
+      }
       setShowWalkIn(false); loadData()
     } catch { toast.error(translate('common', 'error')) }
     finally { setSavingWalkIn(false) }
@@ -376,6 +380,7 @@ export default function CalendarPage() {
           description: 'YardSync walk-in service invoice',
           gardenerUid: user.uid,
           clientId:    null,
+          invoiceType: 'addon',
         }),
       })
       const data = await res.json()
@@ -391,9 +396,10 @@ export default function CalendarPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ clientPhone: walkInInvoiceTarget.clientPhone, message: smsBody }),
         }).catch(err => console.error('Walk-in SMS failed (non-fatal):', err))
+        toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent ✓')
+      } else {
+        toast.success(lang === 'es' ? 'Factura creada. Agrega teléfono para enviar link de pago.' : 'Invoice created. Add client\'s phone number to send payment link.')
       }
-
-      toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent ✓')
       setShowWalkInInvoice(false); loadData()
     } catch (err) { toast.error(err.message || translate('common', 'error')) }
     finally { setInvoicingWalkIn(false) }
@@ -712,15 +718,15 @@ export default function CalendarPage() {
           <Input label={lang === 'es' ? 'Nombre del cliente *' : 'Client name *'} placeholder={lang === 'es' ? 'Juan García' : 'John Smith'} value={walkInName} onChange={e => setWalkInName(e.target.value)} />
           <div>
             <PhoneInput
-              label={lang === 'es' ? 'Teléfono (opcional)' : 'Phone (optional)'}
+              label={lang === 'es' ? 'Teléfono *' : 'Phone number *'}
               value={walkInPhone}
               onChange={val => { setWalkInPhone(val); setWalkInPhoneError('') }}
               error={walkInPhoneError}
             />
-            <p className="text-[11px] text-gray-400 mt-1">{lang === 'es' ? 'Necesario para SMS o factura' : 'Needed to send SMS or invoice'}</p>
+            <p className="text-[11px] text-gray-400 mt-1">{lang === 'es' ? 'Requerido para enviar el link de pago' : 'Required to send payment link'}</p>
           </div>
           <Input
-            label={lang === 'es' ? 'Email (para enviar factura)' : 'Email (to send invoice)'}
+            label={lang === 'es' ? 'Email (opcional — solo para recibo)' : 'Email (optional — for receipt only)'}
             placeholder="client@example.com"
             type="email"
             value={walkInEmail}

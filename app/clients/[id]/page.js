@@ -9,7 +9,7 @@ import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, Skeleton, Modal, Input, Select } from '@/components/ui'
 import { getClient, updateClient, deleteClient, getClientInvoices, getServices, saveInvoice, getMostRecentSchedule } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
-import { Phone, MapPin, Mail, CalendarDays, DollarSign, Pencil, FileText, CheckCircle2, RefreshCw } from 'lucide-react'
+import { Phone, MapPin, Mail, CalendarDays, DollarSign, Pencil, FileText, CheckCircle2, RefreshCw, Clock } from 'lucide-react'
 import PhoneInput from '@/components/ui/PhoneInput'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
@@ -63,6 +63,7 @@ export default function ClientDetailPage() {
   const [showDelete,    setShowDelete]    = useState(false)
   const [showInvoice,   setShowInvoice]   = useState(false)
   const [viewInvoice,   setViewInvoice]   = useState(null)
+  const [duplicateWarn, setDuplicateWarn] = useState(null)
   const [jobMaterials,  setJobMaterials]  = useState([])
   const [form,          setForm]          = useState({})
   const [saving,        setSaving]        = useState(false)
@@ -160,6 +161,8 @@ export default function ClientDetailPage() {
     setSelectedAddons([])
     setVariableInputs({})
     setJobMaterials([])
+    setDuplicateWarn(null)
+
     // Fetch materials from most recent scheduled job
     try {
       const recentJob = await getMostRecentSchedule(user.uid, id)
@@ -167,6 +170,40 @@ export default function ClientDetailPage() {
         setJobMaterials(recentJob.materials)
       }
     } catch {}
+
+    // Check for duplicate invoices in current billing period
+    try {
+      const now = new Date()
+      let periodStart
+      const pkg = client.packageType || 'monthly'
+      if (pkg === 'weekly') {
+        const day = now.getDay()
+        periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day)
+      } else if (pkg === 'monthly') {
+        periodStart = new Date(now.getFullYear(), now.getMonth(), 1)
+      } else if (pkg === 'quarterly') {
+        const qMonth = Math.floor(now.getMonth() / 3) * 3
+        periodStart = new Date(now.getFullYear(), qMonth, 1)
+      } else if (pkg === 'annual') {
+        periodStart = new Date(now.getFullYear(), 0, 1)
+      }
+      // onetime: no restriction
+      if (periodStart && pkg !== 'onetime') {
+        const existing = invoices.find(inv => {
+          if (inv.status !== 'sent' && inv.status !== 'paid') return false
+          const d = inv.createdAt?.toDate ? inv.createdAt.toDate() : new Date(inv.createdAt)
+          return d >= periodStart
+        })
+        if (existing) {
+          const d = existing.createdAt?.toDate ? existing.createdAt.toDate() : new Date(existing.createdAt)
+          setDuplicateWarn({
+            amount: existing.totalCents,
+            date: d.toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { month: 'short', day: 'numeric' }),
+          })
+        }
+      }
+    } catch {}
+
     setShowInvoice(true)
   }
 
@@ -250,6 +287,7 @@ async function handleSendInvoice() {
         description: `YardSync invoice — ${client.name}`,
         gardenerUid: user.uid,
         clientId: id,
+        invoiceType: 'recurring',
       }),
     })
     const data = await res.json()
@@ -381,6 +419,21 @@ async function handleSendInvoice() {
                   <p className="text-[10px] text-gray-400">{translate('calendar_extra', 'open_maps')}</p>
                 </div>
               </a>
+              {client.createdAt && (() => {
+                try {
+                  const d = client.createdAt?.toDate ? client.createdAt.toDate() : new Date(client.createdAt)
+                  if (isNaN(d.getTime())) return null
+                  const label = d.toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { month: 'short', year: 'numeric' })
+                  return (
+                    <div className="flex items-center gap-2.5">
+                      <Clock size={14} className="text-gray-400 flex-shrink-0" />
+                      <p className="text-[13px] text-gray-500">
+                        {lang === 'es' ? `Miembro desde ${label}` : `Member since ${label}`}
+                      </p>
+                    </div>
+                  )
+                } catch { return null }
+              })()}
               {scheduleDisplay && !isOnetime && (
                 <div className="flex items-center gap-2.5">
                   <CalendarDays size={14} className="text-gray-400 flex-shrink-0" />
@@ -496,9 +549,21 @@ async function handleSendInvoice() {
                         }
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <p className="text-[13px] font-medium text-gray-900">
-                              {formatCents(inv.totalCents || 0)}
-                            </p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-[13px] font-medium text-gray-900">
+                                {formatCents(inv.totalCents || 0)}
+                              </p>
+                              {inv.invoiceType === 'addon' && (
+                                <span className="text-[9px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-medium">
+                                  {lang === 'es' ? 'Adicional' : 'Add-on'}
+                                </span>
+                              )}
+                              {inv.invoiceType === 'combined' && (
+                                <span className="text-[9px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-medium">
+                                  {lang === 'es' ? 'Combinado' : 'Combined'}
+                                </span>
+                              )}
+                            </div>
                             <Badge
                               label={inv.status === 'paid' ? (lang === 'es' ? 'Pagado' : 'Paid') : inv.status === 'sent' ? (lang === 'es' ? 'Enviado' : 'Sent') : inv.status || 'sent'}
                               variant={inv.status === 'paid' ? 'active' : inv.status === 'sent' ? 'scheduled' : 'default'}
@@ -550,6 +615,18 @@ async function handleSendInvoice() {
         }
       >
         <div className="space-y-4">
+
+          {/* Duplicate warning */}
+          {duplicateWarn && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
+              <span className="text-amber-600 flex-shrink-0 mt-0.5">⚠️</span>
+              <p className="text-[12px] text-amber-800">
+                {lang === 'es'
+                  ? `Una factura de ${formatCents(duplicateWarn.amount)} ya fue enviada el ${duplicateWarn.date}. Enviar otra cobrará al cliente de nuevo. Solo continúa si cubre servicios adicionales.`
+                  : `A ${formatCents(duplicateWarn.amount)} invoice was already sent on ${duplicateWarn.date}. Sending another will charge the client again. Only continue if this covers additional services.`}
+              </p>
+            </div>
+          )}
 
           {/* Base summary */}
           <div className="bg-gray-50 rounded-xl p-3 space-y-1.5">

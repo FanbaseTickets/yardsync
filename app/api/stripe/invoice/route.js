@@ -16,6 +16,7 @@ export async function POST(req) {
       description,
       gardenerUid,
       clientId,
+      invoiceType,
     } = await req.json()
 
     if (!stripeAccountId || !totalCents) {
@@ -63,6 +64,7 @@ export async function POST(req) {
         contractorReceives:    totalCents - applicationFeeAmount,
         status:                'sent',
         paymentPath:           'stripe',
+        invoiceType:           invoiceType || 'recurring',
         createdAt:             new Date().toISOString(),
         lineItems:             lineItems || [],
       })
