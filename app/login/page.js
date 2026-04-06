@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { Input, Button } from '@/components/ui'
 import toast from 'react-hot-toast'
@@ -10,8 +10,9 @@ import { Leaf, Eye, EyeOff } from 'lucide-react'
 export default function LoginPage() {
   const { user, loading, signIn, signUp, signInWithGoogle, resetPassword } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
 
-  const [mode,     setMode]     = useState('login')
+  const [mode,     setMode]     = useState(() => searchParams?.get('mode') === 'signup' ? 'signup' : 'login')
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
   const [name,     setName]     = useState('')
