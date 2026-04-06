@@ -1,23 +1,8 @@
 'use client'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/context/AuthContext'
 import './landing.css'
 
 export default function LandingPage() {
-  const router = useRouter()
-  const { user, profile, loading } = useAuth()
-
-  useEffect(() => {
-    if (!loading && user && profile?.subscriptionStatus === 'active') {
-      router.replace('/dashboard')
-    }
-  }, [user, profile, loading, router])
-
-  if (loading) return null
-  if (user && profile?.subscriptionStatus === 'active') return null
-
   return (
     <>
       {/* NAV */}
