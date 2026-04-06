@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { Input, Button } from '@/components/ui'
 import toast from 'react-hot-toast'
@@ -10,9 +10,16 @@ import { Leaf, Eye, EyeOff } from 'lucide-react'
 export default function LoginPage() {
   const { user, loading, signIn, signUp, signInWithGoogle, resetPassword } = useAuth()
   const router = useRouter()
-  const searchParams = useSearchParams()
 
-  const [mode,     setMode]     = useState(() => searchParams?.get('mode') === 'signup' ? 'signup' : 'login')
+  const [mode,     setMode]     = useState('login')
+
+  // Read ?mode=signup from URL on mount (avoids useSearchParams Suspense requirement)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('mode') === 'signup') setMode('signup')
+    }
+  }, [])
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
   const [name,     setName]     = useState('')
