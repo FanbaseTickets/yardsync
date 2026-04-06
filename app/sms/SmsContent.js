@@ -318,18 +318,28 @@ async function loadData() {
                                   &quot;{buildPreview(schedule)}&quot;
                                 </p>
                               </div>
-                              <Button
-                                size="sm"
-                                variant={schedule.smsSent ? 'secondary' : 'brand'}
-                                loading={sending === schedule.id}
-                                onClick={() => setConfirmTarget(schedule)}
-                                icon={Send}
-                                disabled={!hasPhone}
-                              >
-                                {schedule.smsSent
-                                  ? translate('sms', 'resend')
-                                  : translate('sms', 'send')}
-                              </Button>
+                              {hasPhone ? (
+                                <Button
+                                  size="sm"
+                                  variant={schedule.smsSent ? 'secondary' : 'brand'}
+                                  loading={sending === schedule.id}
+                                  onClick={() => setConfirmTarget(schedule)}
+                                  icon={Send}
+                                >
+                                  {schedule.smsSent
+                                    ? translate('sms', 'resend')
+                                    : translate('sms', 'send')}
+                                </Button>
+                              ) : (
+                                <div className="text-right flex-shrink-0">
+                                  <p className="text-[11px] text-gray-400 font-medium">
+                                    {lang === 'es' ? 'Sin teléfono' : 'No phone on file'}
+                                  </p>
+                                  <p className="text-[10px] text-gray-300">
+                                    {lang === 'es' ? 'Editar cliente' : 'Edit client to add'}
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           </Card>
                         )

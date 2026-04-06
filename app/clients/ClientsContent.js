@@ -222,8 +222,7 @@ export default function ClientsPage() {
           {/* Filter chips */}
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {[
-              { value: 'all',       label: lang === 'es' ? 'Todos' : 'All' },
-              { value: 'az',        label: 'A-Z' },
+              { value: 'all',       label: lang === 'es' ? 'Todos (A-Z)' : 'All (A-Z)' },
               { value: 'recent',    label: lang === 'es' ? 'Recientes' : 'Recent' },
               { value: 'monthly',   label: lang === 'es' ? 'Mensual' : 'Monthly' },
               { value: 'quarterly', label: lang === 'es' ? 'Trimestral' : 'Quarterly' },
@@ -232,9 +231,9 @@ export default function ClientsPage() {
             ].map(chip => (
               <button
                 key={chip.value}
-                onClick={() => setFilter(chip.value === 'az' ? 'all' : chip.value)}
+                onClick={() => setFilter(chip.value)}
                 className={`flex-shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full transition-colors ${
-                  (filter === chip.value || (chip.value === 'az' && filter === 'all'))
+                  filter === chip.value
                     ? 'bg-brand-600 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}

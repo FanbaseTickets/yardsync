@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
@@ -38,6 +38,7 @@ const RECURRENCE_LABELS_ES = {
 export default function ClientDetailPage() {
   const { id }              = useParams()
   const router              = useRouter()
+  const searchParams        = useSearchParams()
   const { user, profile }   = useAuth()
   const { translate, lang } = useLang()
 
@@ -78,6 +79,14 @@ export default function ClientDetailPage() {
     if (!id || !user) return
     loadData()
   }, [id, user])
+
+  // Auto-open invoice modal if ?openInvoice=true
+  useEffect(() => {
+    if (client && searchParams?.get('openInvoice') === 'true') {
+      openInvoiceModal()
+      router.replace(`/clients/${id}`)
+    }
+  }, [client, searchParams])
 
   async function loadData() {
     if (!user) return

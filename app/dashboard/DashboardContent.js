@@ -31,6 +31,7 @@ export default function DashboardPage() {
   const [loading,       setLoading]       = useState(true)
   const [completing,    setCompleting]    = useState(null)
   const [reactivating,  setReactivating]  = useState(false)
+  const [showRecentInv, setShowRecentInv] = useState(false)
 
   const todayStr    = format(new Date(), 'yyyy-MM-dd')
   const displayDate = formatDateLocalized(new Date(), 'EEEE, MMMM d', lang)
@@ -160,6 +161,13 @@ export default function DashboardPage() {
   const smsSentTotal = todayJobs.filter(j => j.smsSent).length
   const clientMap    = Object.fromEntries(clients.map(c => [c.id, c]))
   const unpaidCount  = invoices.filter(i => i.status === 'unpaid').length
+  const recentInvoices = [...invoices]
+    .sort((a, b) => {
+      const da = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0)
+      const db = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0)
+      return db - da
+    })
+    .slice(0, 5)
 
   return (
     <AppShell>
@@ -332,10 +340,59 @@ export default function DashboardPage() {
           ) : (
             <div className="grid grid-cols-2 gap-3 animate-fade-up">
               <StatCard label={translate('dashboard', 'active_clients')}  value={activeClients}                            icon={Users}         />
-              <StatCard label={translate('dashboard', 'this_month')}      value={formatCents(thisMonthRevenue)}             icon={DollarSign} accent />
+              <div onClick={() => setShowRecentInv(!showRecentInv)} className="cursor-pointer">
+                <StatCard label={translate('dashboard', 'this_month')}      value={formatCents(thisMonthRevenue)}             icon={DollarSign} accent />
+              </div>
               <StatCard label={translate('dashboard', 'jobs_today_stat')} value={`${completedToday}/${todayJobs.length}`}  icon={CalendarCheck} />
               <StatCard label={translate('dashboard', 'sms_sent')}        value={smsSentTotal}                              icon={MessageSquare} />
             </div>
+          )}
+
+          {/* Recent invoices (expanded from THIS MONTH) */}
+          {showRecentInv && !loading && (
+            <Card className="animate-fade-up">
+              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-3">
+                {lang === 'es' ? 'Facturas recientes' : 'Recent invoices'}
+              </p>
+              {recentInvoices.length === 0 ? (
+                <p className="text-[13px] text-gray-400 text-center py-3">
+                  {lang === 'es' ? 'Sin facturas enviadas' : 'No invoices sent yet'}
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {recentInvoices.map(inv => {
+                    const invDate = (() => {
+                      const raw = inv.createdAt
+                      if (!raw) return ''
+                      try {
+                        const d = raw?.toDate ? raw.toDate() : new Date(raw)
+                        return isNaN(d.getTime()) ? '' : d.toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { month: 'short', day: 'numeric' })
+                      } catch { return '' }
+                    })()
+                    return (
+                      <div key={inv.id} className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[13px] font-medium text-gray-900">
+                            {inv.clientName} · {formatCents(inv.totalCents || 0)}
+                          </p>
+                          <p className="text-[11px] text-gray-400">{invDate}</p>
+                        </div>
+                        <Badge
+                          label={inv.status === 'paid' ? (lang === 'es' ? 'Pagado' : 'Paid') : inv.status === 'sent' ? (lang === 'es' ? 'Enviado' : 'Sent') : inv.status || 'sent'}
+                          variant={inv.status === 'paid' ? 'active' : inv.status === 'sent' ? 'scheduled' : 'default'}
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+              <button
+                onClick={() => toast.success(lang === 'es' ? 'Próximamente' : 'Coming soon')}
+                className="w-full text-center text-[12px] text-brand-600 font-medium mt-3 pt-2 border-t border-gray-100"
+              >
+                {lang === 'es' ? 'Ver todo' : 'View all'}
+              </button>
+            </Card>
           )}
 
           {/* Today's Jobs */}

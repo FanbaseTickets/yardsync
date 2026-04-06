@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
@@ -144,6 +145,7 @@ function AddonSelector({ addonServices, lang, fixedAddons, setFixedAddons, varia
 }
 
 export default function CalendarPage() {
+  const router              = useRouter()
   const { user, profile }   = useAuth()
   const { translate, lang } = useLang()
   const [mounted, setMounted] = useState(false)
@@ -200,6 +202,7 @@ export default function CalendarPage() {
   const [materialsTarget, setMaterialsTarget] = useState(null)
   const [materialsRows,   setMaterialsRows]   = useState([])
   const [materialsSaving, setMaterialsSaving] = useState(false)
+  const [completePrompt, setCompletePrompt] = useState(null)
   const [matDisplay,      setMatDisplay]      = useState({})
 
   const monthStart = startOfMonth(currentDate)
@@ -406,8 +409,16 @@ export default function CalendarPage() {
   }
 
   async function handleComplete(schedule) {
-    try { await updateSchedule(schedule.id, { status: 'completed' }); toast.success('✓'); loadData() }
-    catch { toast.error(translate('common', 'error')) }
+    try {
+      await updateSchedule(schedule.id, { status: 'completed' })
+      loadData()
+      // Show invoice prompt for recurring clients
+      if (schedule.clientId && !schedule.isWalkIn) {
+        setCompletePrompt(schedule)
+      } else {
+        toast.success('✓')
+      }
+    } catch { toast.error(translate('common', 'error')) }
   }
 
   function promptDelete(schedule) { setDeleteTarget(schedule); setShowDeleteModal(true) }
@@ -581,7 +592,13 @@ export default function CalendarPage() {
                           <div className={`w-2 h-2 rounded-full flex-shrink-0 ${done ? 'bg-brand-500' : 'bg-amber-400'}`} />
                           <div className="flex-1 min-w-0">
                             <p className={`text-[13px] font-medium ${done ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
-                              {client?.name || schedule.clientName}
+                              {schedule.clientId ? (
+                                <button onClick={() => router.push(`/clients/${schedule.clientId}`)} className="hover:underline text-left">
+                                  {client?.name || schedule.clientName} ›
+                                </button>
+                              ) : (
+                                client?.name || schedule.clientName
+                              )}
                               {schedule.isWalkIn && (
                                 <span className="ml-1.5 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">
                                   {lang === 'es' ? 'Ocasional' : 'Walk-in'}
@@ -610,6 +627,11 @@ export default function CalendarPage() {
                           <div className="flex items-center gap-1">
                             {schedule.isWalkIn && !done && (
                               <button onClick={() => openWalkInInvoice(schedule)} aria-label="Invoice walk-in" className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-brand-50 transition-colors">
+                                <DollarSign size={14} className="text-brand-600" />
+                              </button>
+                            )}
+                            {!schedule.isWalkIn && !done && schedule.clientId && (
+                              <button onClick={() => router.push(`/clients/${schedule.clientId}?openInvoice=true`)} aria-label="Send invoice" className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-brand-50 transition-colors">
                                 <DollarSign size={14} className="text-brand-600" />
                               </button>
                             )}
@@ -907,6 +929,31 @@ export default function CalendarPage() {
             </div>
           )}
         </div>
+      </Modal>
+
+      {/* Complete → invoice prompt */}
+      <Modal
+        open={!!completePrompt}
+        onClose={() => { setCompletePrompt(null); toast.success('✓') }}
+        title={lang === 'es' ? 'Trabajo completo! 🎉' : 'Job complete! 🎉'}
+        footer={<>
+          <Button variant="secondary" fullWidth onClick={() => { setCompletePrompt(null); toast.success('✓') }}>
+            {lang === 'es' ? 'Omitir' : 'Skip for now'}
+          </Button>
+          <Button fullWidth onClick={() => {
+            const cid = completePrompt?.clientId
+            setCompletePrompt(null)
+            if (cid) router.push(`/clients/${cid}?openInvoice=true`)
+          }}>
+            {lang === 'es' ? 'Enviar factura' : 'Send invoice'}
+          </Button>
+        </>}
+      >
+        <p className="text-[14px] text-gray-600">
+          {lang === 'es'
+            ? `¿Enviar factura a ${clientMap[completePrompt?.clientId]?.name || ''} ahora?`
+            : `Send invoice to ${clientMap[completePrompt?.clientId]?.name || ''} now?`}
+        </p>
       </Modal>
     </AppShell>
   )
