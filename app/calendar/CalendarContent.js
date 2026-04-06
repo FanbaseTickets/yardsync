@@ -10,7 +10,7 @@ import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Badge, Modal, Select, EmptyState, Skeleton, Input } from '@/components/ui'
 import { getClients, getSchedules, addSchedule, updateSchedule, deleteSchedule, getServices, updateScheduleMaterials, saveInvoice } from '@/lib/db'
 import { deleteAllClientSchedules } from '@/lib/db'
-import { formatCents, buildInvoiceLineItems } from '@/lib/fee'
+import { formatCents } from '@/lib/fee'
 import { validatePhone, formatPhone } from '@/lib/phone'
 import PhoneInput from '@/components/ui/PhoneInput'
 import {
@@ -359,7 +359,11 @@ export default function CalendarPage() {
     try {
       const basePrice   = walkInInvoiceTarget.basePrice || 0
       const finalAddons = buildFinalAddons(walkInInvAddons, walkInInvVariables)
-      const { lineItems, totalCents } = buildInvoiceLineItems({ baseAmountCents: basePrice, packageType: 'onetime', addons: finalAddons })
+      const lineItems = [
+        { label: walkInInvoiceTarget.clientName || 'Walk-in service', amountCents: basePrice, category: 'base' },
+        ...finalAddons.map(a => ({ label: a.label, amountCents: a.amountCents, category: 'addon' })),
+      ]
+      const totalCents = basePrice + finalAddons.reduce((s, a) => s + a.amountCents, 0)
       const res = await fetch('/api/stripe/invoice', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -376,7 +380,19 @@ export default function CalendarPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Invoice failed')
-      // Invoice doc written server-side by /api/stripe/invoice
+
+      // Send payment link via SMS
+      if (walkInInvoiceTarget.clientPhone && data.paymentUrl) {
+        const smsBody = lang === 'es'
+          ? `Hola ${walkInInvoiceTarget.clientName}! Tu factura de $${(totalCents / 100).toFixed(2)} está lista. Paga aquí: ${data.paymentUrl}`
+          : `Hi ${walkInInvoiceTarget.clientName}! Your invoice for $${(totalCents / 100).toFixed(2)} is ready. Pay here: ${data.paymentUrl}`
+        fetch('/api/twilio/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientPhone: walkInInvoiceTarget.clientPhone, message: smsBody }),
+        }).catch(err => console.error('Walk-in SMS failed (non-fatal):', err))
+      }
+
       toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent ✓')
       setShowWalkInInvoice(false); loadData()
     } catch (err) { toast.error(err.message || translate('common', 'error')) }
@@ -470,10 +486,8 @@ export default function CalendarPage() {
   const totalJobsThisMonth    = schedules.length
 
   const walkInBase          = walkInInvoiceTarget?.basePrice || 0
-  const walkInBaseFee       = Math.max(Math.round(walkInBase * 0.08), 1000)
   const walkInInvAddonTotal = getAddonTotal(walkInInvAddons, walkInInvVariables)
-  const walkInInvAddonFee   = Math.round(walkInInvAddonTotal * 0.10)
-  const walkInInvoiceTotal  = walkInBase + walkInBaseFee + walkInInvAddonTotal + walkInInvAddonFee
+  const walkInInvoiceTotal  = walkInBase + walkInInvAddonTotal
 
   if (!mounted) return null
 
@@ -692,7 +706,7 @@ export default function CalendarPage() {
         <div className="space-y-4">
           <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
             <p className="text-[12px] text-amber-700">
-              {lang === 'es' ? 'Cliente sin perfil — solo para trabajos ocasionales.' : 'No profile needed — for one-off jobs only. For recurring clients, add them in Clients first.'}
+              {lang === 'es' ? 'Para trabajos únicos o servicios adicionales. Para clientes recurrentes, agrégalos en Clientes primero.' : 'For one-off jobs or add-on services for existing clients. For new recurring clients, add them in Clients first.'}
             </p>
           </div>
           <Input label={lang === 'es' ? 'Nombre del cliente *' : 'Client name *'} placeholder={lang === 'es' ? 'Juan García' : 'John Smith'} value={walkInName} onChange={e => setWalkInName(e.target.value)} />
@@ -713,7 +727,7 @@ export default function CalendarPage() {
             onChange={e => setWalkInEmail(e.target.value)}
           />
           <Input label={lang === 'es' ? 'Precio base' : 'Base job price'} placeholder="65" type="number" prefix="$" value={walkInPrice} onChange={e => setWalkInPrice(e.target.value)}
-            hint={lang === 'es' ? 'Tarifa 8% (mín $10)' : '8% YardSync fee applies (min $10)'} />
+            hint={lang === 'es' ? 'Tarifa YardSync 5.5% aplica' : '5.5% YardSync fee applies'} />
           <Select label={translate('calendar', 'time')} value={walkInTime} onChange={e => setWalkInTime(e.target.value)}>
             {TIMES.map(t => <option key={t} value={t}>{t}</option>)}
           </Select>
@@ -744,12 +758,8 @@ export default function CalendarPage() {
             {walkInInvoiceTarget?.clientPhone && <p className="text-[11px] text-gray-400">{walkInInvoiceTarget.clientPhone}</p>}
             {walkInInvoiceTarget?.clientEmail && <p className="text-[11px] text-gray-400">{walkInInvoiceTarget.clientEmail}</p>}
             <div className="flex justify-between text-[12px]">
-              <span className="text-gray-400">{lang === 'es' ? 'Tarifa YardSync (8%, mín $10)' : 'YardSync fee (8%, min $10)'}</span>
-              <span className="text-brand-600">+{formatCents(walkInBaseFee)}</span>
-            </div>
-            <div className="flex justify-between text-[13px] border-t border-gray-200 pt-1.5">
-              <span className="font-medium text-gray-700">{lang === 'es' ? 'Subtotal base' : 'Base subtotal'}</span>
-              <span className="font-semibold">{formatCents(walkInBase + walkInBaseFee)}</span>
+              <span className="text-gray-400">{lang === 'es' ? 'Tarifa YardSync (5.5%)' : 'YardSync fee (5.5%)'}</span>
+              <span className="text-brand-600">{lang === 'es' ? 'deducido del pago' : 'deducted from payout'}</span>
             </div>
           </div>
           <AddonSelector addonServices={addonServices} lang={lang} fixedAddons={walkInInvAddons} setFixedAddons={setWalkInInvAddons} variables={walkInInvVariables} setVariables={setWalkInInvVariables} />
@@ -757,18 +767,14 @@ export default function CalendarPage() {
             <p className="text-[11px] font-medium text-brand-700 uppercase tracking-wide mb-2">{lang === 'es' ? 'Total de factura' : 'Invoice total'}</p>
             <div className="flex justify-between text-[13px]">
               <span className="text-brand-700">{lang === 'es' ? 'Base' : 'Base'}</span>
-              <span className="font-medium text-brand-900">{formatCents(walkInBase + walkInBaseFee)}</span>
+              <span className="font-medium text-brand-900">{formatCents(walkInBase)}</span>
             </div>
-            {walkInInvAddonTotal > 0 && <>
+            {walkInInvAddonTotal > 0 && (
               <div className="flex justify-between text-[13px]">
                 <span className="text-brand-700">{lang === 'es' ? 'Adicionales' : 'Add-ons'}</span>
                 <span className="font-medium text-brand-900">{formatCents(walkInInvAddonTotal)}</span>
               </div>
-              <div className="flex justify-between text-[12px]">
-                <span className="text-brand-600">{lang === 'es' ? 'Tarifa (+10%)' : 'Add-on fee (+10%)'}</span>
-                <span className="text-brand-600">+{formatCents(walkInInvAddonFee)}</span>
-              </div>
-            </>}
+            )}
             <div className="flex justify-between text-[15px] border-t border-brand-200 pt-2 mt-1">
               <span className="font-bold text-brand-900">{lang === 'es' ? 'Cliente paga' : 'Client pays'}</span>
               <span className="font-bold text-brand-900">{formatCents(walkInInvoiceTotal)}</span>
