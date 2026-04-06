@@ -560,7 +560,22 @@ async function handleSendInvoice() {
               <span className="text-gray-600">{client.packageLabel || client.packageType}</span>
               <span className="font-medium">{formatCents(baseCents)}</span>
             </div>
-            <div className="flex justify-between text-[12px]">
+            {jobMaterials.length > 0 && (
+              <>
+                <div className="border-t border-gray-200 pt-1.5 mt-1.5">
+                  <p className="text-[11px] text-amber-700 font-medium mb-1">
+                    {lang === 'es' ? 'Materiales del trabajo' : 'Job materials'}
+                  </p>
+                </div>
+                {jobMaterials.map(m => (
+                  <div key={m.id} className="flex justify-between text-[12px]">
+                    <span className="text-amber-600">{m.name} ({m.qty} × {formatCents(m.unitCostCents)})</span>
+                    <span className="text-amber-700">{formatCents(m.totalCents)}</span>
+                  </div>
+                ))}
+              </>
+            )}
+            <div className="flex justify-between text-[12px] pt-1">
               <span className="text-gray-400">{lang === 'es' ? 'Tarifa YardSync' : 'YardSync fee'}</span>
               <span className="text-brand-600">{lang === 'es' ? '5.5% deducido del pago' : '5.5% deducted from payout'}</span>
             </div>
