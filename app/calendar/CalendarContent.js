@@ -9,7 +9,7 @@ import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Badge, Modal, Select, EmptyState, Skeleton, Input } from '@/components/ui'
-import { getClients, getSchedules, addSchedule, updateSchedule, deleteSchedule, getServices, updateScheduleMaterials, saveInvoice } from '@/lib/db'
+import { getClients, getSchedules, addSchedule, updateSchedule, deleteSchedule, getServices, updateScheduleMaterials, saveInvoice, getClientInvoices } from '@/lib/db'
 import { deleteAllClientSchedules } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { validatePhone, formatPhone } from '@/lib/phone'
@@ -412,11 +412,46 @@ export default function CalendarPage() {
     try {
       await updateSchedule(schedule.id, { status: 'completed' })
       loadData()
-      // Show invoice prompt for recurring clients
-      if (schedule.clientId && !schedule.isWalkIn) {
-        setCompletePrompt(schedule)
-      } else {
+
+      // For walk-in or no clientId — just show toast
+      if (!schedule.clientId || schedule.isWalkIn) {
         toast.success('✓')
+        return
+      }
+
+      // Check if a paid invoice already exists this billing period
+      const client = clientMap[schedule.clientId]
+      const pkg = client?.packageType || 'onetime'
+      const now = new Date()
+
+      let periodStart = null
+      if (pkg === 'monthly') {
+        periodStart = new Date(now.getFullYear(), now.getMonth(), 1)
+      } else if (pkg === 'quarterly') {
+        periodStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1)
+      } else if (pkg === 'annual') {
+        periodStart = new Date(now.getFullYear(), 0, 1)
+      } else if (pkg === 'weekly') {
+        periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay())
+      }
+      // onetime or unknown: periodStart stays null — always show prompt
+
+      try {
+        const clientInvoices = await getClientInvoices(schedule.clientId)
+        const hasPaidInPeriod = periodStart && clientInvoices.some(inv => {
+          if (inv.status !== 'paid') return false
+          const d = inv.createdAt?.toDate ? inv.createdAt.toDate() : new Date(inv.createdAt || 0)
+          return d >= periodStart
+        })
+
+        if (hasPaidInPeriod) {
+          toast.success(lang === 'es' ? 'Trabajo completo — ya facturado ✓' : 'Job complete — already invoiced ✓')
+        } else {
+          setCompletePrompt(schedule)
+        }
+      } catch {
+        // If invoice check fails, still show prompt
+        setCompletePrompt(schedule)
       }
     } catch { toast.error(translate('common', 'error')) }
   }
