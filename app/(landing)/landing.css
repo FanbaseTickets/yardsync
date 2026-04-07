@@ -66,13 +66,6 @@
   background: #f3f4f6;
   overflow: hidden;
   object-fit: cover;
-  /* TEMPORARY: until raw screenshots replace the legacy
-     phone-*.png files (which have a bezel baked in),
-     scale + recenter to crop the old bezel.
-     Once /public/landing/screen-*.png contains bare
-     screen content, remove the next two lines. */
-  transform: scale(1.18);
-  transform-origin: center 52%;
 }
 .lp-phone.lp-phone-lg { max-width: 280px; }
 
