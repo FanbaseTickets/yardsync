@@ -1,4 +1,16 @@
 /* Landing page — scoped lp- prefixed styles */
+
+/* ──────────────────────────────────────────────────────
+   PHONE SCREEN IMAGE SPEC
+   Export raw app screenshots WITHOUT a phone bezel.
+   The .lp-phone CSS class draws the bezel for you.
+   Recommended dimensions: 390 × 844 px (iPhone 14 logical)
+   Or @2x for retina sharpness: 780 × 1688 px
+   Aspect ratio: 9:19.5
+   Save as PNG to /public/landing/screen-{name}.png
+   Examples: screen-dashboard.png, screen-calendar.png, etc.
+   ────────────────────────────────────────────────────── */
+
 :root {
   --gd: #085041;
   --gp: #0F6E56;
@@ -13,6 +25,56 @@
 }
 
 .lp-page { background: var(--gl); color: var(--g9); min-height: 100vh; }
+
+/* ── REUSABLE PHONE FRAME ────────────────────────── */
+/* Wrap any raw app screenshot in <div class="lp-phone">
+   to give it a realistic iPhone-style bezel.
+   Size is controlled by setting width on .lp-phone
+   (or its parent). Aspect ratio is locked. */
+.lp-phone {
+  position: relative;
+  width: 100%;
+  max-width: 220px;
+  margin: 0 auto;
+  aspect-ratio: 9 / 19.5;
+  background: #0a0a0a;
+  border-radius: 38px;
+  padding: 10px;
+  box-shadow:
+    0 0 0 2px #1a1a1a,
+    0 20px 40px -10px rgba(0, 0, 0, 0.35),
+    0 8px 20px -8px rgba(0, 0, 0, 0.25);
+}
+.lp-phone::before {
+  /* Dynamic island / notch */
+  content: '';
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32%;
+  height: 22px;
+  background: #0a0a0a;
+  border-radius: 100px;
+  z-index: 2;
+}
+.lp-phone-screen {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 28px;
+  background: #f3f4f6;
+  overflow: hidden;
+  object-fit: cover;
+  /* TEMPORARY: until raw screenshots replace the legacy
+     phone-*.png files (which have a bezel baked in),
+     scale + recenter to crop the old bezel.
+     Once /public/landing/screen-*.png contains bare
+     screen content, remove the next two lines. */
+  transform: scale(1.18);
+  transform-origin: center 52%;
+}
+.lp-phone.lp-phone-lg { max-width: 280px; }
 
 /* ── NAV ─────────────────────────────────────────── */
 .lp-nav {
@@ -311,11 +373,8 @@
   font-size: 12px;
   font-weight: 600;
 }
-.lp-fph img {
-  width: 100%;
-  max-width: 320px;
-  height: auto;
-  display: block;
+.lp-fph .lp-phone {
+  max-width: 280px;
   margin: 0 auto;
 }
 
@@ -355,11 +414,8 @@
   background: rgba(255, 255, 255, 0.08);
   transform: translateY(-3px);
 }
-.lp-sc img {
-  width: 100%;
+.lp-sc .lp-phone {
   max-width: 200px;
-  height: auto;
-  display: block;
   margin: 0 auto 16px;
 }
 .lp-sc-lbl {

@@ -61,6 +61,7 @@ export default function LandingPage() {
             <div className="lp-trade"><span className="ico">🪟</span>Window Washing</div>
             <div className="lp-trade"><span className="ico">❄️</span>HVAC Maintenance</div>
             <div className="lp-trade"><span className="ico">⚡</span>Electrical (Recurring)</div>
+            <div className="lp-trade"><span className="ico">✨</span>...and many more</div>
           </div>
         </div>
       </section>
@@ -87,7 +88,7 @@ export default function LandingPage() {
                 <span>SMS delivery stats</span>
               </div>
             </div>
-            <div className="lp-fph"><img src="/landing/phone-dashboard.png" alt="Dashboard" /></div>
+            <div className="lp-fph"><div className="lp-phone lp-phone-lg"><img className="lp-phone-screen" src="/landing/screen-dashboard.png" alt="Dashboard" /></div></div>
           </div>
 
           <div className="lp-fr rev">
@@ -103,7 +104,7 @@ export default function LandingPage() {
                 <span>Walk-in job quick-add</span>
               </div>
             </div>
-            <div className="lp-fph"><img src="/landing/phone-calendar.png" alt="Calendar" /></div>
+            <div className="lp-fph"><div className="lp-phone lp-phone-lg"><img className="lp-phone-screen" src="/landing/screen-calendar.png" alt="Calendar" /></div></div>
           </div>
 
           <div className="lp-fr">
@@ -119,7 +120,7 @@ export default function LandingPage() {
                 <span>Quick SMS from profile</span>
               </div>
             </div>
-            <div className="lp-fph"><img src="/landing/phone-clients.png" alt="Clients" /></div>
+            <div className="lp-fph"><div className="lp-phone lp-phone-lg"><img className="lp-phone-screen" src="/landing/screen-clients.png" alt="Clients" /></div></div>
           </div>
 
           <div className="lp-fr rev">
@@ -135,7 +136,7 @@ export default function LandingPage() {
                 <span>One-tap invoice or SMS</span>
               </div>
             </div>
-            <div className="lp-fph"><img src="/landing/phone-client-detail.png" alt="Client detail" /></div>
+            <div className="lp-fph"><div className="lp-phone lp-phone-lg"><img className="lp-phone-screen" src="/landing/screen-client-detail.png" alt="Client detail" /></div></div>
           </div>
 
           <div className="lp-fr">
@@ -151,7 +152,7 @@ export default function LandingPage() {
                 <span>Attach to invoices</span>
               </div>
             </div>
-            <div className="lp-fph"><img src="/landing/phone-materials.png" alt="Materials tracking" /></div>
+            <div className="lp-fph"><div className="lp-phone lp-phone-lg"><img className="lp-phone-screen" src="/landing/screen-materials.png" alt="Materials tracking" /></div></div>
           </div>
         </div>
       </section>
@@ -165,12 +166,12 @@ export default function LandingPage() {
             <p>Every screen works on your phone, in the sun, with one hand.</p>
           </div>
           <div className="lp-sg">
-            <div className="lp-sc"><img src="/landing/phone-dashboard.png" alt="Dashboard"/><div className="lp-sc-lbl">Dashboard</div><div className="lp-sc-d">Revenue, jobs, clients at a glance</div></div>
-            <div className="lp-sc"><img src="/landing/phone-calendar.png" alt="Calendar"/><div className="lp-sc-lbl">Calendar</div><div className="lp-sc-d">Visual scheduling with reminders</div></div>
-            <div className="lp-sc"><img src="/landing/phone-clients.png" alt="Clients"/><div className="lp-sc-lbl">Client List</div><div className="lp-sc-d">Sort, filter, search instantly</div></div>
-            <div className="lp-sc"><img src="/landing/phone-client-detail.png" alt="Detail"/><div className="lp-sc-lbl">Client Profile</div><div className="lp-sc-d">Full history &amp; one-tap actions</div></div>
-            <div className="lp-sc"><img src="/landing/phone-materials.png" alt="Materials"/><div className="lp-sc-lbl">Materials</div><div className="lp-sc-d">Track costs per visit</div></div>
-            <div className="lp-sc"><img src="/landing/phone-pricing.png" alt="Pricing"/><div className="lp-sc-lbl">Invoicing</div><div className="lp-sc-d">Send &amp; track payments</div></div>
+            <div className="lp-sc"><div className="lp-phone"><img className="lp-phone-screen" src="/landing/screen-dashboard.png" alt="Dashboard"/></div><div className="lp-sc-lbl">Dashboard</div><div className="lp-sc-d">Revenue, jobs, clients at a glance</div></div>
+            <div className="lp-sc"><div className="lp-phone"><img className="lp-phone-screen" src="/landing/screen-calendar.png" alt="Calendar"/></div><div className="lp-sc-lbl">Calendar</div><div className="lp-sc-d">Visual scheduling with reminders</div></div>
+            <div className="lp-sc"><div className="lp-phone"><img className="lp-phone-screen" src="/landing/screen-clients.png" alt="Clients"/></div><div className="lp-sc-lbl">Client List</div><div className="lp-sc-d">Sort, filter, search instantly</div></div>
+            <div className="lp-sc"><div className="lp-phone"><img className="lp-phone-screen" src="/landing/screen-client-detail.png" alt="Detail"/></div><div className="lp-sc-lbl">Client Profile</div><div className="lp-sc-d">Full history &amp; one-tap actions</div></div>
+            <div className="lp-sc"><div className="lp-phone"><img className="lp-phone-screen" src="/landing/screen-materials.png" alt="Materials"/></div><div className="lp-sc-lbl">Materials</div><div className="lp-sc-d">Track costs per visit</div></div>
+            <div className="lp-sc"><div className="lp-phone"><img className="lp-phone-screen" src="/landing/screen-pricing.png" alt="Invoicing"/></div><div className="lp-sc-lbl">Invoicing</div><div className="lp-sc-d">Send &amp; track payments</div></div>
           </div>
         </div>
       </section>
