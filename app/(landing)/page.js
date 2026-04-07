@@ -4,7 +4,7 @@ import './landing.css'
 
 export default function LandingPage() {
   return (
-    <>
+    <div className="lp-page">
       {/* NAV */}
       <nav className="lp-nav">
         <a href="/" className="lp-logo">
@@ -323,6 +323,6 @@ export default function LandingPage() {
         </div>
         <p className="lp-fcopy">YardSync by JNew Technologies, LLC · San Antonio, TX · <a href="mailto:support@yardsyncapp.com">support@yardsyncapp.com</a><br/>© 2025 JNew Technologies, LLC. All rights reserved.</p>
       </footer>
-    </>
+    </div>
   )
 }

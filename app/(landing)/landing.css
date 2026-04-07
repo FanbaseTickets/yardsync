@@ -12,7 +12,7 @@
   --accent: #9fe3d1;
 }
 
-body { background: #fff; color: var(--g9); }
+.lp-page { background: var(--gl); color: var(--g9); min-height: 100vh; }
 
 /* ── NAV ─────────────────────────────────────────── */
 .lp-nav {
