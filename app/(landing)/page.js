@@ -159,25 +159,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SCREENS GRID */}
-      <section className="lp-screens">
-        <div className="lp-screens-in">
-          <div className="lp-sh">
-            <div className="sec-lbl" style={{color:'var(--y)'}}>App screens | Pantallas</div>
-            <h2 className="sec-h" style={{color:'#fff'}}>Designed for the field — not the office</h2>
-            <p>Every screen works on your phone, in the sun, with one hand.</p>
-          </div>
-          <div className="lp-sg">
-            <div className="lp-sc"><div className="lp-phone"><img className="lp-phone-screen" src="/landing/screen-dashboard.png" alt="Dashboard"/></div><div className="lp-sc-lbl">Dashboard</div><div className="lp-sc-d">Revenue, jobs, clients at a glance</div></div>
-            <div className="lp-sc"><div className="lp-phone"><img className="lp-phone-screen" src="/landing/screen-calendar.png" alt="Calendar"/></div><div className="lp-sc-lbl">Calendar</div><div className="lp-sc-d">Visual scheduling with reminders</div></div>
-            <div className="lp-sc"><div className="lp-phone"><img className="lp-phone-screen" src="/landing/screen-clients.png" alt="Clients"/></div><div className="lp-sc-lbl">Client List</div><div className="lp-sc-d">Sort, filter, search instantly</div></div>
-            <div className="lp-sc"><div className="lp-phone"><img className="lp-phone-screen" src="/landing/screen-client-detail.png" alt="Detail"/></div><div className="lp-sc-lbl">Client Profile</div><div className="lp-sc-d">Full history &amp; one-tap actions</div></div>
-            <div className="lp-sc"><div className="lp-phone"><img className="lp-phone-screen" src="/landing/screen-materials.png" alt="Materials"/></div><div className="lp-sc-lbl">Materials</div><div className="lp-sc-d">Track costs per visit</div></div>
-            <div className="lp-sc"><div className="lp-phone"><img className="lp-phone-screen" src="/landing/screen-pricing.png" alt="Invoicing"/></div><div className="lp-sc-lbl">Invoicing</div><div className="lp-sc-d">Send &amp; track payments</div></div>
-          </div>
-        </div>
-      </section>
-
       {/* BILINGUAL */}
       <section className="lp-bili">
         <div className="lp-bili-in">
