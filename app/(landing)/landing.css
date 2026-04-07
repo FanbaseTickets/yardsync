@@ -139,8 +139,8 @@
   margin: 0 auto;
   padding: 80px 32px 100px;
   display: grid;
-  grid-template-columns: 1.1fr 1fr;
-  gap: 60px;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 40px;
   align-items: center;
   font-family: 'DM Sans', -apple-system, sans-serif;
 }
@@ -237,10 +237,41 @@
   color: var(--g6);
   margin-top: 2px;
 }
-.lp-hero-phones-wrap img {
-  width: 100%;
-  height: auto;
-  display: block;
+.lp-hero-phones-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px 0;
+  min-height: 560px;
+}
+.lp-hero-phones-wrap .lp-phone {
+  max-width: 220px;
+  flex: 0 0 220px;
+  transition: transform 0.4s ease;
+}
+/* Side phones tucked behind, rotated outward */
+.lp-hero-phones-wrap .lp-phone:nth-child(1) {
+  transform: translateY(28px) rotate(-6deg);
+  z-index: 1;
+}
+.lp-hero-phones-wrap .lp-phone:nth-child(3) {
+  transform: translateY(28px) rotate(6deg);
+  z-index: 1;
+}
+/* Center phone slightly larger and lifted */
+.lp-hero-phones-wrap .lp-phone:nth-child(2) {
+  max-width: 250px;
+  flex: 0 0 250px;
+  transform: translateY(-12px);
+  z-index: 2;
+  position: relative;
+  margin: 0 -24px;
+}
+.lp-hero-phones-wrap .lp-phone:hover {
+  transform: translateY(-20px) rotate(0deg);
+  z-index: 3;
 }
 
 /* ── Shared section helpers ──────────────────────── */
@@ -909,6 +940,20 @@
   .lp-zero-price { font-size: 60px; }
   .lp-who, .lp-feat, .lp-screens, .lp-bili, .lp-vol, .lp-pricing, .lp-how, .lp-con, .lp-cta-section {
     padding: 60px 20px;
+  }
+  /* Hero phones — shrink and tighten on mobile */
+  .lp-hero-phones-wrap {
+    min-height: 460px;
+    gap: 8px;
+  }
+  .lp-hero-phones-wrap .lp-phone {
+    max-width: 150px;
+    flex: 0 0 150px;
+  }
+  .lp-hero-phones-wrap .lp-phone:nth-child(2) {
+    max-width: 170px;
+    flex: 0 0 170px;
+    margin: 0 -16px;
   }
 }
 

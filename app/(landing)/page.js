@@ -38,7 +38,9 @@ export default function LandingPage() {
           </div>
         </div>
         <div className="lp-hero-phones-wrap">
-          <img src="/landing/phones-hero.png" alt="YardSync app screenshots" />
+          <div className="lp-phone"><img className="lp-phone-screen" src="/landing/screen-dashboard.png" alt="Dashboard" /></div>
+          <div className="lp-phone"><img className="lp-phone-screen" src="/landing/screen-calendar.png" alt="Calendar" /></div>
+          <div className="lp-phone"><img className="lp-phone-screen" src="/landing/screen-client-detail.png" alt="Client profile" /></div>
         </div>
       </section>
 
