@@ -156,6 +156,22 @@ export default function LandingPage() {
             </div>
             <div className="lp-fph"><div className="lp-phone lp-phone-lg"><img className="lp-phone-screen" src="/landing/app-screen-materials-v4.png" alt="Materials tracking" /></div></div>
           </div>
+
+          <div className="lp-fr rev">
+            <div className="lp-ftext">
+              <div className="lp-ftag">INVOICING</div>
+              <h3 className="lp-fh">Send invoices in one tap. See exactly what you keep.</h3>
+              <p className="lp-fp">Stripe-powered invoicing with a transparent 5.5% flat fee — no hidden processing charges, no monthly minimums. Every invoice shows the service breakdown, materials, total, and exactly what hits your bank.</p>
+              <p className="lp-fes">Facturación con Stripe — tarifa fija del 5.5%, sin sorpresas.</p>
+              <div className="lp-cks">
+                <span>One-tap send</span>
+                <span>Auto-calculated fee</span>
+                <span>Materials included</span>
+                <span>Real-time payment status</span>
+              </div>
+            </div>
+            <div className="lp-fph"><div className="lp-phone lp-phone-lg"><img className="lp-phone-screen" src="/landing/app-invoice-summary-v4.png" alt="Invoice summary with fee breakdown" /></div></div>
+          </div>
         </div>
       </section>
 
