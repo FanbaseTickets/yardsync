@@ -211,6 +211,7 @@ export default function CalendarPage() {
   const [extraSaving,      setExtraSaving]      = useState(false)
 
   const [sendingInvoiceId, setSendingInvoiceId] = useState(null)
+  const [invoicePreview,   setInvoicePreview]   = useState(null)
   const [completePrompt, setCompletePrompt] = useState(null)
   const [matDisplay,      setMatDisplay]      = useState({})
 
@@ -339,7 +340,7 @@ export default function CalendarPage() {
     })
   }
 
-  async function handleSendInvoice(schedule) {
+  function handleSendInvoice(schedule) {
     const isWalkIn  = !!schedule.isWalkIn
     const c         = isWalkIn ? null : clientMap[schedule.clientId]
     const clientName  = isWalkIn ? (schedule.clientName || 'Walk-in') : (c?.name || schedule.clientName || '')
@@ -377,6 +378,16 @@ export default function CalendarPage() {
       ...materials.map(m => ({ label: m.name, amountCents: m.totalCents || 0, category: 'material' })),
     ]
 
+    setInvoicePreview({
+      schedule, isWalkIn, clientName, clientEmail, clientPhone,
+      baseLabel, baseCents, extras, materials, totalCents, lineItems,
+    })
+  }
+
+  async function confirmSendInvoice() {
+    const p = invoicePreview
+    if (!p) return
+    const { schedule, isWalkIn, clientName, clientEmail, clientPhone, totalCents, lineItems } = p
     setSendingInvoiceId(schedule.id)
     try {
       const res = await fetch('/api/stripe/invoice', {
@@ -411,6 +422,7 @@ export default function CalendarPage() {
         toast.success(lang === 'es' ? 'Factura creada ✓' : 'Invoice created ✓')
       }
       setExpandedId(null)
+      setInvoicePreview(null)
       loadData()
     } catch (e) {
       toast.error(e.message || (lang === 'es' ? 'Error al enviar' : 'Failed to send'))
@@ -1168,6 +1180,64 @@ export default function CalendarPage() {
             ? `¿Enviar factura a ${clientMap[completePrompt?.clientId]?.name || ''} ahora?`
             : `Send invoice to ${clientMap[completePrompt?.clientId]?.name || ''} now?`}
         </p>
+      </Modal>
+
+      {/* Invoice preview / confirm modal */}
+      <Modal
+        open={!!invoicePreview}
+        onClose={() => !sendingInvoiceId && setInvoicePreview(null)}
+        title={lang === 'es' ? 'Confirmar factura' : 'Confirm invoice'}
+      >
+        {invoicePreview && (() => {
+          const fee = Math.round(invoicePreview.totalCents * 0.055)
+          const net = invoicePreview.totalCents - fee
+          return (
+            <div className="space-y-3">
+              <p className="text-[12px] text-gray-500">
+                {lang === 'es' ? 'Para' : 'To'} <span className="font-medium text-gray-700">{invoicePreview.clientName}</span>
+                {invoicePreview.clientPhone && <> · {invoicePreview.clientPhone}</>}
+              </p>
+              <div className="rounded-lg border border-gray-200 divide-y divide-gray-100">
+                <div className="flex justify-between px-3 py-2 text-[13px]">
+                  <span className="text-gray-700">{invoicePreview.baseLabel}</span>
+                  <span className="font-medium">{formatCents(invoicePreview.baseCents)}</span>
+                </div>
+                {invoicePreview.extras.map((a, i) => (
+                  <div key={`e${i}`} className="flex justify-between px-3 py-2 text-[13px]">
+                    <span className="text-gray-700">+ {a.label}</span>
+                    <span className="font-medium">{formatCents(a.amountCents || 0)}</span>
+                  </div>
+                ))}
+                {invoicePreview.materials.map((m, i) => (
+                  <div key={`m${i}`} className="flex justify-between px-3 py-2 text-[13px] bg-amber-50">
+                    <span className="text-amber-800">📦 {m.name}</span>
+                    <span className="font-medium text-amber-800">{formatCents(m.totalCents || 0)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between px-3 py-2 text-[13px] bg-gray-50">
+                  <span className="text-gray-500">{lang === 'es' ? 'Cliente paga' : 'Client pays'}</span>
+                  <span className="font-bold text-gray-900">{formatCents(invoicePreview.totalCents)}</span>
+                </div>
+                <div className="flex justify-between px-3 py-1.5 text-[11px] text-gray-500">
+                  <span>{lang === 'es' ? 'Comisión Stripe (5.5%)' : 'Stripe fee (5.5%)'}</span>
+                  <span>−{formatCents(fee)}</span>
+                </div>
+                <div className="flex justify-between px-3 py-2 text-[13px] bg-brand-50">
+                  <span className="text-brand-700 font-medium">{lang === 'es' ? 'Tú recibes' : 'You receive'}</span>
+                  <span className="font-bold text-brand-700">{formatCents(net)}</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <Button variant="secondary" onClick={() => setInvoicePreview(null)} disabled={!!sendingInvoiceId}>
+                  {lang === 'es' ? 'Cancelar' : 'Cancel'}
+                </Button>
+                <Button icon={DollarSign} loading={!!sendingInvoiceId} onClick={confirmSendInvoice}>
+                  {lang === 'es' ? 'Enviar ahora' : 'Send now'}
+                </Button>
+              </div>
+            </div>
+          )
+        })()}
       </Modal>
 
       {/* Add extra service modal */}
