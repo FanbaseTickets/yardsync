@@ -366,11 +366,14 @@ export default function CalendarPage() {
     try {
       const basePrice   = walkInInvoiceTarget.basePrice || 0
       const finalAddons = buildFinalAddons(walkInInvAddons, walkInInvVariables)
+      const materials   = walkInInvoiceTarget.materials || []
+      const materialsTotalCents = materials.reduce((s, m) => s + (m.totalCents || 0), 0)
       const lineItems = [
         { label: walkInInvoiceTarget.clientName || 'Walk-in service', amountCents: basePrice, category: 'base' },
         ...finalAddons.map(a => ({ label: a.label, amountCents: a.amountCents, category: 'addon' })),
+        ...materials.map(m => ({ label: m.name, amountCents: m.totalCents || 0, category: 'material' })),
       ]
-      const totalCents = basePrice + finalAddons.reduce((s, a) => s + a.amountCents, 0)
+      const totalCents = basePrice + finalAddons.reduce((s, a) => s + a.amountCents, 0) + materialsTotalCents
       const res = await fetch('/api/stripe/invoice', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
