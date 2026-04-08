@@ -15,7 +15,7 @@ import { formatCents } from '@/lib/fee'
 import { validatePhone, formatPhone } from '@/lib/phone'
 import PhoneInput from '@/components/ui/PhoneInput'
 import {
-  ChevronLeft, ChevronRight, Plus, CalendarDays,
+  ChevronLeft, ChevronRight, ChevronDown, Plus, CalendarDays,
   Trash2, CheckCircle2, RefreshCw, AlertTriangle, Zap, DollarSign, Package, X
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -202,6 +202,8 @@ export default function CalendarPage() {
   const [materialsTarget, setMaterialsTarget] = useState(null)
   const [materialsRows,   setMaterialsRows]   = useState([])
   const [materialsSaving, setMaterialsSaving] = useState(false)
+
+  const [expandedId, setExpandedId] = useState(null)
   const [completePrompt, setCompletePrompt] = useState(null)
   const [matDisplay,      setMatDisplay]      = useState({})
 
@@ -270,6 +272,18 @@ export default function CalendarPage() {
       setOccurrences('8')
     }
     setShowAddModal(true)
+  }
+
+  function openWalkInForClient(schedule) {
+    const c = clientMap[schedule.clientId]
+    setWalkInName(c?.name || schedule.clientName || '')
+    setWalkInPhone(c?.phone || schedule.clientPhone || '')
+    setWalkInEmail(c?.email || schedule.clientEmail || '')
+    setWalkInPhoneError('')
+    setWalkInPrice(''); setWalkInAddons([]); setWalkInVariables({})
+    setWalkInTime('9:00 AM')
+    setExpandedId(null)
+    setShowWalkIn(true)
   }
 
   function openWalkInModal() {
@@ -540,9 +554,11 @@ export default function CalendarPage() {
   const selectedClientObj     = clients.find(c => c.id === selectedClient)
   const totalJobsThisMonth    = schedules.length
 
-  const walkInBase          = walkInInvoiceTarget?.basePrice || 0
-  const walkInInvAddonTotal = getAddonTotal(walkInInvAddons, walkInInvVariables)
-  const walkInInvoiceTotal  = walkInBase + walkInInvAddonTotal
+  const walkInBase           = walkInInvoiceTarget?.basePrice || 0
+  const walkInInvAddonTotal  = getAddonTotal(walkInInvAddons, walkInInvVariables)
+  const walkInMaterialsList  = walkInInvoiceTarget?.materials || []
+  const walkInMaterialsTotal = walkInMaterialsList.reduce((s, m) => s + (m.totalCents || 0), 0)
+  const walkInInvoiceTotal   = walkInBase + walkInInvAddonTotal + walkInMaterialsTotal
 
   if (!mounted) return null
 
@@ -624,19 +640,18 @@ export default function CalendarPage() {
                     const client    = clientMap[schedule.clientId]
                     const done      = schedule.status === 'completed'
                     const hasAddons = schedule.addons?.length > 0
+                    const isOpen    = expandedId === schedule.id
                     return (
                       <Card key={schedule.id} padding={false}>
-                        <div className="p-3 flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedId(isOpen ? null : schedule.id)}
+                          className="w-full p-3 flex items-center gap-3 text-left"
+                        >
                           <div className={`w-2 h-2 rounded-full flex-shrink-0 ${done ? 'bg-brand-500' : 'bg-amber-400'}`} />
                           <div className="flex-1 min-w-0">
                             <p className={`text-[13px] font-medium ${done ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
-                              {schedule.clientId ? (
-                                <button onClick={() => router.push(`/clients/${schedule.clientId}`)} className="hover:underline text-left">
-                                  {client?.name || schedule.clientName} ›
-                                </button>
-                              ) : (
-                                client?.name || schedule.clientName
-                              )}
+                              {client?.name || schedule.clientName}
                               {schedule.isWalkIn && (
                                 <span className="ml-1.5 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">
                                   {lang === 'es' ? 'Ocasional' : 'Walk-in'}
@@ -662,38 +677,54 @@ export default function CalendarPage() {
                               {schedule.smsSent && <span className="text-[11px] text-brand-600 font-medium">SMS ✓</span>}
                             </div>
                           </div>
-                          <div className="flex items-center gap-1">
-                            {schedule.isWalkIn && !done && (
-                              <button onClick={() => openWalkInInvoice(schedule)} aria-label="Invoice walk-in" className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-brand-50 transition-colors">
-                                <DollarSign size={14} className="text-brand-600" />
-                              </button>
-                            )}
-                            {!schedule.isWalkIn && !done && schedule.clientId && (
-                              <button onClick={() => router.push(`/clients/${schedule.clientId}?openInvoice=true`)} aria-label="Send invoice" className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-brand-50 transition-colors">
-                                <DollarSign size={14} className="text-brand-600" />
-                              </button>
-                            )}
-                            {!done && (
-                              <button onClick={() => openMaterials(schedule)} aria-label="Add materials" className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-amber-50 transition-colors">
-                                <Package size={14} className="text-amber-600" />
-                              </button>
+                          <ChevronDown size={16} className={`text-gray-400 flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {isOpen && (
+                          <div className="px-3 pb-3 pt-1 border-t border-gray-100 space-y-2">
+                            {client?.notes && (
+                              <div className="bg-gray-50 rounded-lg px-3 py-2">
+                                <p className="text-[10px] text-gray-400 font-medium uppercase mb-0.5">{translate('calendar_extra', 'notes')}</p>
+                                <p className="text-[12px] text-gray-500 italic">{client.notes}</p>
+                              </div>
                             )}
                             {!done && (
-                              <button onClick={() => handleComplete(schedule)} aria-label="Mark complete" className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-brand-50 transition-colors">
-                                <CheckCircle2 size={16} className="text-brand-600" />
+                              <>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {schedule.isWalkIn ? (
+                                    <Button icon={DollarSign} size="sm" onClick={() => { setExpandedId(null); openWalkInInvoice(schedule) }}>
+                                      {lang === 'es' ? 'Enviar factura' : 'Send invoice'}
+                                    </Button>
+                                  ) : schedule.clientId ? (
+                                    <Button icon={DollarSign} size="sm" onClick={() => { setExpandedId(null); router.push(`/clients/${schedule.clientId}?openInvoice=true`) }}>
+                                      {lang === 'es' ? 'Enviar factura' : 'Send invoice'}
+                                    </Button>
+                                  ) : null}
+                                  <Button icon={Package} size="sm" variant="secondary" onClick={() => { setExpandedId(null); openMaterials(schedule) }}>
+                                    {lang === 'es' ? 'Materiales' : 'Add material'}
+                                  </Button>
+                                  <Button icon={CheckCircle2} size="sm" variant="secondary" onClick={() => { setExpandedId(null); handleComplete(schedule) }}>
+                                    {lang === 'es' ? 'Completar' : 'Mark complete'}
+                                  </Button>
+                                  <Button icon={Plus} size="sm" variant="secondary" onClick={() => openWalkInForClient(schedule)}>
+                                    {lang === 'es' ? 'Otro trabajo' : 'Add separate job'}
+                                  </Button>
+                                </div>
+                                <Button icon={Trash2} size="sm" variant="ghost" fullWidth onClick={() => { setExpandedId(null); promptDelete(schedule) }}>
+                                  {lang === 'es' ? 'Eliminar' : 'Delete'}
+                                </Button>
+                              </>
+                            )}
+                            {done && (
+                              <Button icon={Trash2} size="sm" variant="ghost" fullWidth onClick={() => { setExpandedId(null); promptDelete(schedule) }}>
+                                {lang === 'es' ? 'Eliminar' : 'Delete'}
+                              </Button>
+                            )}
+                            {schedule.clientId && (
+                              <button onClick={() => router.push(`/clients/${schedule.clientId}`)} className="w-full text-[11px] text-brand-600 hover:underline pt-1">
+                                {lang === 'es' ? 'Ver perfil del cliente →' : 'View client profile →'}
                               </button>
                             )}
-                            <button onClick={() => promptDelete(schedule)} aria-label="Delete schedule" className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-50 transition-colors">
-                              <Trash2 size={14} className="text-red-400" />
-                            </button>
-                          </div>
-                        </div>
-                        {client?.notes && (
-                          <div className="px-3 pb-3 -mt-1">
-                            <div className="bg-gray-50 rounded-lg px-3 py-2">
-                              <p className="text-[10px] text-gray-400 font-medium uppercase mb-0.5">{translate('calendar_extra', 'notes')}</p>
-                              <p className="text-[12px] text-gray-500 italic">{client.notes}</p>
-                            </div>
                           </div>
                         )}
                       </Card>
@@ -839,6 +870,12 @@ export default function CalendarPage() {
               <div className="flex justify-between text-[13px]">
                 <span className="text-brand-700">{lang === 'es' ? 'Adicionales' : 'Add-ons'}</span>
                 <span className="font-medium text-brand-900">{formatCents(walkInInvAddonTotal)}</span>
+              </div>
+            )}
+            {walkInMaterialsTotal > 0 && (
+              <div className="flex justify-between text-[13px]">
+                <span className="text-amber-700">{lang === 'es' ? 'Materiales' : 'Materials'}</span>
+                <span className="font-medium text-amber-800">{formatCents(walkInMaterialsTotal)}</span>
               </div>
             )}
             <div className="flex justify-between text-[15px] border-t border-brand-200 pt-2 mt-1">
