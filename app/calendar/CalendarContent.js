@@ -352,10 +352,10 @@ export default function CalendarPage() {
       return
     }
 
-    const baseCents = isWalkIn ? (schedule.basePrice || 0) : (c?.basePriceCents || 0)
-    const baseLabel = isWalkIn
-      ? (clientName || 'Walk-in service')
-      : (c?.packageLabel || 'Lawn Care Service')
+    // Recurring clients have base already covered by their monthly/annual plan —
+    // the calendar invoice only bills per-visit extras + materials. Walk-ins bill the base too.
+    const baseCents = isWalkIn ? (schedule.basePrice || 0) : 0
+    const baseLabel = isWalkIn ? (clientName || 'Walk-in service') : ''
     const extras    = schedule.addons || []
     const materials = schedule.materials || []
     const extrasSum = extras.reduce((s, a) => s + (a.amountCents || 0), 0)
@@ -363,7 +363,11 @@ export default function CalendarPage() {
     const totalCents = baseCents + extrasSum + matsSum
 
     if (totalCents <= 0) {
-      toast.error(lang === 'es' ? 'El total debe ser mayor a $0' : 'Total must be greater than $0')
+      toast.error(
+        isWalkIn
+          ? (lang === 'es' ? 'El total debe ser mayor a $0' : 'Total must be greater than $0')
+          : (lang === 'es' ? 'Sin extras ni materiales — la base ya está cubierta por el plan' : 'No extras or materials to bill — base is already covered by the plan')
+      )
       return
     }
 
@@ -373,7 +377,7 @@ export default function CalendarPage() {
     }
 
     const lineItems = [
-      { label: baseLabel, amountCents: baseCents, category: 'base' },
+      ...(baseCents > 0 ? [{ label: baseLabel, amountCents: baseCents, category: 'base' }] : []),
       ...extras.map(a => ({ label: a.label, amountCents: a.amountCents, category: 'addon' })),
       ...materials.map(m => ({ label: m.name, amountCents: m.totalCents || 0, category: 'material' })),
     ]
@@ -1197,11 +1201,20 @@ export default function CalendarPage() {
                 {lang === 'es' ? 'Para' : 'To'} <span className="font-medium text-gray-700">{invoicePreview.clientName}</span>
                 {invoicePreview.clientPhone && <> · {invoicePreview.clientPhone}</>}
               </p>
-              <div className="rounded-lg border border-gray-200 divide-y divide-gray-100">
-                <div className="flex justify-between px-3 py-2 text-[13px]">
-                  <span className="text-gray-700">{invoicePreview.baseLabel}</span>
-                  <span className="font-medium">{formatCents(invoicePreview.baseCents)}</span>
+              {!invoicePreview.isWalkIn && (
+                <div className="rounded-lg bg-brand-50 border border-brand-100 px-3 py-2 text-[12px] text-brand-700">
+                  {lang === 'es'
+                    ? 'El servicio base ya está cubierto por el plan recurrente — esta factura solo cobra los extras y materiales de esta visita.'
+                    : 'Base service is already covered by the recurring plan — this invoice only charges the extras and materials for this visit.'}
                 </div>
+              )}
+              <div className="rounded-lg border border-gray-200 divide-y divide-gray-100">
+                {invoicePreview.baseCents > 0 && (
+                  <div className="flex justify-between px-3 py-2 text-[13px]">
+                    <span className="text-gray-700">{invoicePreview.baseLabel}</span>
+                    <span className="font-medium">{formatCents(invoicePreview.baseCents)}</span>
+                  </div>
+                )}
                 {invoicePreview.extras.map((a, i) => (
                   <div key={`e${i}`} className="flex justify-between px-3 py-2 text-[13px]">
                     <span className="text-gray-700">+ {a.label}</span>
