@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { queryCollection, getDocument, setDocument, updateDocument } from '@/lib/firestoreRest'
+import { sendAdminEmail } from '@/lib/email'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -65,53 +66,91 @@ export async function POST(request) {
         console.log('webhook write complete', { uid: gardenerUid, stripeSubscriptionId: subscriptionId })
         console.log(`Subscription activated for ${gardenerUid} – ${plan}`)
 
-        // Look up gardener name + email for SMS alert
-        let gardenerName  = ''
-        let gardenerEmail = ''
+        // Detect Pro Setup add-on by inspecting line items
+        let hasSetup = false
         try {
-          const userDoc = await getDocument('users', gardenerUid)
-          if (userDoc) {
-            gardenerName  = userDoc.data.name || 'Unknown'
-            gardenerEmail = userDoc.data.email || session.customer_email || ''
-          }
-        } catch { /* best-effort */ }
+          const lineItems = await stripe.checkout.sessions.listLineItems(session.id)
+          const setupPriceId = process.env.STRIPE_PRICE_SETUP
+          hasSetup = setupPriceId && lineItems.data.some(li => li.price?.id === setupPriceId)
+          console.log('Pro Setup detection:', { hasSetup, setupPriceId, lineItemCount: lineItems.data.length })
+        } catch (liErr) {
+          console.error('listLineItems failed (non-fatal):', liErr.message)
+        }
 
-        await setDocument('users', gardenerUid, {
-          setupFeePaid:     true,
-          setupPaidAt:      new Date().toISOString(),
-          setupContacted:   false,
-          setupContactedAt: null,
-          setupNotes:       '',
-        })
-
-        console.log(`Setup package purchased by ${gardenerUid}`)
-
-        // SMS alert to admin
-        const adminPhone = process.env.ADMIN_PHONE_NUMBER
-        if (adminPhone) {
+        if (hasSetup) {
+          // Look up gardener name + email
+          let gardenerName  = ''
+          let gardenerEmail = ''
           try {
-            const twilioSid   = process.env.TWILIO_ACCOUNT_SID
-            const twilioToken = process.env.TWILIO_AUTH_TOKEN
-            const twilioFrom  = process.env.TWILIO_PHONE_NUMBER
-            const digits      = adminPhone.replace(/\D/g, '')
-            const to          = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
-            const smsBody     = new URLSearchParams({
-              To:   to,
-              From: twilioFrom,
-              Body: `New YardSync setup purchase – ${gardenerName} (${gardenerEmail}). Log in to admin: https://yardsync.vercel.app/admin`,
-            })
-            await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
-              method:  'POST',
-              headers: {
-                'Content-Type':  'application/x-www-form-urlencoded',
-                'Authorization': 'Basic ' + Buffer.from(`${twilioSid}:${twilioToken}`).toString('base64'),
-              },
-              body: smsBody.toString(),
-            })
-            console.log('Admin SMS sent')
-          } catch (smsErr) {
-            console.error('SMS alert failed:', smsErr.message)
+            const userDoc = await getDocument('users', gardenerUid)
+            if (userDoc) {
+              gardenerName  = userDoc.data.name || 'Unknown'
+              gardenerEmail = userDoc.data.email || session.customer_email || ''
+            }
+          } catch { /* best-effort */ }
+
+          await setDocument('users', gardenerUid, {
+            setupFeePaid:     true,
+            setupPaidAt:      new Date().toISOString(),
+            setupContacted:   false,
+            setupContactedAt: null,
+            setupNotes:       '',
+          })
+
+          console.log(`Pro Setup purchased by ${gardenerUid} — ${gardenerName}`)
+
+          // ── Admin SMS alert ──
+          const adminPhone = process.env.ADMIN_PHONE_NUMBER
+          if (adminPhone) {
+            try {
+              const twilioSid   = process.env.TWILIO_ACCOUNT_SID
+              const twilioToken = process.env.TWILIO_AUTH_TOKEN
+              const twilioFrom  = process.env.TWILIO_PHONE_NUMBER
+              const digits      = adminPhone.replace(/\D/g, '')
+              const to          = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
+              const smsBody     = new URLSearchParams({
+                To:   to,
+                From: twilioFrom,
+                Body: `New YardSync Pro Setup purchase – ${gardenerName} (${gardenerEmail}). Reach out to onboard. https://yardsyncapp.com/admin/dashboard`,
+              })
+              await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
+                method:  'POST',
+                headers: {
+                  'Content-Type':  'application/x-www-form-urlencoded',
+                  'Authorization': 'Basic ' + Buffer.from(`${twilioSid}:${twilioToken}`).toString('base64'),
+                },
+                body: smsBody.toString(),
+              })
+              console.log('Admin SMS sent for Pro Setup')
+            } catch (smsErr) {
+              console.error('Admin SMS failed (non-fatal):', smsErr.message)
+            }
           }
+
+          // ── Admin email alert ──
+          await sendAdminEmail({
+            subject: `🛠 New Pro Setup purchase — ${gardenerName}`,
+            text: `A new contractor just purchased the $99 Pro Setup add-on.\n\nName: ${gardenerName}\nEmail: ${gardenerEmail}\nUID: ${gardenerUid}\n\nReach out to begin onboarding their client list.\n\nAdmin dashboard: https://yardsyncapp.com/admin/dashboard`,
+            html: `
+              <div style="font-family:-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:24px;background:#f8faf9;">
+                <div style="background:#0F6E56;color:#fff;padding:20px 24px;border-radius:12px 12px 0 0;">
+                  <h1 style="margin:0;font-size:20px;font-weight:700;">🛠 New Pro Setup purchase</h1>
+                  <p style="margin:6px 0 0;opacity:.9;font-size:13px;">A contractor needs onboarding</p>
+                </div>
+                <div style="background:#fff;padding:24px;border-radius:0 0 12px 12px;border:1px solid #e4e9e5;border-top:none;">
+                  <p style="margin:0 0 16px;font-size:15px;color:#1a2420;"><strong>${gardenerName}</strong> just paid $99 for Pro Setup migration.</p>
+                  <table style="width:100%;font-size:14px;color:#5a6b60;">
+                    <tr><td style="padding:6px 0;">Name</td><td style="text-align:right;color:#1a2420;font-weight:600;">${gardenerName}</td></tr>
+                    <tr><td style="padding:6px 0;">Email</td><td style="text-align:right;color:#1a2420;font-weight:600;">${gardenerEmail}</td></tr>
+                    <tr><td style="padding:6px 0;">UID</td><td style="text-align:right;font-family:monospace;font-size:11px;color:#5a6b60;">${gardenerUid}</td></tr>
+                  </table>
+                  <p style="margin:20px 0 0;font-size:13px;color:#5a6b60;">Reach out within 24 hours to begin onboarding their client list.</p>
+                  <a href="https://yardsyncapp.com/admin/dashboard" style="display:inline-block;margin-top:16px;background:#0F6E56;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Open admin dashboard →</a>
+                </div>
+                <p style="margin:16px 0 0;text-align:center;font-size:11px;color:#8aaa96;">YardSync · JNew Technologies, LLC</p>
+              </div>
+            `,
+          })
         }
 
         break

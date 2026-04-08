@@ -412,6 +412,62 @@ export default function AdminDashboard() {
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
 
+        {/* Pending Pro Setups — alert widget */}
+        {(() => {
+          const pending = gardeners.filter(g => g.setupFeePaid && !g.setupContacted)
+          if (pending.length === 0) return null
+          const mostRecent = [...pending].sort((a, b) => {
+            const da = new Date(a.setupPaidAt || 0).getTime()
+            const db = new Date(b.setupPaidAt || 0).getTime()
+            return db - da
+          })[0]
+          const recentDate = mostRecent?.setupPaidAt
+            ? new Date(mostRecent.setupPaidAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+            : ''
+          return (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-5 animate-pulse-once">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                  <Zap size={22} className="text-amber-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-[16px] font-bold text-amber-300">
+                      {pending.length} Pro Setup{pending.length === 1 ? '' : 's'} pending onboarding
+                    </p>
+                    <span className="text-[10px] bg-amber-500/30 text-amber-200 px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">
+                      Action needed
+                    </span>
+                  </div>
+                  <p className="text-[12px] text-amber-200/80 mt-1">
+                    Most recent: <strong>{mostRecent?.name || 'Unknown'}</strong>{mostRecent?.email ? ` (${mostRecent.email})` : ''} · {recentDate}
+                  </p>
+                  <div className="mt-3 space-y-1.5">
+                    {pending.slice(0, 5).map(g => (
+                      <button
+                        key={g.id}
+                        onClick={() => { setSetupTarget(g); setSetupNotes(g.setupNotes || '') }}
+                        className="w-full flex items-center justify-between text-left bg-amber-500/5 hover:bg-amber-500/15 border border-amber-500/20 rounded-lg px-3 py-2 transition-colors"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-semibold text-white truncate">{g.name || 'Unknown'}</p>
+                          <p className="text-[11px] text-amber-200/60 truncate">{g.email || g.businessName || g.id}</p>
+                        </div>
+                        <span className="text-[11px] text-amber-300 font-medium flex-shrink-0 ml-3">Mark contacted →</span>
+                      </button>
+                    ))}
+                    {pending.length > 5 && (
+                      <p className="text-[11px] text-amber-200/60 text-center pt-1">
+                        +{pending.length - 5} more in the gardener list below
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Aggregate revenue row */}
         <div>
           <p className="text-[11px] font-medium text-gray-500 uppercase tracking-widest mb-4">
