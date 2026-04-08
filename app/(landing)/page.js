@@ -24,7 +24,7 @@ export default function LandingPage() {
       <section className="lp-hero">
         <div className="lp-hero-text">
           <div className="lp-eyebrow">📱 Field Service Business Platform</div>
-          <h1>Software that finally works like a <em>contractor</em> does.</h1>
+          <h1>Software that works like <em>you</em> do.</h1>
           <p className="lp-sub-en">Drag-and-drop routes, one-tap Stripe invoices, SMS reminders in English or Spanish, materials tracked per job. No desks, no laptops, no hidden fees.</p>
           <p className="lp-sub-es">Rutas con arrastrar y soltar, facturas con un toque, recordatorios en inglés o español, materiales por trabajo. Sin escritorios, sin portátiles, sin sorpresas.</p>
           <div className="lp-btns">
