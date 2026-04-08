@@ -16,7 +16,7 @@ import { validatePhone, formatPhone } from '@/lib/phone'
 import PhoneInput from '@/components/ui/PhoneInput'
 import {
   ChevronLeft, ChevronRight, ChevronDown, Plus, CalendarDays,
-  Trash2, CheckCircle2, RefreshCw, AlertTriangle, Zap, DollarSign, Package, X, ArrowUp, ArrowDown, Route
+  Trash2, CheckCircle2, RefreshCw, AlertTriangle, Zap, DollarSign, Package, X, GripVertical, Route
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -213,6 +213,8 @@ export default function CalendarPage() {
   const [sendingInvoiceId, setSendingInvoiceId] = useState(null)
   const [invoicePreview,   setInvoicePreview]   = useState(null)
   const [dayFilter,        setDayFilter]        = useState('all') // 'all' | 'pending' | 'completed' | 'route'
+  const [draggingId,       setDraggingId]       = useState(null)
+  const [dragOrder,        setDragOrder]        = useState(null) // array of schedule ids during active drag
   const [completePrompt, setCompletePrompt] = useState(null)
   const [matDisplay,      setMatDisplay]      = useState({})
 
@@ -718,35 +720,63 @@ export default function CalendarPage() {
     completed: rawDaySchedules.filter(s => s.status === 'completed').length,
   }
   const inRouteMode = dayFilter === 'route'
+  const routeSorted = [...rawDaySchedules].sort((a, b) => {
+    const ai = a.routeIndex ?? 9999
+    const bi = b.routeIndex ?? 9999
+    if (ai !== bi) return ai - bi
+    return (a.time || '').localeCompare(b.time || '')
+  })
   const selectedDaySchedules = (() => {
     if (inRouteMode) {
-      return [...rawDaySchedules].sort((a, b) => {
-        const ai = a.routeIndex ?? 9999
-        const bi = b.routeIndex ?? 9999
-        if (ai !== bi) return ai - bi
-        return (a.time || '').localeCompare(b.time || '')
-      })
+      if (dragOrder) {
+        const map = Object.fromEntries(routeSorted.map(s => [s.id, s]))
+        return dragOrder.map(id => map[id]).filter(Boolean)
+      }
+      return routeSorted
     }
     if (dayFilter === 'pending')   return rawDaySchedules.filter(s => s.status !== 'completed')
     if (dayFilter === 'completed') return rawDaySchedules.filter(s => s.status === 'completed')
     return rawDaySchedules
   })()
 
-  async function moveRouteIndex(schedule, direction) {
-    const ordered = [...rawDaySchedules].sort((a, b) => (a.routeIndex ?? 9999) - (b.routeIndex ?? 9999) || (a.time || '').localeCompare(b.time || ''))
-    const idx = ordered.findIndex(s => s.id === schedule.id)
-    const swapIdx = idx + direction
-    if (idx < 0 || swapIdx < 0 || swapIdx >= ordered.length) return
-    const [a, b] = [ordered[idx], ordered[swapIdx]]
-    ordered[idx] = b
-    ordered[swapIdx] = a
+  function handleDragPointerDown(e, schedule) {
+    if (!inRouteMode) return
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    setDraggingId(schedule.id)
+    setDragOrder(routeSorted.map(s => s.id))
+  }
+  function handleDragPointerMove(e) {
+    if (!draggingId) return
+    const el = document.elementFromPoint(e.clientX, e.clientY)
+    const card = el?.closest('[data-schedule-id]')
+    if (!card) return
+    const overId = card.getAttribute('data-schedule-id')
+    if (!overId || overId === draggingId) return
+    setDragOrder(prev => {
+      if (!prev) return prev
+      const from = prev.indexOf(draggingId)
+      const to   = prev.indexOf(overId)
+      if (from < 0 || to < 0 || from === to) return prev
+      const next = [...prev]
+      next.splice(from, 1)
+      next.splice(to, 0, draggingId)
+      return next
+    })
+  }
+  async function handleDragPointerUp() {
+    if (!draggingId || !dragOrder) { setDraggingId(null); setDragOrder(null); return }
+    const finalOrder = dragOrder
+    setDraggingId(null)
+    setDragOrder(null)
     try {
-      await Promise.all(ordered.map((s, i) => updateSchedule(s.id, { routeIndex: i })))
+      await Promise.all(finalOrder.map((id, i) => updateSchedule(id, { routeIndex: i })))
       loadData()
     } catch {
       toast.error(translate('common', 'error'))
     }
   }
+
   const clientMap             = Object.fromEntries(clients.map(c => [c.id, c]))
   const selectedClientObj     = clients.find(c => c.id === selectedClient)
   const totalJobsThisMonth    = schedules.length
@@ -854,7 +884,7 @@ export default function CalendarPage() {
 
               {inRouteMode && rawDaySchedules.length > 0 && (
                 <p className="text-[11px] text-gray-500 mb-2">
-                  {lang === 'es' ? 'Reordena con las flechas para crear tu ruta del día.' : 'Use the arrows to reorder jobs into your driving route.'}
+                  {lang === 'es' ? 'Arrastra la manija para ordenar tu ruta del día.' : 'Drag the handle to reorder jobs into your driving route.'}
                 </p>
               )}
 
@@ -871,17 +901,18 @@ export default function CalendarPage() {
                     const hasAddons = schedule.addons?.length > 0
                     const isOpen    = expandedId === schedule.id
                     return (
-                      <Card key={schedule.id} padding={false}>
+                      <Card key={schedule.id} padding={false} data-schedule-id={schedule.id} className={draggingId === schedule.id ? 'opacity-60 ring-2 ring-brand-400' : ''}>
                         <div className="flex items-center">
                         {inRouteMode && (
-                          <div className="flex flex-col items-center gap-0.5 pl-2">
-                            <button type="button" disabled={idx === 0} onClick={(e) => { e.stopPropagation(); moveRouteIndex(schedule, -1) }} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 disabled:opacity-30">
-                              <ArrowUp size={14} className="text-gray-600" />
-                            </button>
-                            <span className="text-[10px] font-bold text-brand-600">{idx + 1}</span>
-                            <button type="button" disabled={idx === selectedDaySchedules.length - 1} onClick={(e) => { e.stopPropagation(); moveRouteIndex(schedule, 1) }} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 disabled:opacity-30">
-                              <ArrowDown size={14} className="text-gray-600" />
-                            </button>
+                          <div
+                            className="flex flex-col items-center gap-0.5 pl-2 pr-1 py-3 touch-none cursor-grab active:cursor-grabbing select-none"
+                            onPointerDown={(e) => handleDragPointerDown(e, schedule)}
+                            onPointerMove={handleDragPointerMove}
+                            onPointerUp={handleDragPointerUp}
+                            onPointerCancel={handleDragPointerUp}
+                          >
+                            <GripVertical size={16} className="text-gray-400" />
+                            <span className="text-[10px] font-bold text-brand-600 mt-0.5">{idx + 1}</span>
                           </div>
                         )}
                         <button
