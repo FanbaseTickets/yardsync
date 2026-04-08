@@ -901,7 +901,8 @@ export default function CalendarPage() {
                     const hasAddons = schedule.addons?.length > 0
                     const isOpen    = expandedId === schedule.id
                     return (
-                      <Card key={schedule.id} padding={false} data-schedule-id={schedule.id} className={draggingId === schedule.id ? 'opacity-60 ring-2 ring-brand-400' : ''}>
+                      <div key={schedule.id} data-schedule-id={schedule.id}>
+                      <Card padding={false} className={draggingId === schedule.id ? 'opacity-60 ring-2 ring-brand-400' : ''}>
                         <div className="flex items-center">
                         {inRouteMode && (
                           <div
@@ -995,6 +996,7 @@ export default function CalendarPage() {
                           </div>
                         )}
                       </Card>
+                      </div>
                     )
                   })}
                 </div>
