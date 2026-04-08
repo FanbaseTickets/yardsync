@@ -204,6 +204,13 @@ export default function CalendarPage() {
   const [materialsSaving, setMaterialsSaving] = useState(false)
 
   const [expandedId, setExpandedId] = useState(null)
+
+  const [extraTarget,      setExtraTarget]      = useState(null)
+  const [extraCustomLabel, setExtraCustomLabel] = useState('')
+  const [extraCustomPrice, setExtraCustomPrice] = useState('')
+  const [extraSaving,      setExtraSaving]      = useState(false)
+
+  const [sendingInvoiceId, setSendingInvoiceId] = useState(null)
   const [completePrompt, setCompletePrompt] = useState(null)
   const [matDisplay,      setMatDisplay]      = useState({})
 
@@ -272,6 +279,144 @@ export default function CalendarPage() {
       setOccurrences('8')
     }
     setShowAddModal(true)
+  }
+
+  function openExtraModal(schedule) {
+    setExtraTarget(schedule)
+    setExtraCustomLabel('')
+    setExtraCustomPrice('')
+    setExpandedId(null)
+  }
+
+  async function appendExtraToSchedule(schedule, newExtra) {
+    setExtraSaving(true)
+    try {
+      const currentAddons = schedule.addons || []
+      const updatedAddons = [...currentAddons, newExtra]
+      await updateSchedule(schedule.id, { addons: updatedAddons })
+      toast.success(lang === 'es' ? 'Servicio agregado ✓' : 'Service added ✓')
+      setExtraTarget(null)
+      loadData()
+    } catch (e) {
+      toast.error(lang === 'es' ? 'Error al guardar' : 'Failed to save')
+    } finally {
+      setExtraSaving(false)
+    }
+  }
+
+  function addSavedExtra(service) {
+    if (!extraTarget) return
+    const amountCents = service.priceCents || 0
+    if (service.pricingType === 'variable') {
+      const val = prompt(lang === 'es' ? `Ingresa el precio para ${service.label}:` : `Enter price for ${service.label}:`)
+      if (!val || parseFloat(val) <= 0) return
+      appendExtraToSchedule(extraTarget, {
+        id: `${service.id}-${Date.now()}`,
+        label: service.label,
+        amountCents: Math.round(parseFloat(val) * 100),
+      })
+    } else {
+      appendExtraToSchedule(extraTarget, {
+        id: `${service.id}-${Date.now()}`,
+        label: service.label,
+        amountCents,
+      })
+    }
+  }
+
+  function addCustomExtra() {
+    if (!extraTarget) return
+    const label = extraCustomLabel.trim()
+    const price = parseFloat(extraCustomPrice)
+    if (!label || !price || price <= 0) {
+      toast.error(lang === 'es' ? 'Ingresa nombre y precio' : 'Enter label and price')
+      return
+    }
+    appendExtraToSchedule(extraTarget, {
+      id: `custom-${Date.now()}`,
+      label,
+      amountCents: Math.round(price * 100),
+    })
+  }
+
+  async function handleSendInvoice(schedule) {
+    const isWalkIn  = !!schedule.isWalkIn
+    const c         = isWalkIn ? null : clientMap[schedule.clientId]
+    const clientName  = isWalkIn ? (schedule.clientName || 'Walk-in') : (c?.name || schedule.clientName || '')
+    const clientEmail = (isWalkIn ? schedule.clientEmail : c?.email) || ''
+    const clientPhone = (isWalkIn ? schedule.clientPhone : c?.phone) || ''
+
+    if (!profile?.stripeAccountId) {
+      toast.error(lang === 'es' ? 'Conecta Stripe primero' : 'Connect Stripe first')
+      return
+    }
+
+    const baseCents = isWalkIn ? (schedule.basePrice || 0) : (c?.basePriceCents || 0)
+    const baseLabel = isWalkIn
+      ? (clientName || 'Walk-in service')
+      : (c?.packageLabel || 'Lawn Care Service')
+    const extras    = schedule.addons || []
+    const materials = schedule.materials || []
+    const extrasSum = extras.reduce((s, a) => s + (a.amountCents || 0), 0)
+    const matsSum   = materials.reduce((s, m) => s + (m.totalCents || 0), 0)
+    const totalCents = baseCents + extrasSum + matsSum
+
+    if (totalCents <= 0) {
+      toast.error(lang === 'es' ? 'El total debe ser mayor a $0' : 'Total must be greater than $0')
+      return
+    }
+
+    if (!clientPhone && !clientEmail) {
+      toast.error(lang === 'es' ? 'Falta teléfono o correo del cliente' : 'Client needs a phone or email')
+      return
+    }
+
+    const lineItems = [
+      { label: baseLabel, amountCents: baseCents, category: 'base' },
+      ...extras.map(a => ({ label: a.label, amountCents: a.amountCents, category: 'addon' })),
+      ...materials.map(m => ({ label: m.name, amountCents: m.totalCents || 0, category: 'material' })),
+    ]
+
+    setSendingInvoiceId(schedule.id)
+    try {
+      const res = await fetch('/api/stripe/invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stripeAccountId: profile.stripeAccountId,
+          totalCents,
+          lineItems,
+          clientName,
+          clientEmail,
+          clientPhone,
+          description: `YardSync invoice — ${clientName}`,
+          gardenerUid: user.uid,
+          clientId: schedule.clientId || null,
+          invoiceType: isWalkIn ? 'addon' : 'recurring',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Invoice failed')
+
+      if (clientPhone && data.paymentUrl) {
+        const smsBody = lang === 'es'
+          ? `Hola ${clientName}! Tu factura de $${(totalCents / 100).toFixed(2)} está lista. Paga aquí: ${data.paymentUrl}`
+          : `Hi ${clientName}! Your invoice for $${(totalCents / 100).toFixed(2)} is ready. Pay here: ${data.paymentUrl}`
+        fetch('/api/twilio/send', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientPhone, message: smsBody }),
+        }).catch(err => console.error('Invoice SMS failed (non-fatal):', err))
+        toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent ✓')
+      } else {
+        toast.success(lang === 'es' ? 'Factura creada ✓' : 'Invoice created ✓')
+      }
+      setExpandedId(null)
+      loadData()
+    } catch (e) {
+      toast.error(e.message || (lang === 'es' ? 'Error al enviar' : 'Failed to send'))
+    } finally {
+      setSendingInvoiceId(null)
+    }
   }
 
   function openWalkInForClient(schedule) {
@@ -691,23 +836,17 @@ export default function CalendarPage() {
                             {!done && (
                               <>
                                 <div className="grid grid-cols-2 gap-2">
-                                  {schedule.isWalkIn ? (
-                                    <Button icon={DollarSign} size="sm" onClick={() => { setExpandedId(null); openWalkInInvoice(schedule) }}>
-                                      {lang === 'es' ? 'Enviar factura' : 'Send invoice'}
-                                    </Button>
-                                  ) : schedule.clientId ? (
-                                    <Button icon={DollarSign} size="sm" onClick={() => { setExpandedId(null); router.push(`/clients/${schedule.clientId}?openInvoice=true`) }}>
-                                      {lang === 'es' ? 'Enviar factura' : 'Send invoice'}
-                                    </Button>
-                                  ) : null}
+                                  <Button icon={DollarSign} size="sm" loading={sendingInvoiceId === schedule.id} onClick={() => handleSendInvoice(schedule)}>
+                                    {lang === 'es' ? 'Enviar factura' : 'Send invoice'}
+                                  </Button>
                                   <Button icon={Package} size="sm" variant="secondary" onClick={() => { setExpandedId(null); openMaterials(schedule) }}>
                                     {lang === 'es' ? 'Materiales' : 'Add material'}
                                   </Button>
                                   <Button icon={CheckCircle2} size="sm" variant="secondary" onClick={() => { setExpandedId(null); handleComplete(schedule) }}>
                                     {lang === 'es' ? 'Completar' : 'Mark complete'}
                                   </Button>
-                                  <Button icon={Plus} size="sm" variant="secondary" onClick={() => openWalkInForClient(schedule)}>
-                                    {lang === 'es' ? 'Otro trabajo' : 'Add separate job'}
+                                  <Button icon={Plus} size="sm" variant="secondary" onClick={() => openExtraModal(schedule)}>
+                                    {lang === 'es' ? 'Servicio extra' : 'Add extra service'}
                                   </Button>
                                 </div>
                                 <Button icon={Trash2} size="sm" variant="ghost" fullWidth onClick={() => { setExpandedId(null); promptDelete(schedule) }}>
@@ -1029,6 +1168,63 @@ export default function CalendarPage() {
             ? `¿Enviar factura a ${clientMap[completePrompt?.clientId]?.name || ''} ahora?`
             : `Send invoice to ${clientMap[completePrompt?.clientId]?.name || ''} now?`}
         </p>
+      </Modal>
+
+      {/* Add extra service modal */}
+      <Modal
+        open={!!extraTarget}
+        onClose={() => { setExtraTarget(null); setExtraCustomLabel(''); setExtraCustomPrice('') }}
+        title={lang === 'es' ? 'Agregar servicio extra' : 'Add extra service'}
+      >
+        {extraTarget && (
+          <div className="space-y-4">
+            <p className="text-[12px] text-gray-500">
+              {lang === 'es' ? 'Se agrega a esta visita —' : 'Adds to this visit —'} <span className="font-medium text-gray-700">{clientMap[extraTarget.clientId]?.name || extraTarget.clientName}</span>
+            </p>
+
+            {addonServices.length > 0 && (
+              <div>
+                <p className="text-[11px] uppercase font-medium text-gray-400 mb-2">{lang === 'es' ? 'Servicios guardados' : 'Saved services'}</p>
+                <div className="space-y-1.5">
+                  {addonServices.map(svc => (
+                    <button
+                      key={svc.id}
+                      type="button"
+                      onClick={() => addSavedExtra(svc)}
+                      disabled={extraSaving}
+                      className="w-full flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:border-brand-400 hover:bg-brand-50 text-left disabled:opacity-50"
+                    >
+                      <span className="text-[13px] text-gray-800">{svc.label}</span>
+                      <span className="text-[12px] text-brand-600 font-medium">
+                        {svc.pricingType === 'variable' ? (lang === 'es' ? 'Variable' : 'Variable') : formatCents(svc.priceCents || 0)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="border-t border-gray-100 pt-3">
+              <p className="text-[11px] uppercase font-medium text-gray-400 mb-2">{lang === 'es' ? 'Personalizado' : 'Custom one-off'}</p>
+              <div className="space-y-2">
+                <Input
+                  placeholder={lang === 'es' ? 'Descripción (ej. Pintar garaje)' : 'Description (e.g. Paint garage)'}
+                  value={extraCustomLabel}
+                  onChange={e => setExtraCustomLabel(e.target.value)}
+                />
+                <Input
+                  type="number"
+                  placeholder={lang === 'es' ? 'Precio en dólares' : 'Price in dollars'}
+                  value={extraCustomPrice}
+                  onChange={e => setExtraCustomPrice(e.target.value)}
+                />
+                <Button size="sm" fullWidth icon={Plus} onClick={addCustomExtra} loading={extraSaving} disabled={!extraCustomLabel.trim() || !extraCustomPrice}>
+                  {lang === 'es' ? 'Agregar personalizado' : 'Add custom'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
     </AppShell>
   )
