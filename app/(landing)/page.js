@@ -24,16 +24,16 @@ export default function LandingPage() {
       <section className="lp-hero">
         <div className="lp-hero-text">
           <div className="lp-eyebrow">📱 Field Service Business Platform</div>
-          <h1>Run your service business<br/>from your <em>phone</em></h1>
-          <p className="lp-sub-en">Scheduling, automatic SMS reminders, invoicing, and client management — one bilingual app built for contractors who work in the field.</p>
-          <p className="lp-sub-es">Administra tu negocio de servicios desde tu teléfono — en inglés y español.</p>
+          <h1>Pro-grade service business software.<br/>One flat <em>5.5%</em> per invoice.</h1>
+          <p className="lp-sub-en">$39/mo subscription with volume discounts — drops to free once you cross $3k/mo invoiced. Bilingual scheduling, SMS reminders, materials, and Stripe invoicing in one app.</p>
+          <p className="lp-sub-es">Software pro para tu negocio de servicios. 5.5% por factura. Suscripción gratis al pasar $3k/mes facturados.</p>
           <div className="lp-btns">
             <a href="/signup" className="lp-btn-y">Get Started →</a>
             <a href="#who" className="lp-btn-gh">See who uses it ↓</a>
           </div>
           <div className="lp-stats">
             <div><div className="lp-sv">5.5%</div><div className="lp-sl">Flat rate per invoice</div></div>
-            <div><div className="lp-sv">$0</div><div className="lp-sl">At $3k+/mo invoiced</div></div>
+            <div><div className="lp-sv">$0</div><div className="lp-sl">Subscription at $3k+/mo</div></div>
             <div><div className="lp-sv">2 min</div><div className="lp-sl">Average setup time</div></div>
           </div>
         </div>
@@ -204,7 +204,7 @@ export default function LandingPage() {
         <div style={{maxWidth:'1100px',margin:'0 auto'}}>
           <div style={{textAlign:'center',marginBottom:'48px'}}>
             <div className="sec-lbl">Volume Reward Program | Programa de Recompensas</div>
-            <h2 className="sec-h" style={{fontSize:'clamp(32px,4vw,50px)'}}>Already have clients?<br/>You might <em style={{fontStyle:'italic',color:'var(--gp)'}}>never pay</em> for YardSync.</h2>
+            <h2 className="sec-h" style={{fontSize:'clamp(32px,4vw,50px)'}}>Already have clients?<br/>Your subscription could be <em style={{fontStyle:'italic',color:'var(--gp)'}}>free</em>.</h2>
             <p style={{fontSize:'17px',color:'var(--g6)',maxWidth:'640px',margin:'12px auto 0'}}>If you&apos;re already running a client base, the math works in your favor. The more you invoice through YardSync, the less — or nothing — you pay.</p>
           </div>
           <div className="lp-reality-box">
@@ -215,15 +215,15 @@ export default function LandingPage() {
             </div>
             <div style={{textAlign:'center',flexShrink:0}}>
               <div className="lp-zero-price">$0</div>
-              <div style={{fontSize:'13px',color:'rgba(255,255,255,.55)',marginTop:'4px'}}>per month at $3k+</div>
+              <div style={{fontSize:'13px',color:'rgba(255,255,255,.55)',marginTop:'4px'}}>subscription · 5.5% per invoice continues</div>
             </div>
           </div>
           <div className="lp-vg">
-            <div className="lp-vt"><div style={{fontSize:'18px',marginBottom:'8px'}}>🌱</div><div className="lp-vr">Under $1,500/mo invoiced</div><div className="lp-vd">Full Price</div><div className="lp-vp">$39/month</div><div className="lp-vn">Just getting started — standard rate</div></div>
-            <div className="lp-vt"><div style={{fontSize:'18px',marginBottom:'8px'}}>📈</div><div className="lp-vr">$1,500–$2,999/mo invoiced</div><div className="lp-vd">50% Off</div><div className="lp-vp">$19/month</div><div className="lp-vn">Growing — hit threshold 2 months to unlock</div></div>
-            <div className="lp-vt top"><div style={{fontSize:'18px',marginBottom:'8px'}}>🏆</div><div className="lp-vr">$3,000+/mo invoiced</div><div className="lp-vd">FREE</div><div className="lp-vp">$0/month</div><div className="lp-vn">Your app pays for itself. You earned it.</div></div>
+            <div className="lp-vt"><div style={{fontSize:'18px',marginBottom:'8px'}}>🌱</div><div className="lp-vr">Under $1,500/mo invoiced</div><div className="lp-vd">Full Subscription</div><div className="lp-vp">$39/month</div><div className="lp-vn">+ 5.5% per invoice. Standard rate to start.</div></div>
+            <div className="lp-vt"><div style={{fontSize:'18px',marginBottom:'8px'}}>📈</div><div className="lp-vr">$1,500–$2,999/mo invoiced</div><div className="lp-vd">50% Off Subscription</div><div className="lp-vp">$19/month</div><div className="lp-vn">+ 5.5% per invoice. Hit 2 months to unlock.</div></div>
+            <div className="lp-vt top"><div style={{fontSize:'18px',marginBottom:'8px'}}>🏆</div><div className="lp-vr">$3,000+/mo invoiced</div><div className="lp-vd">FREE Subscription</div><div className="lp-vp">$0/month</div><div className="lp-vn">+ 5.5% per invoice. Your app pays for itself.</div></div>
           </div>
-          <p className="lp-vfine">Drop below threshold for 2 consecutive months to return to the previous tier. No surprise charges — always 2 months notice.</p>
+          <p className="lp-vfine">Drop below threshold for 2 consecutive months to return to the previous tier. No surprise charges — always 2 months notice. The 5.5% per-invoice fee applies at every tier.</p>
           <div style={{textAlign:'center',marginTop:'40px'}}>
             <a href="#pricing" className="lp-btn-y" style={{fontSize:'15px',padding:'13px 30px'}}>View Pricing Plans →</a>
           </div>
@@ -235,25 +235,25 @@ export default function LandingPage() {
         <div style={{maxWidth:'1100px',margin:'0 auto'}}>
           <div className="sec-lbl">Pricing | Precios</div>
           <h2 className="sec-h">Simple pricing. Serious results.</h2>
-          <p style={{fontSize:'15px',color:'var(--g6)'}}>No contracts. No hidden fees. Cancel anytime.</p>
+          <p style={{fontSize:'15px',color:'var(--g6)'}}>$39/mo subscription + 5.5% per invoice. No contracts. Cancel anytime. Volume rewards bring the subscription to <strong>free</strong> at $3k+/mo invoiced.</p>
           <div className="lp-pg">
             <div className="lp-pc">
               <div className="lp-pn">Monthly</div><div className="lp-pne">Mensual</div>
-              <div className="lp-pa">$39</div><div className="lp-pp">per month</div>
-              <ul className="lp-pf"><li>Unlimited clients</li><li>Auto SMS reminders</li><li>Stripe invoicing</li><li>English &amp; Spanish</li><li>Cancel anytime</li></ul>
+              <div className="lp-pa">$39</div><div className="lp-pp">per month + 5.5% per invoice</div>
+              <ul className="lp-pf"><li>Unlimited clients</li><li>Auto SMS reminders</li><li>Stripe invoicing (5.5% per invoice)</li><li>Volume rewards: free at $3k+/mo</li><li>English &amp; Spanish</li><li>Cancel anytime</li></ul>
               <a href="/signup" className="lp-pcta">Start Monthly →</a>
             </div>
             <div className="lp-pc featured">
               <div className="lp-pbg">SAVE $78 · BEST VALUE</div>
               <div className="lp-pn">Annual</div><div className="lp-pne">Anual</div>
-              <div className="lp-pa">$390</div><div className="lp-pp">per year · $32.50/mo</div>
-              <ul className="lp-pf"><li>Everything in Monthly</li><li>2 months free</li><li>Priority support</li><li>Early feature access</li><li>Best value plan</li></ul>
+              <div className="lp-pa">$390</div><div className="lp-pp">per year · $32.50/mo + 5.5% per invoice</div>
+              <ul className="lp-pf"><li>Everything in Monthly</li><li>2 months free</li><li>Priority support</li><li>Early feature access</li><li>Volume rewards: free at $3k+/mo</li></ul>
               <a href="/signup" className="lp-pcta">Start Annual →</a>
             </div>
             <div className="lp-pc pro-setup">
               <div className="lp-pro-badge">SWITCHING? WE&apos;LL HANDLE IT</div>
               <div className="lp-pn" style={{marginTop:'8px'}}>Pro Setup</div><div className="lp-pne">Migración &amp; Configuración Pro</div>
-              <div className="lp-pa">$99</div><div className="lp-pp">one-time migration add-on</div>
+              <div className="lp-pa">$99</div><div className="lp-pp">one-time · non-refundable</div>
               <ul className="lp-pf">
                 <li>We import all your existing clients</li>
                 <li>Works from Yardbook, Jobber, spreadsheets, or any list</li>
@@ -308,7 +308,7 @@ export default function LandingPage() {
           <div style={{display:'flex',justifyContent:'center'}}>
             <a href="/signup" className="lp-btn-y" style={{fontSize:'17px',padding:'14px 36px'}}>Get Started →</a>
           </div>
-          <p className="lp-cta-note">$39/mo · Cancel anytime · English &amp; Español</p>
+          <p className="lp-cta-note">$39/mo + 5.5% per invoice · Free subscription at $3k+/mo invoiced · Cancel anytime · English &amp; Español</p>
         </div>
       </section>
 
