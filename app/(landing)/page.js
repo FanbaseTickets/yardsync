@@ -24,16 +24,16 @@ export default function LandingPage() {
       <section className="lp-hero">
         <div className="lp-hero-text">
           <div className="lp-eyebrow">📱 Field Service Business Platform</div>
-          <h1>Pro-grade service business software.<br/>One flat <em>5.5%</em> per invoice.</h1>
-          <p className="lp-sub-en">$39/mo subscription with volume discounts — drops to free once you cross $3k/mo invoiced. Bilingual scheduling, SMS reminders, materials, and Stripe invoicing in one app.</p>
-          <p className="lp-sub-es">Software pro para tu negocio de servicios. 5.5% por factura. Suscripción gratis al pasar $3k/mes facturados.</p>
+          <h1>Software that finally works like a <em>contractor</em> does.</h1>
+          <p className="lp-sub-en">Drag-and-drop routes, one-tap Stripe invoices, SMS reminders in English or Spanish, materials tracked per job. No desks, no laptops, no hidden fees.</p>
+          <p className="lp-sub-es">Rutas con arrastrar y soltar, facturas con un toque, recordatorios en inglés o español, materiales por trabajo. Sin escritorios, sin portátiles, sin sorpresas.</p>
           <div className="lp-btns">
             <a href="/signup" className="lp-btn-y">Get Started →</a>
             <a href="#who" className="lp-btn-gh">See who uses it ↓</a>
           </div>
           <div className="lp-stats">
             <div><div className="lp-sv">5.5%</div><div className="lp-sl">Flat rate per invoice</div></div>
-            <div><div className="lp-sv">$0</div><div className="lp-sl">Subscription at $3k+/mo</div></div>
+            <div><div className="lp-sv">3 taps</div><div className="lp-sl">From door to invoice</div></div>
             <div><div className="lp-sv">2 min</div><div className="lp-sl">Average setup time</div></div>
           </div>
         </div>
