@@ -38,9 +38,9 @@ export default function LandingPage() {
           </div>
         </div>
         <div className="lp-hero-phones-wrap">
-          <div className="lp-phone"><img className="lp-phone-screen" src="/landing/app-screen-dashboard-v3.png" alt="Dashboard" /></div>
-          <div className="lp-phone"><img className="lp-phone-screen" src="/landing/app-screen-calendar-v3.png" alt="Calendar" /></div>
-          <div className="lp-phone"><img className="lp-phone-screen" src="/landing/app-screen-client-detail-v3.png" alt="Client profile" /></div>
+          <div className="lp-phone"><img className="lp-phone-screen" src="/landing/app-screen-dashboard-v4.png" alt="Dashboard" /></div>
+          <div className="lp-phone"><img className="lp-phone-screen" src="/landing/app-screen-calendar-v4.png" alt="Calendar" /></div>
+          <div className="lp-phone"><img className="lp-phone-screen" src="/landing/app-screen-client-detail-v4.png" alt="Client profile" /></div>
         </div>
       </section>
 
@@ -90,7 +90,7 @@ export default function LandingPage() {
                 <span>SMS delivery stats</span>
               </div>
             </div>
-            <div className="lp-fph"><div className="lp-phone lp-phone-lg"><img className="lp-phone-screen" src="/landing/app-screen-dashboard-v3.png" alt="Dashboard" /></div></div>
+            <div className="lp-fph"><div className="lp-phone lp-phone-lg"><img className="lp-phone-screen" src="/landing/app-screen-dashboard-v4.png" alt="Dashboard" /></div></div>
           </div>
 
           <div className="lp-fr rev">
@@ -106,7 +106,7 @@ export default function LandingPage() {
                 <span>Walk-in job quick-add</span>
               </div>
             </div>
-            <div className="lp-fph"><div className="lp-phone lp-phone-lg"><img className="lp-phone-screen" src="/landing/app-screen-calendar-v3.png" alt="Calendar" /></div></div>
+            <div className="lp-fph"><div className="lp-phone lp-phone-lg"><img className="lp-phone-screen" src="/landing/app-screen-calendar-v4.png" alt="Calendar" /></div></div>
           </div>
 
           <div className="lp-fr">
@@ -122,7 +122,7 @@ export default function LandingPage() {
                 <span>Quick SMS from profile</span>
               </div>
             </div>
-            <div className="lp-fph"><div className="lp-phone lp-phone-lg"><img className="lp-phone-screen" src="/landing/app-screen-clients-v3.png" alt="Clients" /></div></div>
+            <div className="lp-fph"><div className="lp-phone lp-phone-lg"><img className="lp-phone-screen" src="/landing/app-screen-clients-v4.png" alt="Clients" /></div></div>
           </div>
 
           <div className="lp-fr rev">
@@ -138,7 +138,7 @@ export default function LandingPage() {
                 <span>One-tap invoice or SMS</span>
               </div>
             </div>
-            <div className="lp-fph"><div className="lp-phone lp-phone-lg"><img className="lp-phone-screen" src="/landing/app-screen-client-detail-v3.png" alt="Client detail" /></div></div>
+            <div className="lp-fph"><div className="lp-phone lp-phone-lg"><img className="lp-phone-screen" src="/landing/app-screen-client-detail-v4.png" alt="Client detail" /></div></div>
           </div>
 
           <div className="lp-fr">
@@ -154,7 +154,7 @@ export default function LandingPage() {
                 <span>Attach to invoices</span>
               </div>
             </div>
-            <div className="lp-fph"><div className="lp-phone lp-phone-lg"><img className="lp-phone-screen" src="/landing/app-screen-materials-v3.png" alt="Materials tracking" /></div></div>
+            <div className="lp-fph"><div className="lp-phone lp-phone-lg"><img className="lp-phone-screen" src="/landing/app-screen-materials-v4.png" alt="Materials tracking" /></div></div>
           </div>
         </div>
       </section>
