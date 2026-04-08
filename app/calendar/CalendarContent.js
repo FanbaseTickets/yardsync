@@ -16,7 +16,7 @@ import { validatePhone, formatPhone } from '@/lib/phone'
 import PhoneInput from '@/components/ui/PhoneInput'
 import {
   ChevronLeft, ChevronRight, ChevronDown, Plus, CalendarDays,
-  Trash2, CheckCircle2, RefreshCw, AlertTriangle, Zap, DollarSign, Package, X
+  Trash2, CheckCircle2, RefreshCw, AlertTriangle, Zap, DollarSign, Package, X, ArrowUp, ArrowDown, Route
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -212,6 +212,7 @@ export default function CalendarPage() {
 
   const [sendingInvoiceId, setSendingInvoiceId] = useState(null)
   const [invoicePreview,   setInvoicePreview]   = useState(null)
+  const [dayFilter,        setDayFilter]        = useState('all') // 'all' | 'pending' | 'completed' | 'route'
   const [completePrompt, setCompletePrompt] = useState(null)
   const [matDisplay,      setMatDisplay]      = useState({})
 
@@ -710,7 +711,42 @@ export default function CalendarPage() {
 
   const materialsSubtotal = materialsRows.reduce((s, r) => s + ((r.qty || 0) * (r.unitCostCents || 0)), 0)
 
-  const selectedDaySchedules = selectedDay ? getSchedulesForDay(selectedDay) : []
+  const rawDaySchedules = selectedDay ? getSchedulesForDay(selectedDay) : []
+  const dayCounts = {
+    all:       rawDaySchedules.length,
+    pending:   rawDaySchedules.filter(s => s.status !== 'completed').length,
+    completed: rawDaySchedules.filter(s => s.status === 'completed').length,
+  }
+  const inRouteMode = dayFilter === 'route'
+  const selectedDaySchedules = (() => {
+    if (inRouteMode) {
+      return [...rawDaySchedules].sort((a, b) => {
+        const ai = a.routeIndex ?? 9999
+        const bi = b.routeIndex ?? 9999
+        if (ai !== bi) return ai - bi
+        return (a.time || '').localeCompare(b.time || '')
+      })
+    }
+    if (dayFilter === 'pending')   return rawDaySchedules.filter(s => s.status !== 'completed')
+    if (dayFilter === 'completed') return rawDaySchedules.filter(s => s.status === 'completed')
+    return rawDaySchedules
+  })()
+
+  async function moveRouteIndex(schedule, direction) {
+    const ordered = [...rawDaySchedules].sort((a, b) => (a.routeIndex ?? 9999) - (b.routeIndex ?? 9999) || (a.time || '').localeCompare(b.time || ''))
+    const idx = ordered.findIndex(s => s.id === schedule.id)
+    const swapIdx = idx + direction
+    if (idx < 0 || swapIdx < 0 || swapIdx >= ordered.length) return
+    const [a, b] = [ordered[idx], ordered[swapIdx]]
+    ordered[idx] = b
+    ordered[swapIdx] = a
+    try {
+      await Promise.all(ordered.map((s, i) => updateSchedule(s.id, { routeIndex: i })))
+      loadData()
+    } catch {
+      toast.error(translate('common', 'error'))
+    }
+  }
   const clientMap             = Object.fromEntries(clients.map(c => [c.id, c]))
   const selectedClientObj     = clients.find(c => c.id === selectedClient)
   const totalJobsThisMonth    = schedules.length
@@ -790,6 +826,38 @@ export default function CalendarPage() {
                 </div>
               </div>
 
+              <div className="flex items-center gap-1.5 mb-3 overflow-x-auto -mx-1 px-1 pb-1">
+                {[
+                  { key: 'all',       labelEn: 'All',       labelEs: 'Todos',       count: dayCounts.all },
+                  { key: 'pending',   labelEn: 'Pending',   labelEs: 'Pendientes',  count: dayCounts.pending },
+                  { key: 'completed', labelEn: 'Completed', labelEs: 'Completados', count: dayCounts.completed },
+                  { key: 'route',     labelEn: 'Set route', labelEs: 'Ruta',        icon: Route },
+                ].map(chip => {
+                  const active = dayFilter === chip.key
+                  const Icon = chip.icon
+                  return (
+                    <button
+                      key={chip.key}
+                      type="button"
+                      onClick={() => setDayFilter(chip.key)}
+                      className={`flex items-center gap-1 whitespace-nowrap px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors border ${active ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:border-brand-300'}`}
+                    >
+                      {Icon && <Icon size={12} />}
+                      <span>{lang === 'es' ? chip.labelEs : chip.labelEn}</span>
+                      {typeof chip.count === 'number' && (
+                        <span className={`text-[10px] font-semibold ${active ? 'text-white/80' : 'text-gray-400'}`}>{chip.count}</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {inRouteMode && rawDaySchedules.length > 0 && (
+                <p className="text-[11px] text-gray-500 mb-2">
+                  {lang === 'es' ? 'Reordena con las flechas para crear tu ruta del día.' : 'Use the arrows to reorder jobs into your driving route.'}
+                </p>
+              )}
+
               {loading ? <Skeleton className="h-16" /> : selectedDaySchedules.length === 0 ? (
                 <Card className="text-center py-6">
                   <CalendarDays size={24} className="text-gray-300 mx-auto mb-2" />
@@ -797,17 +865,29 @@ export default function CalendarPage() {
                 </Card>
               ) : (
                 <div className="space-y-2">
-                  {selectedDaySchedules.map(schedule => {
+                  {selectedDaySchedules.map((schedule, idx) => {
                     const client    = clientMap[schedule.clientId]
                     const done      = schedule.status === 'completed'
                     const hasAddons = schedule.addons?.length > 0
                     const isOpen    = expandedId === schedule.id
                     return (
                       <Card key={schedule.id} padding={false}>
+                        <div className="flex items-center">
+                        {inRouteMode && (
+                          <div className="flex flex-col items-center gap-0.5 pl-2">
+                            <button type="button" disabled={idx === 0} onClick={(e) => { e.stopPropagation(); moveRouteIndex(schedule, -1) }} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 disabled:opacity-30">
+                              <ArrowUp size={14} className="text-gray-600" />
+                            </button>
+                            <span className="text-[10px] font-bold text-brand-600">{idx + 1}</span>
+                            <button type="button" disabled={idx === selectedDaySchedules.length - 1} onClick={(e) => { e.stopPropagation(); moveRouteIndex(schedule, 1) }} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 disabled:opacity-30">
+                              <ArrowDown size={14} className="text-gray-600" />
+                            </button>
+                          </div>
+                        )}
                         <button
                           type="button"
                           onClick={() => setExpandedId(isOpen ? null : schedule.id)}
-                          className="w-full p-3 flex items-center gap-3 text-left"
+                          className="flex-1 w-full p-3 flex items-center gap-3 text-left"
                         >
                           <div className={`w-2 h-2 rounded-full flex-shrink-0 ${done ? 'bg-brand-500' : 'bg-amber-400'}`} />
                           <div className="flex-1 min-w-0">
@@ -840,6 +920,7 @@ export default function CalendarPage() {
                           </div>
                           <ChevronDown size={16} className={`text-gray-400 flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                         </button>
+                        </div>
 
                         {isOpen && (
                           <div className="px-3 pb-3 pt-1 border-t border-gray-100 space-y-2">
