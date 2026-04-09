@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
     "@stripe/connect-js": "^3.3.35",
     "@stripe/react-connect-js": "^3.3.34",
     "@stripe/react-stripe-js": "^5.6.1",
@@ -23,7 +24,6 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hot-toast": "^2.6.0",
-    "resend": "^6.10.0",
     "square": "^44.0.1",
     "stripe": "^20.4.1",
     "twilio": "^5.13.0"
