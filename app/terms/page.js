@@ -23,7 +23,7 @@ export default function TermsPage() {
             <li>Message frequency varies based on scheduled appointments and invoices</li>
             <li>Message and data rates may apply</li>
             <li>To opt out, reply <strong>STOP</strong> to any message</li>
-            <li>For help, reply <strong>HELP</strong> or contact admin@fanbasetickets.net</li>
+            <li>For help, reply <strong>HELP</strong> or contact support@yardsyncapp.com</li>
           </ul>
         </div>
 
@@ -70,7 +70,7 @@ export default function TermsPage() {
 
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">9. Contact</h2>
-          <p>For questions about these terms: <a href="mailto:admin@fanbasetickets.net" className="text-green-700 underline">admin@fanbasetickets.net</a></p>
+          <p>For questions about these terms: <a href="mailto:support@yardsyncapp.com" className="text-green-700 underline">support@yardsyncapp.com</a></p>
         </div>
 
       </section>

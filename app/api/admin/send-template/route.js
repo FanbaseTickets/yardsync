@@ -1,13 +1,43 @@
 /**
  * POST /api/admin/send-template
  * Sends the Client Import Template link to a contractor's email.
+ * Requires Firebase Auth — caller must pass Bearer <idToken> from an admin user.
  *
  * Body: { email, name }
  */
 
 import sgMail from '@sendgrid/mail'
 
+const API_KEY = process.env.FIREBASE_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY
+
+async function verifyAdmin(request) {
+  const auth = request.headers.get('authorization')
+  if (!auth?.startsWith('Bearer ')) return false
+
+  const idToken = auth.slice(7)
+  try {
+    const res = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      }
+    )
+    if (!res.ok) return false
+    const data = await res.json()
+    const email = data.users?.[0]?.email
+    return email === process.env.ADMIN_EMAIL
+  } catch {
+    return false
+  }
+}
+
 export async function POST(request) {
+  if (!(await verifyAdmin(request))) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const key = process.env.SENDGRID_API_KEY
     const from = process.env.SENDGRID_FROM_EMAIL
@@ -50,6 +80,6 @@ export async function POST(request) {
     return Response.json({ ok: true })
   } catch (err) {
     console.error('send-template error:', err.message)
-    return Response.json({ error: err.message }, { status: 500 })
+    return Response.json({ error: 'Failed to send email' }, { status: 500 })
   }
 }

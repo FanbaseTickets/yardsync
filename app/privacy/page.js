@@ -49,7 +49,7 @@ export default function PrivacyPage() {
 
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">7. Contact Us</h2>
-          <p>For privacy questions, contact us at: <a href="mailto:admin@fanbasetickets.net" className="text-green-700 underline">admin@fanbasetickets.net</a></p>
+          <p>For privacy questions, contact us at: <a href="mailto:support@yardsyncapp.com" className="text-green-700 underline">support@yardsyncapp.com</a></p>
         </div>
 
       </section>

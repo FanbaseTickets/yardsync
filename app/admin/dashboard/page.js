@@ -229,9 +229,10 @@ export default function AdminDashboard() {
     if (!setupTarget?.email) { toast.error('No email on file for this contractor'); return }
     setSendingTemplate(true)
     try {
+      const idToken = await user.getIdToken()
       const res = await fetch('/api/admin/send-template', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
         body: JSON.stringify({ email: setupTarget.email, name: setupTarget.name }),
       })
       if (!res.ok) throw new Error('Send failed')
