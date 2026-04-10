@@ -148,6 +148,7 @@ export async function POST(request) {
                   </table>
                   <p style="margin:20px 0 0;font-size:13px;color:#5a6b60;">Reach out within 24 hours to begin onboarding their client list.</p>
                   <a href="https://yardsyncapp.com/admin/dashboard" style="display:inline-block;margin-top:16px;background:#0F6E56;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Open admin dashboard →</a>
+                  <a href="https://yardsyncapp.com/YardSync_Client_Import_Template.xlsx" style="display:inline-block;margin-top:10px;background:#f0f4f1;color:#0F6E56;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;border:1px solid #d4e0d8;">📋 Download client import template</a>
                 </div>
                 <p style="margin:16px 0 0;text-align:center;font-size:11px;color:#8aaa96;">YardSync · JNew Technologies, LLC</p>
               </div>

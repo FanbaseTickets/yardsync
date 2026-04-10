@@ -10,7 +10,7 @@ import {
   Shield, LogOut, Users, DollarSign,
   TrendingUp, AlertCircle, RefreshCw,
   ChevronDown, ChevronUp, CheckCircle, Plus, Calendar, Download, Clock,
-  CreditCard, AlertOctagon, History, Zap
+  CreditCard, AlertOctagon, History, Zap, Mail, FileSpreadsheet
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { fmt as format } from '@/lib/date'
@@ -220,6 +220,26 @@ export default function AdminDashboard() {
       loadData()
     } catch (err) {
       toast.error('Failed to mark collected')
+    }
+  }
+
+  const [sendingTemplate, setSendingTemplate] = useState(false)
+
+  async function handleSendTemplate() {
+    if (!setupTarget?.email) { toast.error('No email on file for this contractor'); return }
+    setSendingTemplate(true)
+    try {
+      const res = await fetch('/api/admin/send-template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: setupTarget.email, name: setupTarget.name }),
+      })
+      if (!res.ok) throw new Error('Send failed')
+      toast.success(`Template sent to ${setupTarget.email}`)
+    } catch {
+      toast.error('Failed to send template')
+    } finally {
+      setSendingTemplate(false)
     }
   }
 
@@ -873,6 +893,27 @@ export default function AdminDashboard() {
                   placeholder="Add notes about the setup call..."
                   className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-[14px] text-white placeholder-gray-500 focus:outline-none focus:border-brand-500 resize-none"
                 />
+              </div>
+            </div>
+            <div className="mb-4">
+              <p className="text-[12px] text-gray-400 mb-2">Client Onboarding</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSendTemplate}
+                  disabled={sendingTemplate || !setupTarget?.email}
+                  className="flex-1 flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white text-[13px] font-medium rounded-xl py-2.5 transition-colors border border-gray-700 disabled:opacity-50"
+                >
+                  <Mail size={14} />
+                  {sendingTemplate ? 'Sending...' : 'Send template to client'}
+                </button>
+                <a
+                  href="/YardSync_Client_Import_Template.xlsx"
+                  download
+                  className="flex-1 flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white text-[13px] font-medium rounded-xl py-2.5 transition-colors border border-gray-700"
+                >
+                  <FileSpreadsheet size={14} />
+                  Download template
+                </a>
               </div>
             </div>
             <div className="flex gap-3">
