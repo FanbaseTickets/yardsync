@@ -171,7 +171,9 @@ export async function POST(request) {
             const subscription = await stripe.subscriptions.retrieve(subscriptionId)
             await updateDocument('subscriptions', uid, {
               status:           'active',
-              currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
+              currentPeriodEnd: subscription.current_period_end
+                                  ? new Date(subscription.current_period_end * 1000).toISOString()
+                                  : null,
               updatedAt:        new Date().toISOString(),
             })
             await setDocument('users', uid, {
