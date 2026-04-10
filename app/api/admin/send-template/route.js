@@ -23,6 +23,7 @@ export async function POST(request) {
 
     const displayName = name || 'there'
 
+    console.log(`Sending template to: ${email} from: ${from}`)
     await sgMail.send({
       to: email,
       from,

@@ -113,7 +113,7 @@ export async function POST(request) {
               const smsBody     = new URLSearchParams({
                 To:   to,
                 From: twilioFrom,
-                Body: `New YardSync Pro Setup purchase – ${gardenerName} (${gardenerEmail}). Reach out to onboard. https://yardsyncapp.com/admin/dashboard`,
+                Body: `New YardSync Pro Setup purchase – ${gardenerName} (${gardenerEmail}). Reach out to onboard. https://yardsync.vercel.app/admin/dashboard`,
               })
               await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
                 method:  'POST',
@@ -132,7 +132,7 @@ export async function POST(request) {
           // ── Admin email alert ──
           await sendAdminEmail({
             subject: `🛠 New Pro Setup purchase — ${gardenerName}`,
-            text: `A new contractor just purchased the $99 Pro Setup add-on.\n\nName: ${gardenerName}\nEmail: ${gardenerEmail}\nUID: ${gardenerUid}\n\nReach out to begin onboarding their client list.\n\nAdmin dashboard: https://yardsyncapp.com/admin/dashboard`,
+            text: `A new contractor just purchased the $99 Pro Setup add-on.\n\nName: ${gardenerName}\nEmail: ${gardenerEmail}\nUID: ${gardenerUid}\n\nReach out to begin onboarding their client list.\n\nAdmin dashboard: https://yardsync.vercel.app/admin/dashboard`,
             html: `
               <div style="font-family:-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:24px;background:#f8faf9;">
                 <div style="background:#0F6E56;color:#fff;padding:20px 24px;border-radius:12px 12px 0 0;">
@@ -147,7 +147,7 @@ export async function POST(request) {
                     <tr><td style="padding:6px 0;">UID</td><td style="text-align:right;font-family:monospace;font-size:11px;color:#5a6b60;">${gardenerUid}</td></tr>
                   </table>
                   <p style="margin:20px 0 0;font-size:13px;color:#5a6b60;">Reach out within 24 hours to begin onboarding their client list.</p>
-                  <a href="https://yardsyncapp.com/admin/dashboard" style="display:inline-block;margin-top:16px;background:#0F6E56;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Open admin dashboard →</a>
+                  <a href="https://yardsync.vercel.app/admin/dashboard" style="display:inline-block;margin-top:16px;background:#0F6E56;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Open admin dashboard →</a>
                   <a href="https://yardsyncapp.com/YardSync_Client_Import_Template.xlsx" style="display:inline-block;margin-top:10px;background:#f0f4f1;color:#0F6E56;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;border:1px solid #d4e0d8;">📋 Download client import template</a>
                 </div>
                 <p style="margin:16px 0 0;text-align:center;font-size:11px;color:#8aaa96;">YardSync · JNew Technologies, LLC</p>

@@ -236,6 +236,8 @@ export default function AdminDashboard() {
       })
       if (!res.ok) throw new Error('Send failed')
       toast.success(`Template sent to ${setupTarget.email}`)
+      setSetupTarget(null)
+      setSetupNotes('')
     } catch {
       toast.error('Failed to send template')
     } finally {
