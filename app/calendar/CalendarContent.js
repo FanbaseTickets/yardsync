@@ -167,7 +167,7 @@ export default function CalendarPage() {
   const [addonServices,   setAddonServices]   = useState([])
   const [schedules,       setSchedules]       = useState([])
   const [loading,         setLoading]         = useState(true)
-  const [selectedDay,     setSelectedDay]     = useState(null)
+  const [selectedDay,     setSelectedDay]     = useState(new Date())
 
   const [showAddModal,    setShowAddModal]    = useState(false)
   const [selectedClient,  setSelectedClient]  = useState('')
