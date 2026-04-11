@@ -62,6 +62,10 @@ export async function POST(request) {
           subscriptionPlan:     plan,
           stripeCustomerId:     customerId,
           stripeSubscriptionId: subscriptionId,
+          currentPeriodEnd:     subscription.current_period_end
+                                    ? new Date(subscription.current_period_end * 1000).toISOString()
+                                    : null,
+          lastPaymentAt:        new Date().toISOString(),
           updatedAt:            new Date().toISOString(),
         })
 
@@ -179,6 +183,10 @@ export async function POST(request) {
             })
             await setDocument('users', uid, {
               subscriptionStatus: 'active',
+              currentPeriodEnd:   subscription.current_period_end
+                                      ? new Date(subscription.current_period_end * 1000).toISOString()
+                                      : null,
+              lastPaymentAt:      new Date().toISOString(),
               updatedAt:          new Date().toISOString(),
             })
             console.log(`Subscription renewed for ${uid}`)
