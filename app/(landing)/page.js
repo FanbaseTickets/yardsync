@@ -204,13 +204,13 @@ export default function LandingPage() {
         <div style={{maxWidth:'1100px',margin:'0 auto'}}>
           <div style={{textAlign:'center',marginBottom:'48px'}}>
             <div className="sec-lbl">Volume Reward Program | Programa de Recompensas</div>
-            <h2 className="sec-h" style={{fontSize:'clamp(32px,4vw,50px)'}}>Already have clients?<br/>Your subscription could be <em style={{fontStyle:'italic',color:'var(--gp)'}}>free</em>.</h2>
+            <h2 className="sec-h" style={{fontSize:'clamp(32px,4vw,50px)'}}>Already have clients?<br/>Your subscription could be <em style={{fontStyle:'italic',color:'var(--gp)'}}>free</em>.*</h2>
             <p style={{fontSize:'17px',color:'var(--g6)',maxWidth:'640px',margin:'12px auto 0'}}>If you&apos;re already running a client base, the math works in your favor. The more you invoice through YardSync, the less — or nothing — you pay.</p>
           </div>
           <div className="lp-reality-box">
             <div>
               <div className="lp-reality-label">Think about your current book of business</div>
-              <p className="lp-reality-text"><strong style={{color:'#fff'}}>10 clients at $300/month each = $3,000/month.</strong><br/>That&apos;s the FREE tier. Most contractors with an existing client base are already there — or get there within their first few months.</p>
+              <p className="lp-reality-text"><strong style={{color:'#fff'}}>10 clients at $300/month each = $3,000/month.</strong><br/>That&apos;s the $0 subscription tier. Most contractors with an existing client base are already there — or get there within their first few months.</p>
               <p className="lp-reality-fine">Hit the threshold for 2 consecutive months to lock in your tier. No tricks, no fine print.</p>
             </div>
             <div style={{textAlign:'center',flexShrink:0}}>
@@ -221,7 +221,7 @@ export default function LandingPage() {
           <div className="lp-vg">
             <div className="lp-vt"><div style={{fontSize:'18px',marginBottom:'8px'}}>🌱</div><div className="lp-vr">Under $1,500/mo invoiced</div><div className="lp-vd">Full Subscription</div><div className="lp-vp">$39/month</div><div className="lp-vn">+ 5.5% per invoice. Standard rate to start.</div></div>
             <div className="lp-vt"><div style={{fontSize:'18px',marginBottom:'8px'}}>📈</div><div className="lp-vr">$1,500–$2,999/mo invoiced</div><div className="lp-vd">50% Off Subscription</div><div className="lp-vp">$19/month</div><div className="lp-vn">+ 5.5% per invoice. Hit 2 months to unlock.</div></div>
-            <div className="lp-vt top"><div style={{fontSize:'18px',marginBottom:'8px'}}>🏆</div><div className="lp-vr">$3,000+/mo invoiced</div><div className="lp-vd">FREE Subscription</div><div className="lp-vp">$0/month</div><div className="lp-vn">+ 5.5% per invoice. Your app pays for itself.</div></div>
+            <div className="lp-vt top"><div style={{fontSize:'18px',marginBottom:'8px'}}>🏆</div><div className="lp-vr">$3,000+/mo invoiced</div><div className="lp-vd">$0 Subscription</div><div className="lp-vp">$0/month</div><div className="lp-vn">+ 5.5% per invoice. Your app pays for itself.</div></div>
           </div>
           <p className="lp-vfine">Drop below threshold for 2 consecutive months to return to the previous tier. No surprise charges — always 2 months notice. The 5.5% per-invoice fee applies at every tier.</p>
           <div style={{textAlign:'center',marginTop:'40px'}}>
@@ -230,24 +230,31 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* EARLY ADOPTER */}
+      <div style={{background:'linear-gradient(135deg, #1B4332 0%, #2D6A4F 100%)',padding:'28px 24px',textAlign:'center',margin:'0'}}>
+        <p style={{color:'#FFD60A',fontSize:'13px',fontWeight:700,letterSpacing:'1.5px',textTransform:'uppercase',margin:'0 0 6px'}}>Early Adopter Pricing</p>
+        <p style={{color:'#fff',fontSize:'clamp(18px,2.5vw,24px)',fontWeight:700,margin:'0 0 6px'}}>Sign up before April 15, 2028 — lock in 5.5% for life.</p>
+        <p style={{color:'rgba(255,255,255,.7)',fontSize:'14px',margin:0}}>Accounts created after that date may see higher rates. Get in now and your rate never changes.</p>
+      </div>
+
       {/* PRICING */}
       <section className="lp-pricing" id="pricing">
         <div style={{maxWidth:'1100px',margin:'0 auto'}}>
           <div className="sec-lbl">Pricing | Precios</div>
           <h2 className="sec-h">Simple pricing. Serious results.</h2>
-          <p style={{fontSize:'15px',color:'var(--g6)'}}>$39/mo subscription + 5.5% per invoice. No contracts. Cancel anytime. Volume rewards bring the subscription to <strong>free</strong> at $3k+/mo invoiced.</p>
+          <p style={{fontSize:'15px',color:'var(--g6)'}}>$39/mo subscription + 5.5% per invoice. No contracts. Cancel anytime. Volume rewards drop your subscription to <strong>$0</strong> at $3k+/mo invoiced. The 5.5% per-invoice fee always applies.</p>
           <div className="lp-pg">
             <div className="lp-pc">
               <div className="lp-pn">Monthly</div><div className="lp-pne">Mensual</div>
               <div className="lp-pa">$39</div><div className="lp-pp">per month + 5.5% per invoice</div>
-              <ul className="lp-pf"><li>Unlimited clients</li><li>Auto SMS reminders</li><li>Stripe invoicing (5.5% per invoice)</li><li>Volume rewards: free at $3k+/mo</li><li>English &amp; Spanish</li><li>Cancel anytime</li></ul>
+              <ul className="lp-pf"><li>Unlimited clients</li><li>Auto SMS reminders</li><li>Stripe invoicing (5.5% per invoice)</li><li>$0 subscription at $3k+/mo</li><li>English &amp; Spanish</li><li>Cancel anytime</li></ul>
               <a href="/signup" className="lp-pcta">Start Monthly →</a>
             </div>
             <div className="lp-pc featured">
               <div className="lp-pbg">SAVE $78 · BEST VALUE</div>
               <div className="lp-pn">Annual</div><div className="lp-pne">Anual</div>
               <div className="lp-pa">$390</div><div className="lp-pp">per year · $32.50/mo + 5.5% per invoice</div>
-              <ul className="lp-pf"><li>Everything in Monthly</li><li>2 months free</li><li>Priority support</li><li>Early feature access</li><li>Volume rewards: free at $3k+/mo</li></ul>
+              <ul className="lp-pf"><li>Everything in Monthly</li><li>2 months free</li><li>Priority support</li><li>Early feature access</li><li>$0 subscription at $3k+/mo</li></ul>
               <a href="/signup" className="lp-pcta">Start Annual →</a>
             </div>
             <div className="lp-pc pro-setup">
@@ -308,7 +315,7 @@ export default function LandingPage() {
           <div style={{display:'flex',justifyContent:'center'}}>
             <a href="/signup" className="lp-btn-y" style={{fontSize:'17px',padding:'14px 36px'}}>Get Started →</a>
           </div>
-          <p className="lp-cta-note">$39/mo + 5.5% per invoice · Free subscription at $3k+/mo invoiced · Cancel anytime · English &amp; Español</p>
+          <p className="lp-cta-note">$39/mo + 5.5% per invoice · $0 subscription at $3k+/mo invoiced · 5.5% per invoice always applies · Cancel anytime · English &amp; Español</p>
         </div>
       </section>
 
