@@ -637,6 +637,14 @@ export default function SettingsPage() {
                     : translate('settings', 'monthly_plan')}
                 </span>
               </div>
+              {profile?.currentPeriodEnd && (
+                <p className="text-[12px] text-brand-700 mt-2">
+                  {lang === 'es' ? 'Próxima facturación' : 'Next billing date'}:{' '}
+                  <span className="font-semibold">
+                    {new Date(profile.currentPeriodEnd).toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                  </span>
+                </p>
+              )}
             </Card>
 
             {/* Upgrade prompt — only show for monthly subscribers */}
