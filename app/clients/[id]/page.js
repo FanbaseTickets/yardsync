@@ -108,10 +108,11 @@ export default function ClientDetailPage() {
           email:       c.email       || '',
           address:     c.address     || '',
           serviceId:   c.serviceId   || '',
-          billingMode: c.billingMode || 'upfront',
-          language:    c.language    || 'en',
-          status:      c.status      || 'active',
-          notes:       c.notes       || '',
+          billingMode:      c.billingMode      || 'upfront',
+          language:         c.language         || 'en',
+          status:           c.status           || 'active',
+          notes:            c.notes            || '',
+          preferredChannel: c.preferredChannel || 'both',
         })
       }
     } catch {
@@ -219,15 +220,17 @@ export default function ClientDetailPage() {
   async function handleSave() {
     setSaving(true)
     try {
+      // Explicit handling: empty string means "clear the field", not "keep old value"
       const updateData = {
-        name:        form.name        || client.name,
-        phone:       form.phone       || client.phone,
-        email:       form.email       || '',
-        address:     form.address     || client.address,
-        billingMode: form.billingMode,
-        language:    form.language    || 'en',
-        status:      form.status,
-        notes:       form.notes       || '',
+        name:        form.name.trim()    || client.name,
+        phone:       form.phone.trim(),
+        email:       form.email.trim(),
+        address:     form.address.trim() || client.address,
+        billingMode:      form.billingMode,
+        language:         form.language         || 'en',
+        status:           form.status,
+        notes:            form.notes            || '',
+        preferredChannel: form.preferredChannel || 'both',
       }
 
       if (form.serviceId && form.serviceId !== client.serviceId) {
@@ -268,11 +271,10 @@ export default function ClientDetailPage() {
     }
   }
 
-async function handleSendInvoice() {
+async function handleSendInvoice(channels = 'both') {
   setInvoicing(true)
   try {
     const finalAddons = buildFinalAddons()
-    // Build line items — base + addons + materials (no flat fees, 5.5% deducted from payout)
     const lineItems = [
       { label: client.packageLabel || 'Lawn Care Service', amountCents: baseCents, category: 'base' },
       ...finalAddons.map(a => ({ label: a.label, amountCents: a.amountCents, category: 'addon' })),
@@ -300,32 +302,40 @@ async function handleSendInvoice() {
         contractorName:  profile?.businessName || profile?.displayName || user?.displayName || '',
         contractorEmail: user?.email || '',
         lang,
+        channels,
       }),
     })
     const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Invoice failed')
-
-    // Invoice doc is written server-side by /api/stripe/invoice
+    if (!res.ok) {
+      if (data.code === 'no_connect') {
+        toast.error(lang === 'es'
+          ? 'Completa la configuración de pagos en Ajustes antes de enviar facturas'
+          : 'Finish payment setup in Settings before sending invoices')
+        router.push('/settings')
+        return
+      }
+      throw new Error(data.error || 'Invoice failed')
+    }
 
     // Send payment link via SMS to client
-    if (client.phone && data.paymentUrl) {
+    if (data.smsRequested && client.phone && data.paymentUrl) {
       const smsBody = lang === 'es'
         ? `Hola ${client.name}! Tu factura de $${(grandTotal / 100).toFixed(2)} está lista. Paga aquí: ${data.paymentUrl}`
         : `Hi ${client.name}! Your invoice for $${(grandTotal / 100).toFixed(2)} is ready. Pay here: ${data.paymentUrl}`
       fetch('/api/twilio/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientPhone: client.phone,
-          message: smsBody,
-        }),
+        body: JSON.stringify({ clientPhone: client.phone, message: smsBody }),
       }).catch(err => console.error('Invoice SMS failed (non-fatal):', err))
     }
 
-    const notified = data.emailNotified || !!client.phone
-    toast.success(notified
-      ? (lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent ✓')
-      : (lang === 'es' ? 'Factura creada — sin notificación (sin tel/email)' : 'Invoice created — no notification sent (no phone/email)')
+    const parts = []
+    if (data.emailNotified) parts.push('email')
+    if (data.smsRequested && client.phone) parts.push(lang === 'es' ? 'SMS' : 'text')
+    const via = parts.length === 2 ? parts.join(' + ') : parts[0]
+    toast.success(via
+      ? (lang === 'es' ? `Factura enviada por ${via} ✓` : `Invoice sent via ${via} ✓`)
+      : (lang === 'es' ? 'Factura creada — sin notificación' : 'Invoice created — no notification sent')
     )
     setShowInvoice(false)
     loadData()
@@ -383,7 +393,7 @@ async function handleSendInvoice() {
       <div className="page-content">
         <PageHeader
           title={client.name}
-          subtitle={`${client.packageType} · ${client.status}`}
+          subtitle={`${client.packageType ? translate('packages', client.packageType) || client.packageType : (lang === 'es' ? 'Sin paquete' : 'No package')} · ${client.status || 'active'}`}
           back
           actions={
             <button
@@ -622,11 +632,25 @@ async function handleSendInvoice() {
             <Button variant="secondary" fullWidth onClick={() => setShowInvoice(false)}>
               {translate('common', 'cancel')}
             </Button>
-            <Button fullWidth loading={invoicing} onClick={handleSendInvoice}>
-              {lang === 'es'
-                ? `Enviar · ${formatCents(invoiceTotal)}`
-                : `Send · ${formatCents(invoiceTotal)}`}
-            </Button>
+            {(() => {
+              const pref = client.preferredChannel || 'both'
+              const has = { sms: !!client.phone, email: !!client.email, both: !!client.phone && !!client.email }
+              const order = ['both', 'sms', 'email'].filter(c => has[c])
+              if (order.length === 0) return null
+              const labels = { both: lang === 'es' ? 'Ambos' : 'Both', sms: lang === 'es' ? 'Texto' : 'Text', email: 'Email' }
+              // Sort so preferred channel comes first
+              order.sort((a, b) => (a === pref ? -1 : b === pref ? 1 : 0))
+              return (
+                <div className={`grid gap-2 w-full ${order.length === 1 ? 'grid-cols-1' : order.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                  {order.map((ch, i) => (
+                    <Button key={ch} variant={i === 0 ? 'primary' : 'secondary'} loading={invoicing} onClick={() => handleSendInvoice(ch)}>
+                      {labels[ch]}
+                    </Button>
+                  ))}
+                </div>
+              )
+            })()}
+            <p className="text-[11px] text-gray-500 text-center mt-1">{lang === 'es' ? 'Total' : 'Total'}: {formatCents(invoiceTotal)}</p>
           </>
         }
       >
@@ -883,6 +907,22 @@ async function handleSendInvoice() {
           >
             {BILLING_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </Select>
+
+          <div>
+            <p className="text-[13px] font-medium text-gray-700 mb-2">{lang === 'es' ? 'Enviar facturas por' : 'Send invoices by'}</p>
+            <div className="flex gap-3">
+              {[
+                { value: 'both', label: lang === 'es' ? 'Ambos' : 'Both' },
+                { value: 'sms', label: lang === 'es' ? 'Texto (SMS)' : 'Text (SMS)' },
+                { value: 'email', label: 'Email' },
+              ].map(opt => (
+                <label key={opt.value} className="flex items-center gap-1.5 text-[13px] text-gray-600 cursor-pointer">
+                  <input type="radio" name="preferredChannel" value={opt.value} checked={form.preferredChannel === opt.value} onChange={e => setField('preferredChannel', e.target.value)} className="accent-brand-600" />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+          </div>
 
           <Select
             label={translate('client_detail', 'status')}

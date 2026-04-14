@@ -391,7 +391,7 @@ export default function CalendarPage() {
     })
   }
 
-  async function confirmSendInvoice() {
+  async function confirmSendInvoice(channels = 'both') {
     const p = invoicePreview
     if (!p) return
     const { schedule, isWalkIn, clientName, clientEmail, clientPhone, totalCents, lineItems } = p
@@ -414,12 +414,21 @@ export default function CalendarPage() {
           contractorName:  profile?.businessName || profile?.displayName || user?.displayName || '',
           contractorEmail: user?.email || '',
           lang,
+          channels,
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Invoice failed')
+      if (!res.ok) {
+        if (data.code === 'no_connect') {
+          toast.error(lang === 'es'
+            ? 'Completa la configuración de pagos en Ajustes antes de enviar facturas'
+            : 'Finish payment setup in Settings before sending invoices')
+          return
+        }
+        throw new Error(data.error || 'Invoice failed')
+      }
 
-      if (clientPhone && data.paymentUrl) {
+      if (data.smsRequested && clientPhone && data.paymentUrl) {
         const smsBody = lang === 'es'
           ? `Hola ${clientName}! Tu factura de $${(totalCents / 100).toFixed(2)} está lista. Paga aquí: ${data.paymentUrl}`
           : `Hi ${clientName}! Your invoice for $${(totalCents / 100).toFixed(2)} is ready. Pay here: ${data.paymentUrl}`
@@ -428,12 +437,14 @@ export default function CalendarPage() {
           body: JSON.stringify({ clientPhone, message: smsBody }),
         }).catch(err => console.error('Invoice SMS failed (non-fatal):', err))
       }
-      const notified = data.emailNotified || !!clientPhone
-      if (notified) {
-        toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent ✓')
-      } else {
-        toast.success(lang === 'es' ? 'Factura creada — sin notificación (sin tel/email)' : 'Invoice created — no notification sent (no phone/email)')
-      }
+      const parts = []
+      if (data.emailNotified) parts.push('email')
+      if (data.smsRequested && clientPhone) parts.push(lang === 'es' ? 'SMS' : 'text')
+      const via = parts.length === 2 ? parts.join(' + ') : parts[0]
+      toast.success(via
+        ? (lang === 'es' ? `Factura enviada por ${via} ✓` : `Invoice sent via ${via} ✓`)
+        : (lang === 'es' ? 'Factura creada — sin notificación' : 'Invoice created — no notification sent')
+      )
       setExpandedId(null)
       setInvoicePreview(null)
       loadData()
@@ -517,6 +528,10 @@ export default function CalendarPage() {
       toast.error(lang === 'es' ? 'El nombre es requerido' : 'Name is required')
       return
     }
+    if (!walkInPhone.trim() && !walkInEmail.trim()) {
+      toast.error(lang === 'es' ? 'Agrega un teléfono o email para poder enviar la factura' : 'Add a phone or email so we can deliver the invoice')
+      return
+    }
     if (!selectedDay) return
     if (walkInPhone.trim() && !validatePhone(walkInPhone)) {
       setWalkInPhoneError(lang === 'es' ? 'Ingresa un número válido (10 dígitos)' : 'Enter a valid phone number (10 digits)')
@@ -544,7 +559,7 @@ export default function CalendarPage() {
     finally { setSavingWalkIn(false) }
   }
 
-  async function handleWalkInInvoice() {
+  async function handleWalkInInvoice(channels = 'both') {
     if (!walkInInvoiceTarget) return
     setInvoicingWalkIn(true)
     try {
@@ -574,13 +589,21 @@ export default function CalendarPage() {
           contractorName:  profile?.businessName || profile?.displayName || user?.displayName || '',
           contractorEmail: user?.email || '',
           lang,
+          channels,
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Invoice failed')
+      if (!res.ok) {
+        if (data.code === 'no_connect') {
+          toast.error(lang === 'es'
+            ? 'Completa la configuración de pagos en Ajustes antes de enviar facturas'
+            : 'Finish payment setup in Settings before sending invoices')
+          return
+        }
+        throw new Error(data.error || 'Invoice failed')
+      }
 
-      // Send payment link via SMS
-      if (walkInInvoiceTarget.clientPhone && data.paymentUrl) {
+      if (data.smsRequested && walkInInvoiceTarget.clientPhone && data.paymentUrl) {
         const smsBody = lang === 'es'
           ? `Hola ${walkInInvoiceTarget.clientName}! Tu factura de $${(totalCents / 100).toFixed(2)} está lista. Paga aquí: ${data.paymentUrl}`
           : `Hi ${walkInInvoiceTarget.clientName}! Your invoice for $${(totalCents / 100).toFixed(2)} is ready. Pay here: ${data.paymentUrl}`
@@ -590,12 +613,14 @@ export default function CalendarPage() {
           body: JSON.stringify({ clientPhone: walkInInvoiceTarget.clientPhone, message: smsBody }),
         }).catch(err => console.error('Walk-in SMS failed (non-fatal):', err))
       }
-      const notified = data.emailNotified || !!walkInInvoiceTarget.clientPhone
-      if (notified) {
-        toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent ✓')
-      } else {
-        toast.success(lang === 'es' ? 'Factura creada — sin notificación (sin tel/email)' : 'Invoice created — no notification sent (no phone/email)')
-      }
+      const parts = []
+      if (data.emailNotified) parts.push('email')
+      if (data.smsRequested && walkInInvoiceTarget.clientPhone) parts.push(lang === 'es' ? 'SMS' : 'text')
+      const via = parts.length === 2 ? parts.join(' + ') : parts[0]
+      toast.success(via
+        ? (lang === 'es' ? `Factura enviada por ${via} ✓` : `Invoice sent via ${via} ✓`)
+        : (lang === 'es' ? 'Factura creada — sin notificación' : 'Invoice created — no notification sent')
+      )
       setShowWalkInInvoice(false); loadData()
     } catch (err) { toast.error(err.message || translate('common', 'error')) }
     finally { setInvoicingWalkIn(false) }
@@ -1090,20 +1115,20 @@ export default function CalendarPage() {
           <Input label={lang === 'es' ? 'Nombre del cliente *' : 'Client name *'} placeholder={lang === 'es' ? 'Juan García' : 'John Smith'} value={walkInName} onChange={e => setWalkInName(e.target.value)} />
           <div>
             <PhoneInput
-              label={lang === 'es' ? 'Teléfono *' : 'Phone number *'}
+              label={lang === 'es' ? 'Teléfono' : 'Phone number'}
               value={walkInPhone}
               onChange={val => { setWalkInPhone(val); setWalkInPhoneError('') }}
               error={walkInPhoneError}
             />
-            <p className="text-[11px] text-gray-400 mt-1">{lang === 'es' ? 'Requerido para enviar el link de pago' : 'Required to send payment link'}</p>
           </div>
           <Input
-            label={lang === 'es' ? 'Email (opcional — solo para recibo)' : 'Email (optional — for receipt only)'}
+            label={lang === 'es' ? 'Email' : 'Email'}
             placeholder="client@example.com"
             type="email"
             value={walkInEmail}
             onChange={e => setWalkInEmail(e.target.value)}
           />
+          <p className="text-[11px] text-gray-400 -mt-2">{lang === 'es' ? 'Teléfono o email requerido para enviar factura' : 'Phone or email required to send invoice'}</p>
           <Input label={lang === 'es' ? 'Precio base' : 'Base job price'} placeholder="65" type="number" prefix="$" value={walkInPrice} onChange={e => setWalkInPrice(e.target.value)}
             hint={lang === 'es' ? 'Tarifa YardSync 5.5% aplica' : '5.5% YardSync fee applies'} />
           <Select label={translate('calendar', 'time')} value={walkInTime} onChange={e => setWalkInTime(e.target.value)}>
@@ -1119,12 +1144,23 @@ export default function CalendarPage() {
       <Modal
         open={showWalkInInvoice} onClose={() => setShowWalkInInvoice(false)}
         title={lang === 'es' ? `Factura — ${walkInInvoiceTarget?.clientName || ''}` : `Invoice — ${walkInInvoiceTarget?.clientName || ''}`}
-        footer={<>
-          <Button variant="secondary" fullWidth onClick={() => setShowWalkInInvoice(false)}>{translate('common', 'cancel')}</Button>
-          <Button fullWidth loading={invoicingWalkIn} onClick={handleWalkInInvoice}>
-            {lang === 'es' ? `Enviar · ${formatCents(walkInInvoiceTotal)}` : `Send · ${formatCents(walkInInvoiceTotal)}`}
-          </Button>
-        </>}
+        footer={(() => {
+          const cp = walkInInvoiceTarget?.clientPhone
+          const ce = walkInInvoiceTarget?.clientEmail
+          const has = { sms: !!cp, email: !!ce, both: !!cp && !!ce }
+          const order = ['both', 'sms', 'email'].filter(c => has[c])
+          const labels = { both: lang === 'es' ? 'Ambos' : 'Both', sms: lang === 'es' ? 'Texto' : 'Text', email: 'Email' }
+          return <>
+            <Button variant="secondary" fullWidth onClick={() => setShowWalkInInvoice(false)}>{translate('common', 'cancel')}</Button>
+            {order.map((ch, i) => (
+              <Button key={ch} variant={i === 0 ? 'primary' : 'secondary'} fullWidth loading={invoicingWalkIn} onClick={() => handleWalkInInvoice(ch)}>
+                {labels[ch]}
+              </Button>
+            ))}
+            {order.length === 0 && <Button fullWidth disabled>{lang === 'es' ? 'Sin teléfono ni email' : 'No phone or email'}</Button>}
+            <p className="text-[11px] text-gray-500 text-center w-full">{lang === 'es' ? 'Total' : 'Total'}: {formatCents(walkInInvoiceTotal)}</p>
+          </>
+        })()}
       >
         <div className="space-y-4">
           <div className="bg-gray-50 rounded-xl p-3 space-y-1.5">
@@ -1366,13 +1402,26 @@ export default function CalendarPage() {
                   <span className="font-bold text-brand-700">{formatCents(net)}</span>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <Button variant="secondary" onClick={() => setInvoicePreview(null)} disabled={!!sendingInvoiceId}>
-                  {lang === 'es' ? 'Cancelar' : 'Cancel'}
-                </Button>
-                <Button icon={DollarSign} loading={!!sendingInvoiceId} onClick={confirmSendInvoice}>
-                  {lang === 'es' ? 'Enviar ahora' : 'Send now'}
-                </Button>
+              <div className="pt-1">
+                {(() => {
+                  const cp = invoicePreview.clientPhone
+                  const ce = invoicePreview.clientEmail
+                  const has = { sms: !!cp, email: !!ce, both: !!cp && !!ce }
+                  const order = ['both', 'sms', 'email'].filter(c => has[c])
+                  const labels = { both: lang === 'es' ? 'Ambos' : 'Both', sms: lang === 'es' ? 'Texto' : 'Text', email: 'Email' }
+                  return (
+                    <div className={`grid gap-2 ${order.length <= 1 ? 'grid-cols-2' : 'grid-cols-' + (order.length + 1)}`}>
+                      <Button variant="secondary" onClick={() => setInvoicePreview(null)} disabled={!!sendingInvoiceId}>
+                        {lang === 'es' ? 'Cancelar' : 'Cancel'}
+                      </Button>
+                      {order.map((ch, i) => (
+                        <Button key={ch} variant={i === 0 ? 'primary' : 'secondary'} loading={!!sendingInvoiceId} onClick={() => confirmSendInvoice(ch)}>
+                          {labels[ch]}
+                        </Button>
+                      ))}
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           )

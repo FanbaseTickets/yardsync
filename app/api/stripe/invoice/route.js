@@ -59,10 +59,14 @@ export async function POST(req) {
       contractorName,
       contractorEmail,
       lang,
+      channels,
     } = await req.json()
 
-    if (!stripeAccountId || !totalCents) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    if (!stripeAccountId) {
+      return NextResponse.json({ error: 'Stripe Connect not completed', code: 'no_connect' }, { status: 400 })
+    }
+    if (!totalCents) {
+      return NextResponse.json({ error: 'Invoice total is required', code: 'no_total' }, { status: 400 })
     }
 
     const applicationFeeAmount = Math.round(totalCents * 0.055)
@@ -109,9 +113,11 @@ export async function POST(req) {
       console.error('Firestore invoice write failed:', fsErr.message)
     }
 
-    // Step 2.5: Email the client if we have an address.
+    // Step 2.5: Email the client if we have an address and channel allows it.
     // Non-fatal: SendGrid issues are logged but never fail the request.
-    if (clientEmail) {
+    const emailChannel = (channels || 'both') !== 'sms'
+    const smsChannel   = (channels || 'both') !== 'email'
+    if (emailChannel && clientEmail) {
       const tmpl = buildInvoiceEmail({
         clientName,
         totalCents,
@@ -137,7 +143,8 @@ export async function POST(req) {
       amount: totalCents,
       applicationFee: applicationFeeAmount,
       contractorReceives: totalCents - applicationFeeAmount,
-      emailNotified: !!clientEmail,
+      emailNotified: !!(emailChannel && clientEmail),
+      smsRequested:  !!smsChannel,
     })
   } catch (err) {
     console.error('Stripe invoice error:', err)
