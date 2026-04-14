@@ -103,6 +103,13 @@ Generated 2026-04-08. Run on staging with **test Stripe keys** before flipping t
   - [ ] Confirm the new amber widget appears at the top of `/admin/dashboard` with the test purchase listed
   - [ ] Tap "Mark contacted →" → confirm the modal opens, completes, and the entry disappears from the widget
   - [ ] Confirm a normal subscription checkout (no Pro Setup add-on) does NOT trigger any of the above — verifies the bug fix
+- [ ] **Email invoice delivery smoke test (Bug 1, commit 79c7472):**
+  - [ ] Use a Connect-complete contractor account (e.g. Marco's)
+  - [ ] Find or create a client with email but no phone (legacy email-only scenario)
+  - [ ] Send an invoice → confirm SendGrid email lands with branded template + pay link
+  - [ ] Verify Vercel logs show `Client email sent via SendGrid to ...`
+  - [ ] Also test: client with phone only → confirm SMS still sends, no email attempted
+  - [ ] Also test: client with both phone + email → confirm both SMS and email fire
 - [ ] Swap `STRIPE_SECRET_KEY` to live key in Vercel env
 - [ ] Swap `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` to live key
 - [ ] Create live Stripe webhook → copy signing secret → update `STRIPE_WEBHOOK_SECRET`
