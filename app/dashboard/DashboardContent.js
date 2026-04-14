@@ -201,9 +201,11 @@ export default function DashboardPage() {
               </button>
               <button
                 onClick={signOut}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                className="flex items-center gap-1.5 px-3 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-[12px] font-medium transition-colors"
+                aria-label={translate('common', 'sign_out')}
               >
-                <LogOut size={15} className="text-white" />
+                <LogOut size={14} className="text-white" />
+                <span>{translate('common', 'sign_out')}</span>
               </button>
             </div>
           </div>

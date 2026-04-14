@@ -11,7 +11,7 @@ import { Card, Button, Input, Select } from '@/components/ui'
 import PhoneInput from '@/components/ui/PhoneInput'
 import { saveGardenerProfile, getGardenerProfile, getFeePayments, saveFeePayment, markQuarterFeesCollected, getQuarterlyFeesOwed } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
-import { Bell, Globe, User, Clock, BarChart2, CreditCard, Link2, AlertTriangle, Wallet, CheckCircle2, ArrowUpCircle, TrendingUp, Lock, Zap } from 'lucide-react'
+import { Bell, Globe, User, Clock, BarChart2, CreditCard, Link2, AlertTriangle, Wallet, CheckCircle2, ArrowUpCircle, TrendingUp, Lock, Zap, LogOut } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 
@@ -31,7 +31,7 @@ const LANGUAGE_OPTIONS = [
 ]
 
 export default function SettingsPage() {
-  const { user, profile, refreshProfile } = useAuth()
+  const { user, profile, refreshProfile, signOut } = useAuth()
   const { translate, lang } = useLang()
   const searchParams = useSearchParams()
   const [disconnecting, setDisconnecting] = useState(false)
@@ -1025,7 +1025,17 @@ export default function SettingsPage() {
             </div>
           )}
 
-          <p className="text-center text-[11px] text-gray-300 pb-4">
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <button
+              onClick={signOut}
+              className="w-full flex items-center justify-center gap-2 px-4 h-12 rounded-xl border border-red-200 bg-white text-red-600 font-medium hover:bg-red-50 transition-colors"
+            >
+              <LogOut size={18} />
+              <span>{translate('common', 'sign_out')}</span>
+            </button>
+          </div>
+
+          <p className="text-center text-[11px] text-gray-300 pb-4 mt-4">
             {translate('settings', 'footer')}
           </p>
 

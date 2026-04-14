@@ -39,6 +39,7 @@ export default function AdminDashboard() {
   const router = useRouter()
 
   const [gardeners,       setGardeners]       = useState([])
+  const [gardenerFilter,  setGardenerFilter]  = useState('all')
   const [allInvoicesRaw,  setAllInvoicesRaw]  = useState([])
   const [allFeePayments,  setAllFeePayments]  = useState([])
   const [dataLoading, setDataLoading] = useState(true)
@@ -548,9 +549,35 @@ export default function AdminDashboard() {
 
         {/* Gardeners list */}
         <div>
-          <p className="text-[11px] font-medium text-gray-500 uppercase tracking-widest mb-4">
+          <p className="text-[11px] font-medium text-gray-500 uppercase tracking-widest mb-3">
             Gardeners ({gardeners.length})
           </p>
+
+          {/* Filter chips */}
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+            {[
+              { id: 'all',              label: 'All' },
+              { id: 'connect_complete', label: 'Connect-complete' },
+              { id: 'needs_connect',    label: 'Needs Connect' },
+              { id: 'no_invoices',      label: 'No invoices yet' },
+              { id: 'top_earners',      label: 'Top earners' },
+            ].map(chip => {
+              const active = gardenerFilter === chip.id
+              return (
+                <button
+                  key={chip.id}
+                  onClick={() => setGardenerFilter(chip.id)}
+                  className={`px-3 h-8 rounded-full text-[12px] font-medium whitespace-nowrap transition-colors border ${
+                    active
+                      ? 'bg-brand-500 text-white border-brand-500'
+                      : 'bg-gray-900 text-gray-300 border-gray-800 hover:border-gray-700'
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              )
+            })}
+          </div>
 
           {gardeners.length === 0 ? (
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-12 text-center">
@@ -559,9 +586,29 @@ export default function AdminDashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {[...gardeners]
-                .sort((a, b) => b.thisMonth.fees - a.thisMonth.fees)
-                .map(g => {
+              {(() => {
+                const filtered = gardeners.filter(g => {
+                  if (gardenerFilter === 'connect_complete') return !!g.stripeAccountId
+                  if (gardenerFilter === 'needs_connect')    return !g.stripeAccountId
+                  if (gardenerFilter === 'no_invoices')      return (g.invoiceCount || 0) === 0
+                  if (gardenerFilter === 'top_earners') {
+                    const topIds = new Set(
+                      [...gardeners]
+                        .sort((a, b) => (b.allTime?.total || 0) - (a.allTime?.total || 0))
+                        .slice(0, 5)
+                        .map(x => x.id)
+                    )
+                    return topIds.has(g.id)
+                  }
+                  return true
+                })
+                const sorted = [...filtered].sort((a, b) => {
+                  if (gardenerFilter === 'top_earners') {
+                    return (b.allTime?.total || 0) - (a.allTime?.total || 0)
+                  }
+                  return (b.activeClients || 0) - (a.activeClients || 0)
+                })
+                return sorted.map(g => {
                   const isExpanded = expanded === g.id
                   const joinDate   = g.createdAt?.toDate?.()
                   return (
@@ -831,7 +878,8 @@ export default function AdminDashboard() {
                       )}
                     </div>
                   )
-                })}
+                })
+              })()}
             </div>
           )}
         </div>
