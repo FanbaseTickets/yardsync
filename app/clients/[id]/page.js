@@ -297,6 +297,9 @@ async function handleSendInvoice() {
         gardenerUid: user.uid,
         clientId: id,
         invoiceType: 'recurring',
+        contractorName:  profile?.businessName || profile?.displayName || user?.displayName || '',
+        contractorEmail: user?.email || '',
+        lang,
       }),
     })
     const data = await res.json()
@@ -319,7 +322,11 @@ async function handleSendInvoice() {
       }).catch(err => console.error('Invoice SMS failed (non-fatal):', err))
     }
 
-    toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent!')
+    const notified = data.emailNotified || !!client.phone
+    toast.success(notified
+      ? (lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent ✓')
+      : (lang === 'es' ? 'Factura creada — sin notificación (sin tel/email)' : 'Invoice created — no notification sent (no phone/email)')
+    )
     setShowInvoice(false)
     loadData()
   } catch (err) {

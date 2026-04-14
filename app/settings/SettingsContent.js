@@ -693,7 +693,7 @@ export default function SettingsPage() {
             const progressLabel = tier === 1
               ? (lang === 'es' ? 'hacia 50% de descuento' : 'toward 50% off')
               : tier === 2
-              ? (lang === 'es' ? 'hacia YardSync GRATIS' : 'toward FREE YardSync')
+              ? (lang === 'es' ? 'hacia YardSync por $0/mes' : 'toward $0/mo YardSync')
               : (lang === 'es' ? 'Nivel gratis alcanzado — racha en seguimiento' : 'Free tier reached — streak being tracked')
             return (
               <section>
@@ -736,7 +736,7 @@ export default function SettingsPage() {
                         {tier >= 3 ? <Zap size={14} className="text-green-600" /> : <Lock size={14} className="text-gray-300" />}
                         <p className="text-[12px] text-gray-700">$3,000+/{lang === 'es' ? 'mes' : 'mo'}</p>
                       </div>
-                      <p className={`text-[12px] font-bold ${tier >= 3 ? 'text-green-600' : 'text-gray-800'}`}>FREE</p>
+                      <p className={`text-[12px] font-bold ${tier >= 3 ? 'text-green-600' : 'text-gray-800'}`}>$0/mo</p>
                     </div>
                   </div>
                   {/* Progress bar */}

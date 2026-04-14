@@ -411,6 +411,9 @@ export default function CalendarPage() {
           gardenerUid: user.uid,
           clientId: schedule.clientId || null,
           invoiceType: isWalkIn ? 'addon' : 'recurring',
+          contractorName:  profile?.businessName || profile?.displayName || user?.displayName || '',
+          contractorEmail: user?.email || '',
+          lang,
         }),
       })
       const data = await res.json()
@@ -424,9 +427,12 @@ export default function CalendarPage() {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ clientPhone, message: smsBody }),
         }).catch(err => console.error('Invoice SMS failed (non-fatal):', err))
+      }
+      const notified = data.emailNotified || !!clientPhone
+      if (notified) {
         toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent ✓')
       } else {
-        toast.success(lang === 'es' ? 'Factura creada ✓' : 'Invoice created ✓')
+        toast.success(lang === 'es' ? 'Factura creada — sin notificación (sin tel/email)' : 'Invoice created — no notification sent (no phone/email)')
       }
       setExpandedId(null)
       setInvoicePreview(null)
@@ -444,7 +450,7 @@ export default function CalendarPage() {
     setWalkInPhone(c?.phone || schedule.clientPhone || '')
     setWalkInEmail(c?.email || schedule.clientEmail || '')
     setWalkInPhoneError('')
-    setWalkInPrice(''); setWalkInAddons([]); setWalkInVariables({})
+    setWalkInPrice('65'); setWalkInAddons([]); setWalkInVariables({})
     setWalkInTime('9:00 AM')
     setExpandedId(null)
     setShowWalkIn(true)
@@ -453,7 +459,7 @@ export default function CalendarPage() {
   function openWalkInModal() {
     if (!selectedDay) return
     setWalkInName(''); setWalkInPhone(''); setWalkInEmail(''); setWalkInPhoneError('')
-    setWalkInPrice(''); setWalkInAddons([]); setWalkInVariables({})
+    setWalkInPrice('65'); setWalkInAddons([]); setWalkInVariables({})
     setWalkInTime('9:00 AM')
     setShowWalkIn(true)
   }
@@ -565,6 +571,9 @@ export default function CalendarPage() {
           gardenerUid: user.uid,
           clientId:    null,
           invoiceType: 'addon',
+          contractorName:  profile?.businessName || profile?.displayName || user?.displayName || '',
+          contractorEmail: user?.email || '',
+          lang,
         }),
       })
       const data = await res.json()
@@ -580,9 +589,12 @@ export default function CalendarPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ clientPhone: walkInInvoiceTarget.clientPhone, message: smsBody }),
         }).catch(err => console.error('Walk-in SMS failed (non-fatal):', err))
+      }
+      const notified = data.emailNotified || !!walkInInvoiceTarget.clientPhone
+      if (notified) {
         toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent ✓')
       } else {
-        toast.success(lang === 'es' ? 'Factura creada. Agrega teléfono para enviar link de pago.' : 'Invoice created. Add client\'s phone number to send payment link.')
+        toast.success(lang === 'es' ? 'Factura creada — sin notificación (sin tel/email)' : 'Invoice created — no notification sent (no phone/email)')
       }
       setShowWalkInInvoice(false); loadData()
     } catch (err) { toast.error(err.message || translate('common', 'error')) }
