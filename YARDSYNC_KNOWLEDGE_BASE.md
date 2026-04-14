@@ -2,7 +2,7 @@
 
 > **Purpose:** Complete institutional memory for the YardSync project.
 > Read this file once at the start of a session to be fully briefed.
-> Updated: 2026-04-09 (end of session).
+> Updated: 2026-04-13 (end of session).
 >
 > **For Claude:** When the user says "get up to speed" or "read the knowledge base",
 > read this file. Do NOT re-explore the codebase — this file IS the exploration.
@@ -233,6 +233,12 @@ Lives at `/admin/dashboard`. Dark mode UI. Only accessible to `admin@fanbasetick
   - "Send template to client" button emails import template via `/api/admin/send-template`
   - "Download template" button downloads `/YardSync_Client_Import_Template.xlsx`
 
+### Gardener Filter Chips (added April 13)
+- All / Connect-complete / Needs Connect / No invoices yet / Top earners
+- Connect-complete gates on `!!g.stripeAccountId` (NOT `stripeAccountStatus` — that field is poisoned)
+- Default sort: `activeClients` descending
+- Top earners: top 5 by `allTime.total` desc
+
 ### Dead UI to Remove (next session)
 - Any Square-related UI elements
 - Quarterly billing references
@@ -283,6 +289,25 @@ Lives at `/admin/dashboard`. Dark mode UI. Only accessible to `admin@fanbasetick
 - Firebase Auth verification on admin API routes
 - Contact email unified to support@yardsyncapp.com
 
+### Phase 5 continued (April 13, 2026)
+- Null-guarded `subscription.current_period_end` in two webhook handlers (checkout + invoice.payment_succeeded)
+- `currentPeriodEnd` + `lastPaymentAt` written to users doc on every payment; displayed on Settings
+- Calendar auto-selects today on load (was showing empty state requiring tap)
+- Landing page: "FREE" → "$0 Subscription" everywhere, Early Adopter banner added above pricing
+- Email invoice notifications: `sendClientEmail()` in `lib/email.js`, server-side bilingual email with pay link
+- Walk-in default price set to $65 (was empty placeholder causing $0 invoices)
+- Settings "$0/mo" wording (was "FREE")
+- **Channel picker on all invoice send paths** — SMS / Email / Both buttons based on client contact info
+- `preferredChannel` field on client doc, radio group in Edit Client modal
+- Invoice API accepts `channels` param, returns `emailNotified` + `smsRequested`
+- Bug A fixed: Edit Client phone clearing (`form.phone || client.phone` → `form.phone.trim()`)
+- Bug B fixed: Silent 400 on Send Invoice → specific error codes (`no_connect`, `no_total`) + graceful toast + redirect to Settings
+- Bug D fixed: Phone no longer marked required, "Phone or email required" helper, form-level validation
+- Bug E fixed: "undefined · active" → "No package · active" on clients without a package
+- Sign-out: labeled pill on dashboard hero + full-width button on Settings bottom
+- Admin dashboard: gardener filter chips (All / Connect-complete / Needs Connect / No invoices / Top earners) + activeClients sort
+- Connect-complete filter gates on `stripeAccountId` (not poisoned `stripeAccountStatus`)
+
 ---
 
 ## 10. Deployment Breakers (Historical)
@@ -324,6 +349,21 @@ These are real errors that crashed production or blocked deployment. Documented 
 **Error:** Invoice preview showed wrong total — materials were missing from the calculation.
 **Cause:** Walk-in invoice total was calculated from a separate code path that didn't include materials.
 **Fix:** Added materials to `walkInInvoiceTotal` calculation. (Commit: baec4e7)
+
+### 8. Edit Client silently preserves phone on blank submit
+**Error:** Clearing a client's phone in Edit modal, saving, then reloading — phone reappears unchanged.
+**Cause:** `phone: form.phone || client.phone` treats empty string as falsy, falls back to old value.
+**Fix:** `phone: form.phone.trim()` — empty string means "clear the field". (Commit: 820cd5a)
+
+### 9. Silent 400 on Send Invoice without Stripe Connect
+**Error:** Contractor clicks Send Invoice, nothing happens — no toast, no error, modal stays open.
+**Cause:** `/api/stripe/invoice` returned 400 with generic "Missing required fields", client threw but the toast was swallowed.
+**Fix:** API returns specific `code: 'no_connect'`, client shows descriptive toast + redirects to Settings. (Commit: 820cd5a)
+
+### 10. Walk-in default price creating $0 invoices
+**Error:** Contractors see "65" as a grey placeholder, submit without touching field, `walkInPrice === ''` → `basePrice = 0`.
+**Cause:** Placeholder is not a value — `useState('')` initializes empty.
+**Fix:** Initialize `walkInPrice` to `'65'` in both `openWalkInForClient` and `openWalkInModal`. (Commit: 79c7472)
 
 ---
 
@@ -384,10 +424,12 @@ These are real errors that crashed production or blocked deployment. Documented 
 3. **`firestoreRest.js:22` fallback email** — `admin@fanbasetickets.net` hardcoded as fallback. Should fail loudly if `FIREBASE_ADMIN_EMAIL` not set.
 4. **`firestore.rules:5`** — `isAdmin()` hardcodes `admin@fanbasetickets.net`. Works but fragile.
 5. **19 Stripe API routes have no server-side auth** — rely entirely on client-side AppShell gating. Low risk for now (all require Stripe customer IDs that aren't guessable) but worth hardening before scale.
-6. **Admin dashboard still has some Square-era UI** — scheduled for cleanup next session.
-7. **Landing page "FREE Subscription" wording** — could mislead; the 5.5% per-invoice fee always applies. Fine print exists but could be clearer.
-8. **No Early Adopter deadline on landing page** — April 15, 2028 is a selling point not yet surfaced.
+6. **Admin dashboard still has some Square-era UI** — scheduled for cleanup.
+7. ~~**Landing page "FREE Subscription" wording**~~ — RESOLVED: all "FREE" → "$0 Subscription" with "5.5% per invoice always applies" (commit 15cdb4d).
+8. ~~**No Early Adopter deadline on landing page**~~ — RESOLVED: banner added above pricing (commit 15cdb4d).
 9. **Duplicate invoice prevention is client-side only** — racy under concurrent requests. Consider Firestore transaction guard.
+10. **`stripeAccountStatus` poisoned in Firestore** — old migration backfilled 'complete' on every subscribed user regardless of actual Connect status. Only 6 of 16 users with 'complete' actually have `stripeAccountId`. Admin filters gate on `stripeAccountId` (correct), but AppShell gates on `stripeAccountStatus === 'pending'` which misses `undefined`. Bug C workaround: graceful 400 error on invoice send.
+11. **AppShell Connect gate is weak** — checks `=== 'pending'` but not `!== 'complete'` or missing `stripeAccountId`. A contractor with no Connect status at all bypasses the gate. Bug B's graceful error path is the safety net.
 
 ---
 
@@ -396,8 +438,11 @@ These are real errors that crashed production or blocked deployment. Documented 
 ### Immediate (next session)
 - [ ] End-to-end Pro Setup test in Stripe test mode
 - [ ] Admin dashboard cleanup: remove dead Square/quarterly UI
-- [ ] Landing page: add Early Adopter deadline, clarify "FREE" wording
+- [x] ~~Landing page: add Early Adopter deadline, clarify "FREE" wording~~ (done 2026-04-13)
 - [ ] `firestoreRest.js`: remove fallback email, require explicit env var
+- [ ] Email invoice delivery smoke test (Connect-complete account + email-only client)
+- [ ] Fix AppShell Connect gate: check `stripeAccountId` not just `stripeAccountStatus`
+- [ ] Clean up poisoned `stripeAccountStatus` data in Firestore
 
 ### Before live launch
 - [ ] Audit `users` collection for stale `setupFeePaid: true` flags

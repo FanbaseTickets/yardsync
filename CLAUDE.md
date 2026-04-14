@@ -1,7 +1,7 @@
 # YardSync — Project Brief for Claude
 
 > This file is auto-loaded at the start of every Claude Code session.
-> Keep it current. Last updated: 2026-04-09.
+> Keep it current. Last updated: 2026-04-13.
 >
 > **Session startup:** When the user says "get up to speed", read `YARDSYNC_KNOWLEDGE_BASE.md`
 > in the project root. That single file contains the full project history, architecture,
@@ -122,8 +122,10 @@ If a page uses `useSearchParams()`, wrap it in a Suspense boundary or use `windo
 ## Roadmap / Next Session
 
 - [ ] Admin dashboard cleanup: remove dead Square/quarterly billing UI
-- [ ] Landing page: add Early Adopter deadline as urgency driver
-- [ ] Landing page: clarify "FREE Subscription" wording (5.5% still applies)
+- [x] ~~Landing page: add Early Adopter deadline + clarify "FREE" → "$0"~~ (done 2026-04-13)
 - [ ] `firestoreRest.js` line 22: remove `admin@fanbasetickets.net` fallback, fail loudly instead
 - [ ] End-to-end Pro Setup test (Stripe test mode → SMS + email + dashboard widget)
+- [ ] Email invoice delivery smoke test (Connect-complete account + email-only client)
+- [ ] Fix AppShell Connect gate: check `stripeAccountId` not just `stripeAccountStatus`
+- [ ] Clean up poisoned `stripeAccountStatus` data in Firestore
 - [ ] Full QA pass per QA_PHASE5_CHECKLIST.md before live keys flip
