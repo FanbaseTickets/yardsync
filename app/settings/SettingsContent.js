@@ -682,7 +682,7 @@ export default function SettingsPage() {
           </section>
 
           {/* Volume Reward Tracker — Stripe users only */}
-          {profile?.stripeAccountStatus === 'complete' && (() => {
+          {!!profile?.stripeAccountId && (() => {
             const volumeDollars = monthlyVolume / 100
             const tier = volumeDollars >= 3000 ? 3 : volumeDollars >= 1500 ? 2 : 1
             const progressFill = tier === 1
@@ -771,7 +771,7 @@ export default function SettingsPage() {
                     ? 'Tus facturas se procesan automáticamente a través de YardSync Pay. JNew Technologies cobra una tarifa del 5.5% por factura. Sin cobros trimestrales.'
                     : 'Your invoices are processed automatically through YardSync Pay. JNew Technologies collects a 5.5% fee per invoice. No quarterly bills.'}
                 </p>
-                {profile?.stripeAccountStatus === 'complete' && (
+                {!!profile?.stripeAccountId && (
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={14} className="text-green-600" />
                     <p className="text-[13px] text-green-600 font-medium">

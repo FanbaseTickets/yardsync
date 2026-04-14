@@ -237,7 +237,7 @@ export default function DashboardPage() {
           {/* Onboarding Checklist */}
           {!loading && !profile?.onboardingComplete && (() => {
             const steps = [
-              { key: 'step_bank',     done: profile?.stripeAccountStatus === 'complete', href: '/onboarding/connect-stripe', icon: Landmark, optional: false },
+              { key: 'step_bank',     done: !!profile?.stripeAccountId, href: '/onboarding/connect-stripe', icon: Landmark, optional: false },
               { key: 'step_service',  done: services.length > 0,         href: '/services', icon: Package,      optional: false },
               { key: 'step_client',   done: clients.length > 0,          href: '/clients',  icon: UserPlus,     optional: false },
               { key: 'step_schedule', done: allSchedules.length > 0,     href: '/calendar', icon: CalendarPlus, optional: false },
