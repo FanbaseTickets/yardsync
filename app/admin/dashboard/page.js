@@ -16,6 +16,15 @@ import toast from 'react-hot-toast'
 import { fmt as format } from '@/lib/date'
 
 function splitInvoice(inv) {
+  // Modern destination-charge invoices (post 2026-04) write applicationFee
+  // and totalCents directly on the invoice doc. Trust those when present.
+  if (typeof inv.applicationFee === 'number' && typeof inv.totalCents === 'number') {
+    const fees     = inv.applicationFee
+    const gardener = (inv.totalCents || 0) - fees
+    return { fees, gardener }
+  }
+  // Legacy invoices (manual fee line items from the old quarterly-billing flow)
+  // — kept as a fallback so historical dashboard numbers don't move.
   const feeLines  = inv.lineItems?.filter(l => l.category === 'fee')  || []
   const baseLines = inv.lineItems?.filter(l => l.category !== 'fee') || []
   const fees      = feeLines.reduce((s, l)  => s + (l.amountCents || 0), 0)
