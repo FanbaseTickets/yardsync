@@ -2,7 +2,7 @@
 
 > **Purpose:** Complete institutional memory for the YardSync project.
 > Read this file once at the start of a session to be fully briefed.
-> Updated: 2026-04-13 (end of session).
+> Updated: 2026-04-14 (end of session).
 >
 > **For Claude:** When the user says "get up to speed" or "read the knowledge base",
 > read this file. Do NOT re-explore the codebase — this file IS the exploration.
@@ -308,6 +308,19 @@ Lives at `/admin/dashboard`. Dark mode UI. Only accessible to `admin@fanbasetick
 - Admin dashboard: gardener filter chips (All / Connect-complete / Needs Connect / No invoices / Top earners) + activeClients sort
 - Connect-complete filter gates on `stripeAccountId` (not poisoned `stripeAccountStatus`)
 
+### Phase 5 continued (April 14, 2026)
+- i18n hotfix: `common.sign_out` key added (EN + ES) so dashboard pill and Settings button render "Sign out" / "Cerrar sesión" instead of raw key
+- Bug C fully closed: all 4 Connect-complete gates (AppShell, dashboard onboarding step, 2× Settings) now check `!!profile.stripeAccountId` instead of poisoned `stripeAccountStatus`
+- Deleted `scripts/migrate-stripe-status.js` (the poisoner) and added `scripts/clean-orphaned-stripe-status.js` (one-shot cleanup)
+- **Ran cleanup**: 6 orphaned `stripeAccountStatus: 'complete'` docs cleared (test accounts + Marco's account which hadn't finished Connect onboarding)
+- Deleted duplicate Victor Scales Firestore doc (`znCfJTyyScZchNOqNESL9CmvqQy1`) that conflicted with the real account having 8 clients
+- **Bug D finished on Add-Client modal**: phone optional, email format validation, "Did you mean?" suggestions for common typos (gmial/gmai/yaho/etc)
+- New `lib/emailHelpers.js` exports `isValidEmail` + `suggestEmailCorrection`
+- **Bug F Part A (admin tally)**: `splitInvoice()` now trusts top-level `inv.applicationFee` + `inv.totalCents` before falling back to legacy line-item walk — destination-charge invoices were showing $0 platform fee in admin tallies
+- **Bug F Part B (recent invoices row)**: replaced duplicate inline walker with `splitInvoice()` call so per-gardener Recent Invoices list shows correct "My cut / Gardener kept" breakdown
+- **Admin Dashboard Overhaul PR 1** (layout only): top-line collapsed from 8 → 6 cards in 2x3 (My Cut + Collected show realized headline + committed subtitle, Active Contractors, Active Clients, Subscription Mix with MRR, Pro Setup Pending). Removed Quarterly Fee Breakdown, standalone MRR, and top-line Outstanding. Added Attention panel (renders only when populated: Connect disabled / past_due / canceled <30d / going dark). Per-row tier badge (Sub: Monthly/Annual/Inactive/Other). Expanded row gains Outstanding card.
+- **Admin Dashboard Overhaul PR 2** (Q11 Stripe net-out): webhook `payment_intent.succeeded` now captures `pi.latest_charge.balance_transaction.fee` and persists `stripeProcessingFee` + `netToPlatform` on the invoice doc. Dashboard `splitInvoice()` prefers `netToPlatform` when present, so new paid invoices report true YardSync net (app fee minus Stripe's ~2.9% + $0.30) instead of gross. Corrects ~50%+ revenue overstatement on dashboard headline as new invoices flow.
+
 ---
 
 ## 10. Deployment Breakers (Historical)
@@ -359,6 +372,21 @@ These are real errors that crashed production or blocked deployment. Documented 
 **Error:** Contractor clicks Send Invoice, nothing happens — no toast, no error, modal stays open.
 **Cause:** `/api/stripe/invoice` returned 400 with generic "Missing required fields", client threw but the toast was swallowed.
 **Fix:** API returns specific `code: 'no_connect'`, client shows descriptive toast + redirects to Settings. (Commit: 820cd5a)
+
+### 11. Admin "My cut" tally read $0 on destination-charge invoices
+**Error:** Admin dashboard's per-gardener fee tally, top-line cards, and Recent Invoices rows all showed $0 for every Stripe Connect destination-charge invoice.
+**Cause:** `splitInvoice()` derived fees from `lineItems.filter(l => l.category === 'fee')`, but `/api/stripe/invoice` writes `applicationFee` as a top-level field and never injects a fee line item. Two separate places had this inline walker.
+**Fix:** Part A — `splitInvoice()` now prefers `inv.applicationFee` + `inv.totalCents` top-level (commit a3e2949). Part B — duplicate inline walker in Recent Invoices row replaced with `splitInvoice()` call (commit f04c003). Legacy line-item walk kept as fallback for the one Marco Rubio legacy invoice.
+
+### 12. i18n sign_out key missing from common namespace
+**Error:** Dashboard hero pill and Settings button rendered literal `sign_out` text instead of translated label.
+**Cause:** `translate('common', 'sign_out')` called but key only existed under `subscribe` namespace.
+**Fix:** Added `common.sign_out` to both EN ("Sign out") and ES ("Cerrar sesión") blocks (commit 5bd5eb3).
+
+### 13. Connect-complete UI gated on poisoned stripeAccountStatus
+**Error:** AppShell let contractors through to protected routes even without Connect onboarding (6 of 16 user docs had `stripeAccountStatus: 'complete'` but no `stripeAccountId`).
+**Cause:** A one-shot migration script stamped `stripeAccountStatus: 'complete'` on subscribed users regardless of actual Stripe Connect status.
+**Fix:** All 4 Connect-complete gates (AppShell redirect, dashboard onboarding step, 2× Settings sections) now gate on `!!profile.stripeAccountId`. Poisoner script deleted. Cleanup script ran and cleared 6 orphans. (Commits 39a049e)
 
 ### 10. Walk-in default price creating $0 invoices
 **Error:** Contractors see "65" as a grey placeholder, submit without touching field, `walkInPrice === ''` → `basePrice = 0`.
@@ -428,8 +456,10 @@ These are real errors that crashed production or blocked deployment. Documented 
 7. ~~**Landing page "FREE Subscription" wording**~~ — RESOLVED: all "FREE" → "$0 Subscription" with "5.5% per invoice always applies" (commit 15cdb4d).
 8. ~~**No Early Adopter deadline on landing page**~~ — RESOLVED: banner added above pricing (commit 15cdb4d).
 9. **Duplicate invoice prevention is client-side only** — racy under concurrent requests. Consider Firestore transaction guard.
-10. **`stripeAccountStatus` poisoned in Firestore** — old migration backfilled 'complete' on every subscribed user regardless of actual Connect status. Only 6 of 16 users with 'complete' actually have `stripeAccountId`. Admin filters gate on `stripeAccountId` (correct), but AppShell gates on `stripeAccountStatus === 'pending'` which misses `undefined`. Bug C workaround: graceful 400 error on invoice send.
-11. **AppShell Connect gate is weak** — checks `=== 'pending'` but not `!== 'complete'` or missing `stripeAccountId`. A contractor with no Connect status at all bypasses the gate. Bug B's graceful error path is the safety net.
+10. ~~**`stripeAccountStatus` poisoned in Firestore**~~ — RESOLVED 2026-04-14: All 6 orphans cleared via `scripts/clean-orphaned-stripe-status.js`. Poisoner script deleted.
+11. ~~**AppShell Connect gate is weak**~~ — RESOLVED 2026-04-14: All 4 Connect gates now check `!!profile.stripeAccountId` (commit 39a049e).
+12. **Historical invoices lack `stripeProcessingFee`** — Q11 captures this going forward via webhook, but pre-April 14 paid invoices have no processing-fee data. Dashboard shows gross for those, net for new ones. Acceptable — gap closes naturally as new invoices flow. Optional backfill script if accounting wants exact historical numbers.
+13. **Three dead inline line-item walkers remain** in `app/admin/dashboard/page.js` (lines ~138, ~156, ~214) — obsolete quarterly-billing code. Low priority cleanup.
 
 ---
 
@@ -437,12 +467,16 @@ These are real errors that crashed production or blocked deployment. Documented 
 
 ### Immediate (next session)
 - [ ] End-to-end Pro Setup test in Stripe test mode
-- [ ] Admin dashboard cleanup: remove dead Square/quarterly UI
+- [x] ~~Admin dashboard PR 1 (layout overhaul)~~ (done 2026-04-14)
+- [x] ~~Admin dashboard PR 2 (Q11 Stripe net-out)~~ (done 2026-04-14, awaiting smoke test with paid test invoice)
+- [ ] Admin Dashboard Overhaul PR 3: CSV rebuild (2-tier) + email digest queue scaffold + mobile handling decision
+- [ ] Smoke test PR 2: pay a test invoice on Connect-complete account, confirm `stripeProcessingFee` + `netToPlatform` land on invoice doc, verify dashboard headline uses net
 - [x] ~~Landing page: add Early Adopter deadline, clarify "FREE" wording~~ (done 2026-04-13)
+- [x] ~~Fix AppShell Connect gate~~ (done 2026-04-14, commit 39a049e)
+- [x] ~~Clean up poisoned `stripeAccountStatus` data~~ (done 2026-04-14, 6 orphans cleared)
 - [ ] `firestoreRest.js`: remove fallback email, require explicit env var
 - [ ] Email invoice delivery smoke test (Connect-complete account + email-only client)
-- [ ] Fix AppShell Connect gate: check `stripeAccountId` not just `stripeAccountStatus`
-- [ ] Clean up poisoned `stripeAccountStatus` data in Firestore
+- [ ] Sweep remaining dead Square/quarterly UI from admin dashboard (lines 138/156/214 inline walkers)
 
 ### Before live launch
 - [ ] Audit `users` collection for stale `setupFeePaid: true` flags
