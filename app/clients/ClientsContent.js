@@ -12,6 +12,7 @@ import { Card, Badge, Button, EmptyState, Skeleton, Modal, Input, Select } from 
 import { getClients, addClient, getServices } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { validatePhone, formatPhone } from '@/lib/phone'
+import { isValidEmail, suggestEmailCorrection } from '@/lib/emailHelpers'
 import PhoneInput from '@/components/ui/PhoneInput'
 import { Users, Plus, Search, MapPin, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -114,14 +115,31 @@ export default function ClientsPage() {
 
   function validate() {
     const e = {}
-    if (!form.name.trim())    e.name      = translate('clients', 'full_name') + ' required'
-    if (!form.phone.trim()) {
-      e.phone = lang === 'es' ? 'Teléfono requerido' : 'Phone required'
-    } else if (!validatePhone(form.phone)) {
+    if (!form.name.trim()) e.name = translate('clients', 'full_name') + ' required'
+
+    // Phone is OPTIONAL — only validate format if something was entered.
+    if (form.phone.trim() && !validatePhone(form.phone)) {
       e.phone = lang === 'es'
         ? 'Ingresa un número válido (10 dígitos)'
         : 'Enter a valid phone number (10 digits)'
     }
+
+    // Email is OPTIONAL — only validate format if something was entered.
+    if (form.email.trim() && !isValidEmail(form.email)) {
+      e.email = lang === 'es'
+        ? 'Ingresa un email válido'
+        : 'Enter a valid email address'
+    }
+
+    // At-least-one-of: phone OR email must be present so we can actually
+    // send invoices. Show the error on whichever field is empty (preferring email,
+    // since it's the field with the helper text).
+    if (!form.phone.trim() && !form.email.trim()) {
+      e.email = lang === 'es'
+        ? 'Teléfono o email requerido'
+        : 'Phone or email required'
+    }
+
     if (!form.address.trim()) e.address   = translate('clients', 'address') + ' required'
     if (!form.serviceId)      e.serviceId = translate('clients', 'select_package')
     setErrors(e)
@@ -341,7 +359,7 @@ export default function ClientsPage() {
           />
           <div>
             <PhoneInput
-              label={translate('clients', 'phone') + ' *'}
+              label={translate('clients', 'phone')}
               value={form.phone}
               onChange={val => setField('phone', val)}
               error={errors.phone}
@@ -352,12 +370,30 @@ export default function ClientsPage() {
               </p>
             )}
           </div>
-          <Input
-            label={translate('clients', 'email')}
-            placeholder="sarah@example.com"
-            value={form.email}
-            onChange={e => setField('email', e.target.value)}
-          />
+          <div>
+            <Input
+              label={translate('clients', 'email')}
+              placeholder="sarah@example.com"
+              type="email"
+              value={form.email}
+              onChange={e => setField('email', e.target.value)}
+              error={errors.email}
+              hint={!errors.email ? (lang === 'es' ? 'Teléfono o email requerido' : 'Phone or email required') : undefined}
+            />
+            {(() => {
+              const suggestion = suggestEmailCorrection(form.email)
+              if (!suggestion || errors.email) return null
+              return (
+                <button
+                  type="button"
+                  onClick={() => setField('email', suggestion)}
+                  className="text-[11px] text-brand-600 mt-1 underline"
+                >
+                  {lang === 'es' ? '¿Quisiste decir' : 'Did you mean'} {suggestion}?
+                </button>
+              )
+            })()}
+          </div>
           <Input
             label={translate('clients', 'address') + ' *'}
             placeholder="4821 Maple Dr..."
