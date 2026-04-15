@@ -150,6 +150,10 @@ export default function AdminDashboard() {
             return s + fl.reduce((fs, l) => fs + (l.amountCents || 0), 0)
           }, 0)
 
+        const outstandingTotal = gInvoices
+          .filter(inv => inv.status !== 'paid')
+          .reduce((s, inv) => s + (inv.totalCents || 0), 0)
+
         return {
           ...g,
           invoiceCount:    gInvoices.length,
@@ -162,6 +166,7 @@ export default function AdminDashboard() {
           recentInvoices,
           feePayments:     gFeePayments,
           uncollectedFees,
+          outstandingTotal,
           hasCard:         !!g.stripePaymentMethodId,
         }
       })
@@ -373,23 +378,81 @@ export default function AdminDashboard() {
 
   // ── Aggregate computed values ──────────────────────────────────────────
   const totalMyRevenue     = gardeners.reduce((s, g) => s + g.allTime.fees, 0)
-  const thisMonthMyRevenue = gardeners.reduce((s, g) => s + g.thisMonth.fees, 0)
   const totalGardenerGross = gardeners.reduce((s, g) => s + g.allTime.gardener, 0)
 
   const now = new Date()
-  const thisMonthCollected = allInvoicesRaw
-    .filter(inv => {
-      if (inv.status !== 'paid') return false
+  const isThisMonth = inv => {
+    const d = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+  }
+
+  // My Cut This Month — realized (paid) vs committed (created this month, unpaid)
+  const thisMonthMyCutRealized = allInvoicesRaw
+    .filter(inv => inv.status === 'paid' && isThisMonth(inv))
+    .reduce((s, inv) => s + splitInvoice(inv).fees, 0)
+  const thisMonthMyCutCommitted = allInvoicesRaw
+    .filter(inv => inv.status !== 'paid' && isThisMonth(inv))
+    .reduce((s, inv) => s + splitInvoice(inv).fees, 0)
+
+  // Collected This Month — realized (paid) vs committed (created, unpaid)
+  const thisMonthCollectedRealized = allInvoicesRaw
+    .filter(inv => inv.status === 'paid' && isThisMonth(inv))
+    .reduce((s, inv) => s + (inv.totalCents || 0), 0)
+  const thisMonthCollectedCommitted = allInvoicesRaw
+    .filter(inv => inv.status !== 'paid' && isThisMonth(inv))
+    .reduce((s, inv) => s + (inv.totalCents || 0), 0)
+
+  // Active Contractors / Active Clients
+  const ACTIVE_SUB = new Set(['active', 'trialing', 'past_due'])
+  const activeContractorCount = gardeners.filter(g => ACTIVE_SUB.has(g.subscriptionStatus)).length
+  const totalActiveClients = gardeners.reduce((s, g) => s + (g.activeClients || 0), 0)
+
+  // Subscription Mix (PR 1: monthly + annual only)
+  const subMonthlyCount = gardeners.filter(g =>
+    ACTIVE_SUB.has(g.subscriptionStatus) && g.subscriptionPlan === 'monthly'
+  ).length
+  const subAnnualCount = gardeners.filter(g =>
+    ACTIVE_SUB.has(g.subscriptionStatus) && g.subscriptionPlan === 'annual'
+  ).length
+  // MRR in cents. Annual $390/yr = $32.50/mo amortized = 3250 cents.
+  const subMRRCents = (subMonthlyCount * 3900) + (subAnnualCount * 3250)
+
+  // Pro Setup Pending
+  const proSetupPendingCount = gardeners.filter(g => g.setupFeePaid && !g.setupContacted).length
+
+  // Attention panel items (priority: connect disabled, past_due, canceled 30d, going dark)
+  const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
+  const attentionItems = []
+  gardeners.forEach(g => {
+    if (g.connectStatus === 'disabled') {
+      attentionItems.push({ gardenerId: g.id, name: g.name || g.email, reason: 'Connect disabled', tone: 'red' })
+      return
+    }
+    if (g.subscriptionStatus === 'past_due') {
+      attentionItems.push({ gardenerId: g.id, name: g.name || g.email, reason: 'Payment past due', tone: 'red' })
+      return
+    }
+    if (g.subscriptionCanceledAt) {
+      const canceled = new Date(g.subscriptionCanceledAt).getTime()
+      if (!isNaN(canceled) && (Date.now() - canceled) <= THIRTY_DAYS_MS) {
+        attentionItems.push({ gardenerId: g.id, name: g.name || g.email, reason: 'Canceled <30d ago', tone: 'amber' })
+        return
+      }
+    }
+    // Going dark: >0 invoices in days 31-60 prior AND 0 invoices in last 30 days
+    const last30Count = g.allInvoices.filter(inv => {
       const d = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-    })
-    .reduce((s, inv) => s + (inv.totalCents || 0), 0)
-
-  const totalOutstanding = allInvoicesRaw
-    .filter(inv => inv.status !== 'paid')
-    .reduce((s, inv) => s + (inv.totalCents || 0), 0)
-
-  const unpaidCount = allInvoicesRaw.filter(inv => inv.status !== 'paid').length
+      return (Date.now() - d.getTime()) <= THIRTY_DAYS_MS
+    }).length
+    const prior30Count = g.allInvoices.filter(inv => {
+      const d = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
+      const age = Date.now() - d.getTime()
+      return age > THIRTY_DAYS_MS && age <= (2 * THIRTY_DAYS_MS)
+    }).length
+    if (prior30Count > 0 && last30Count === 0) {
+      attentionItems.push({ gardenerId: g.id, name: g.name || g.email, reason: 'Going dark', tone: 'amber' })
+    }
+  })
 
   if (loading || dataLoading) {
     return (
@@ -501,60 +564,105 @@ export default function AdminDashboard() {
           )
         })()}
 
-        {/* Aggregate revenue row */}
+        {/* Top-line — 6 cards in 2x3 */}
         <div>
           <p className="text-[11px] font-medium text-gray-500 uppercase tracking-widest mb-4">
-            Revenue Summary · {format(new Date(), 'MMMM yyyy')}
+            Platform Overview · {format(new Date(), 'MMMM yyyy')}
           </p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {/* 1. My Cut This Month */}
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+              <TrendingUp size={16} className="text-brand-400 mb-2" />
+              <p className="text-[11px] text-gray-500 uppercase tracking-wide">My Cut This Month</p>
+              <p className="text-[20px] font-bold text-brand-400 mt-0.5">{formatCents(thisMonthMyCutRealized)}</p>
+              <p className="text-[10px] text-gray-600 mt-0.5">
+                {thisMonthMyCutCommitted > 0
+                  ? `+${formatCents(thisMonthMyCutCommitted)} committed pending payment`
+                  : 'realized (paid invoices)'}
+              </p>
+            </div>
+            {/* 2. Collected This Month */}
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
               <DollarSign size={16} className="text-green-400 mb-2" />
               <p className="text-[11px] text-gray-500 uppercase tracking-wide">Collected This Month</p>
-              <p className="text-[20px] font-bold text-green-400 mt-0.5">{formatCents(thisMonthCollected)}</p>
-              <p className="text-[10px] text-gray-600 mt-0.5">paid invoices only</p>
+              <p className="text-[20px] font-bold text-green-400 mt-0.5">{formatCents(thisMonthCollectedRealized)}</p>
+              <p className="text-[10px] text-gray-600 mt-0.5">
+                {thisMonthCollectedCommitted > 0
+                  ? `+${formatCents(thisMonthCollectedCommitted)} committed pending payment`
+                  : 'realized (paid invoices)'}
+              </p>
             </div>
+            {/* 3. Active Contractors */}
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
-              <TrendingUp size={16} className="text-brand-400 mb-2" />
-              <p className="text-[11px] text-gray-500 uppercase tracking-wide">YardSync Fees This Month</p>
-              <p className="text-[20px] font-bold text-brand-400 mt-0.5">{formatCents(thisMonthMyRevenue)}</p>
-              <p className="text-[10px] text-gray-600 mt-0.5">platform revenue</p>
+              <Users size={16} className="text-blue-400 mb-2" />
+              <p className="text-[11px] text-gray-500 uppercase tracking-wide">Active Contractors</p>
+              <p className="text-[20px] font-bold text-white mt-0.5">{activeContractorCount}</p>
+              <p className="text-[10px] text-gray-600 mt-0.5">of {gardeners.length} total</p>
             </div>
+            {/* 4. Active Clients */}
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
-              <Clock size={16} className="text-amber-400 mb-2" />
-              <p className="text-[11px] text-gray-500 uppercase tracking-wide">Outstanding</p>
-              <p className="text-[20px] font-bold text-amber-400 mt-0.5">{formatCents(totalOutstanding)}</p>
-              <p className="text-[10px] text-gray-600 mt-0.5">{unpaidCount} unpaid invoice{unpaidCount !== 1 ? 's' : ''}</p>
+              <Users size={16} className="text-gray-400 mb-2" />
+              <p className="text-[11px] text-gray-500 uppercase tracking-wide">Active Clients</p>
+              <p className="text-[20px] font-bold text-white mt-0.5">{totalActiveClients}</p>
+              <p className="text-[10px] text-gray-600 mt-0.5">across all contractors</p>
             </div>
+            {/* 5. Subscription Mix */}
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
-              <DollarSign size={16} className="text-brand-400 mb-2" />
-              <p className="text-[11px] text-gray-500 uppercase tracking-wide">All-Time Fees Earned</p>
-              <p className="text-[20px] font-bold text-white mt-0.5">{formatCents(totalMyRevenue)}</p>
-              <p className="text-[10px] text-gray-600 mt-0.5">lifetime platform revenue</p>
+              <CreditCard size={16} className="text-brand-400 mb-2" />
+              <p className="text-[11px] text-gray-500 uppercase tracking-wide">Subscription Mix</p>
+              <p className="text-[20px] font-bold text-brand-400 mt-0.5">{formatCents(subMRRCents)}/mo</p>
+              <div className="mt-2 space-y-0.5">
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-gray-400">Full Monthly</span>
+                  <span className="text-white font-medium">{subMonthlyCount} · {formatCents(subMonthlyCount * 3900)}/mo</span>
+                </div>
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-gray-400">Full Annual</span>
+                  <span className="text-white font-medium">{subAnnualCount} · {formatCents(subAnnualCount * 3250)}/mo</span>
+                </div>
+              </div>
+            </div>
+            {/* 6. Pro Setup Pending */}
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+              <Zap size={16} className="text-amber-400 mb-2" />
+              <p className="text-[11px] text-gray-500 uppercase tracking-wide">Pro Setup Pending</p>
+              <p className="text-[20px] font-bold text-amber-400 mt-0.5">{proSetupPendingCount}</p>
+              <p className="text-[10px] text-gray-600 mt-0.5">
+                {proSetupPendingCount > 0 ? 'needs onboarding' : 'all caught up'}
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Platform summary */}
-        <div>
-          <p className="text-[11px] font-medium text-gray-500 uppercase tracking-widest mb-4">
-            Platform Overview
-          </p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: 'Gardeners',         value: gardeners.length,                 icon: Users,       color: 'text-blue-400',  sub: null },
-              { label: 'Gardeners Grossed',  value: formatCents(totalGardenerGross),  icon: TrendingUp,  color: 'text-gray-400',  sub: 'all time client payments' },
-              { label: 'My Revenue',         value: formatCents(totalMyRevenue),      icon: DollarSign,  color: 'text-brand-400', sub: 'all time fees earned' },
-              { label: 'My Cut This Month',  value: formatCents(thisMonthMyRevenue),  icon: AlertCircle, color: 'text-green-400', sub: 'outstanding to collect' },
-            ].map(({ label, value, icon: Icon, color, sub }) => (
-              <div key={label} className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
-                <Icon size={16} className={`${color} mb-2`} />
-                <p className="text-[11px] text-gray-500 uppercase tracking-wide">{label}</p>
-                <p className="text-[20px] font-bold text-white mt-0.5">{value}</p>
-                {sub && <p className="text-[10px] text-gray-600 mt-0.5">{sub}</p>}
-              </div>
-            ))}
+        {/* Attention panel — renders only when populated */}
+        {attentionItems.length > 0 && (
+          <div>
+            <p className="text-[11px] font-medium text-gray-500 uppercase tracking-widest mb-3">
+              Attention Needed
+            </p>
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl divide-y divide-gray-800">
+              {attentionItems.map((item, i) => (
+                <button
+                  key={`${item.gardenerId}-${i}`}
+                  onClick={() => setExpanded(item.gardenerId)}
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-800/50 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <AlertOctagon size={14} className={item.tone === 'red' ? 'text-red-400' : 'text-amber-400'} />
+                    <p className="text-[13px] font-medium text-white">{item.name}</p>
+                  </div>
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
+                    item.tone === 'red'
+                      ? 'bg-red-900/40 text-red-400'
+                      : 'bg-amber-900/40 text-amber-400'
+                  }`}>
+                    {item.reason}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Gardeners list */}
         <div>
@@ -631,8 +739,21 @@ export default function AdminDashboard() {
                           {g.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2) || '??'}
                         </div>
                         <div className="flex-1 min-w-0 text-left">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-[14px] font-semibold text-white truncate">{g.name || 'Unknown'}</p>
+                            {(() => {
+                              const isActive = ACTIVE_SUB.has(g.subscriptionStatus)
+                              if (!isActive) {
+                                return <span className="inline-flex items-center text-[10px] bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full font-medium">Sub: Inactive</span>
+                              }
+                              if (g.subscriptionPlan === 'monthly') {
+                                return <span className="inline-flex items-center text-[10px] bg-brand-900/50 text-brand-300 px-2 py-0.5 rounded-full font-medium">Sub: Monthly</span>
+                              }
+                              if (g.subscriptionPlan === 'annual') {
+                                return <span className="inline-flex items-center text-[10px] bg-brand-900/50 text-brand-300 px-2 py-0.5 rounded-full font-medium">Sub: Annual</span>
+                              }
+                              return <span className="inline-flex items-center text-[10px] bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full font-medium">Sub: Other</span>
+                            })()}
                             {g.setupFeePaid && !g.setupContacted && (
                               <span
                                 onClick={e => { e.stopPropagation(); setSetupTarget(g); setSetupNotes(g.setupNotes || '') }}
@@ -708,15 +829,15 @@ export default function AdminDashboard() {
                           </div>
 
                           <div className="mb-4">
-                            <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">Quarterly Fee Breakdown</p>
-                            <div className="grid grid-cols-4 gap-2">
-                              {g.quarters.map(q => (
-                                <div key={q.label} className="bg-gray-800 rounded-xl p-3 text-center">
-                                  <p className="text-[11px] text-gray-500 mb-1">{q.label}</p>
-                                  <p className="text-[14px] font-bold text-brand-400">{formatCents(q.fees)}</p>
-                                  <p className="text-[10px] text-gray-600 mt-0.5">{q.invoices} inv</p>
-                                </div>
-                              ))}
+                            <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">Outstanding</p>
+                            <div className="bg-gray-800 rounded-xl p-3 flex items-center justify-between">
+                              <div>
+                                <p className="text-[16px] font-bold text-amber-400">{formatCents(g.outstandingTotal)}</p>
+                                <p className="text-[11px] text-gray-500">
+                                  {g.allInvoices.filter(inv => inv.status !== 'paid').length} unpaid invoice{g.allInvoices.filter(inv => inv.status !== 'paid').length !== 1 ? 's' : ''}
+                                </p>
+                              </div>
+                              <Clock size={18} className="text-amber-400/60" />
                             </div>
                           </div>
 
