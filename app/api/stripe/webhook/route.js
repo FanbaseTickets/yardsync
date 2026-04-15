@@ -283,12 +283,38 @@ export async function POST(request) {
         console.log('Invoice query result – empty:', !invDoc, 'searching for:', pi.id)
 
         if (invDoc) {
-          await updateDocument('invoices', invDoc.id, {
+          // Capture Stripe processing fee for net-out (Q11).
+          // Modern Stripe API uses latest_charge, not the deprecated charges array.
+          let stripeProcessingFee = null
+          try {
+            const fullPi = (pi.latest_charge && typeof pi.latest_charge === 'object' && pi.latest_charge.balance_transaction)
+              ? pi
+              : await stripe.paymentIntents.retrieve(pi.id, {
+                  expand: ['latest_charge.balance_transaction'],
+                })
+            const bt = fullPi.latest_charge?.balance_transaction
+            if (bt && typeof bt.fee === 'number') {
+              stripeProcessingFee = bt.fee // already in cents
+            }
+          } catch (err) {
+            console.error('[webhook] failed to fetch balance_transaction for', pi.id, err.message)
+            // Continue without — invoice still marks as paid, fee field stays null
+          }
+
+          const updates = {
             status:    'paid',
             paidAt:    new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-          })
-          console.log(`Invoice ${invDoc.id} marked paid via PaymentIntent ${pi.id}`)
+          }
+          if (stripeProcessingFee !== null) {
+            const applicationFee = invDoc.applicationFee || 0
+            updates.stripeProcessingFee = stripeProcessingFee
+            updates.netToPlatform       = applicationFee - stripeProcessingFee
+          }
+
+          await updateDocument('invoices', invDoc.id, updates)
+          console.log(`Invoice ${invDoc.id} marked paid via PaymentIntent ${pi.id}` +
+            (stripeProcessingFee !== null ? ` (processing fee: ${stripeProcessingFee}¢)` : ' (processing fee unavailable)'))
         } else {
           console.log('No invoice found for PaymentIntent:', pi.id)
         }

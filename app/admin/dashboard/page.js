@@ -16,8 +16,15 @@ import toast from 'react-hot-toast'
 import { fmt as format } from '@/lib/date'
 
 function splitInvoice(inv) {
+  // Q11 (preferred): when the webhook has captured Stripe's processing fee,
+  // headline "fees" = net to platform (application fee minus processing fee).
+  if (typeof inv.netToPlatform === 'number' && typeof inv.totalCents === 'number') {
+    const fees     = inv.netToPlatform
+    const gardener = (inv.totalCents || 0) - (inv.applicationFee || 0)
+    return { fees, gardener }
+  }
   // Modern destination-charge invoices (post 2026-04) write applicationFee
-  // and totalCents directly on the invoice doc. Trust those when present.
+  // and totalCents directly on the invoice doc. Gross fee, not net.
   if (typeof inv.applicationFee === 'number' && typeof inv.totalCents === 'number') {
     const fees     = inv.applicationFee
     const gardener = (inv.totalCents || 0) - fees
