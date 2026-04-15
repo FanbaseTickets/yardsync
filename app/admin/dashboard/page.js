@@ -965,10 +965,7 @@ export default function AdminDashboard() {
                               <div className="space-y-2">
                                 {g.recentInvoices.map(inv => {
                                   const invDate   = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
-                                  const feeLines  = inv.lineItems?.filter(l => l.category === 'fee')  || []
-                                  const baseLines = inv.lineItems?.filter(l => l.category !== 'fee') || []
-                                  const feeAmt    = feeLines.reduce((s, l)  => s + (l.amountCents || 0), 0)
-                                  const baseAmt   = baseLines.reduce((s, l) => s + (l.amountCents || 0), 0)
+                                  const { fees: feeAmt, gardener: baseAmt } = splitInvoice(inv)
                                   const ageDays   = inv.status !== 'paid' ? getAgeDays(inv) : null
                                   return (
                                     <div key={inv.id} className="bg-gray-800 rounded-xl px-4 py-3">
