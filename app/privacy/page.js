@@ -39,7 +39,7 @@ export default function PrivacyPage() {
 
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">5. Data Sharing</h2>
-          <p>We do not sell your personal information. We share data only with trusted service providers necessary to operate the platform (Firebase, Stripe, Square, Twilio). We do not share data with third parties for marketing purposes.</p>
+          <p>We do not sell your personal information. Mobile opt-in data and phone numbers collected for SMS communications will never be shared with third parties or affiliates for marketing or promotional purposes. We share data only with trusted service providers necessary to operate the platform (Firebase, Stripe, Square, Twilio). We do not share data with third parties for marketing purposes.</p>
         </div>
 
         <div>
