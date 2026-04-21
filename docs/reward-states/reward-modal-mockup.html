@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YardSync Rewards Modal Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #1a1a2e;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .phone-frame {
+    width: 375px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 40px;
+    padding: 12px;
+    position: relative;
+  }
+
+  .phone-screen {
+    background: rgba(0,0,0,0.4);
+    border-radius: 32px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .app-bg {
+    background: #f8faf9;
+    min-height: 700px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Dimmed background to simulate the dashboard behind */
+  .app-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1;
+  }
+
+  .modal-overlay {
+    position: relative;
+    z-index: 2;
+    width: 340px;
+    background: white;
+    border-radius: 20px;
+    padding: 28px 24px 24px;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+  }
+
+  .modal-icon {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: 16px;
+  }
+
+  .modal-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    color: #1a1a1a;
+    line-height: 1.3;
+    margin-bottom: 8px;
+  }
+
+  .modal-subtitle {
+    font-size: 13px;
+    color: #6b7280;
+    line-height: 1.5;
+    margin-bottom: 20px;
+  }
+
+  .tier-table {
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    margin-bottom: 16px;
+  }
+
+  .tier-header {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 14px;
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .tier-header span {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #9ca3af;
+  }
+
+  .tier-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    border-bottom: 1px solid #f3f4f6;
+    transition: all 0.2s;
+  }
+
+  .tier-row:last-child {
+    border-bottom: none;
+  }
+
+  .tier-row.current {
+    background: #f0fdf4;
+  }
+
+  .tier-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .tier-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+  }
+
+  .tier-icon.base {
+    background: #f0fdf4;
+    border: 1.5px solid #86efac;
+  }
+
+  .tier-icon.half {
+    background: #fefce8;
+    border: 1.5px solid #fde047;
+  }
+
+  .tier-icon.free {
+    background: #f0fdf4;
+    border: 1.5px solid #22c55e;
+  }
+
+  .tier-volume {
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+  }
+
+  .tier-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .tier-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  .badge-half {
+    background: #dcfce7;
+    color: #16a34a;
+  }
+
+  .badge-free {
+    background: #dcfce7;
+    color: #16a34a;
+  }
+
+  .tier-price {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a1a;
+  }
+
+  .tier-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px 14px;
+    background: #fffbeb;
+    border-radius: 10px;
+    margin-bottom: 20px;
+  }
+
+  .tier-note-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .tier-note-text {
+    font-size: 12px;
+    color: #92400e;
+    line-height: 1.5;
+  }
+
+  .cta-button {
+    width: 100%;
+    padding: 14px;
+    background: #16a34a;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 12px;
+    transition: background 0.2s;
+  }
+
+  .cta-button:hover {
+    background: #15803d;
+  }
+
+  .modal-footer {
+    text-align: center;
+    font-size: 11px;
+    color: #9ca3af;
+    line-height: 1.4;
+  }
+
+  /* Arrow annotations */
+  .annotation {
+    position: absolute;
+    z-index: 3;
+    font-size: 11px;
+    font-weight: 600;
+    color: #f59e0b;
+    background: rgba(0,0,0,0.7);
+    padding: 4px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+
+  .two-up {
+    display: flex;
+    gap: 40px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .version-label {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="two-up">
+
+  <!-- English Version -->
+  <div>
+    <div class="version-label">English</div>
+    <div class="phone-frame">
+      <div class="phone-screen">
+        <div class="app-bg">
+          <div class="modal-overlay">
+            <div class="modal-icon">🎯</div>
+            <div class="modal-title">Grow Your Business,<br>Shrink Your Subscription</div>
+            <div class="modal-subtitle">The more you invoice through YardSync, the less you pay each month.</div>
+
+            <div class="tier-table">
+              <div class="tier-header">
+                <span>Your Monthly Volume</span>
+                <span>You Pay</span>
+              </div>
+              <div class="tier-row current">
+                <div class="tier-left">
+                  <div class="tier-icon base">✓</div>
+                  <span class="tier-volume">Under $1,500</span>
+                </div>
+                <div class="tier-right">
+                  <span class="tier-price">$39/mo</span>
+                </div>
+              </div>
+              <div class="tier-row">
+                <div class="tier-left">
+                  <div class="tier-icon half">⭐</div>
+                  <span class="tier-volume">$1,500+</span>
+                </div>
+                <div class="tier-right">
+                  <span class="tier-badge badge-half">50% off</span>
+                  <span class="tier-price">$19/mo</span>
+                </div>
+              </div>
+              <div class="tier-row">
+                <div class="tier-left">
+                  <div class="tier-icon free">⚡</div>
+                  <span class="tier-volume">$3,000+</span>
+                </div>
+                <div class="tier-right">
+                  <span class="tier-badge badge-free">Free!</span>
+                  <span class="tier-price">$0/mo</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="tier-note">
+              <span class="tier-note-icon">💡</span>
+              <span class="tier-note-text">Hit the threshold <strong>2 months in a row</strong> and the discount kicks in automatically. The 5.5% per-invoice fee always applies.</span>
+            </div>
+
+            <button class="cta-button">Got it, let's go!</button>
+
+            <div class="modal-footer">
+              You can always find this in<br>
+              <strong>Settings → YardSync Pay Rewards</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Spanish Version -->
+  <div>
+    <div class="version-label">Español</div>
+    <div class="phone-frame">
+      <div class="phone-screen">
+        <div class="app-bg">
+          <div class="modal-overlay">
+            <div class="modal-icon">🎯</div>
+            <div class="modal-title">Haz Crecer Tu Negocio,<br>Reduce Tu Suscripción</div>
+            <div class="modal-subtitle">Mientras más facturas a través de YardSync, menos pagas cada mes.</div>
+
+            <div class="tier-table">
+              <div class="tier-header">
+                <span>Tu Volumen Mensual</span>
+                <span>Tú Pagas</span>
+              </div>
+              <div class="tier-row current">
+                <div class="tier-left">
+                  <div class="tier-icon base">✓</div>
+                  <span class="tier-volume">Menos de $1,500</span>
+                </div>
+                <div class="tier-right">
+                  <span class="tier-price">$39/mes</span>
+                </div>
+              </div>
+              <div class="tier-row">
+                <div class="tier-left">
+                  <div class="tier-icon half">⭐</div>
+                  <span class="tier-volume">$1,500+</span>
+                </div>
+                <div class="tier-right">
+                  <span class="tier-badge badge-half">50% desc</span>
+                  <span class="tier-price">$19/mes</span>
+                </div>
+              </div>
+              <div class="tier-row">
+                <div class="tier-left">
+                  <div class="tier-icon free">⚡</div>
+                  <span class="tier-volume">$3,000+</span>
+                </div>
+                <div class="tier-right">
+                  <span class="tier-badge badge-free">¡Gratis!</span>
+                  <span class="tier-price">$0/mes</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="tier-note">
+              <span class="tier-note-icon">💡</span>
+              <span class="tier-note-text">Alcanza el umbral <strong>2 meses seguidos</strong> y el descuento se activa automáticamente. La tarifa del 5.5% por factura siempre aplica.</span>
+            </div>
+
+            <button class="cta-button">¡Entendido, vamos!</button>
+
+            <div class="modal-footer">
+              Siempre puedes encontrar esto en<br>
+              <strong>Ajustes → Recompensas YardSync Pay</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
