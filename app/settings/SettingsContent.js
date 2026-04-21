@@ -771,6 +771,14 @@ export default function SettingsPage() {
                     {lang === 'es' ? 'Este mes hasta ahora:' : 'This month so far:'}{' '}
                     <span className="text-gray-700">${volumeDollars.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
                   </p>
+                  <div className="flex items-center justify-between mb-1.5 px-3">
+                    <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                      {lang === 'es' ? 'Volumen' : 'Volume'}
+                    </p>
+                    <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                      {lang === 'es' ? 'Tú pagas' : 'You pay'}
+                    </p>
+                  </div>
                   <div className="space-y-2 mb-4">
                     <div className={`flex items-center justify-between rounded-xl px-3 py-2.5 ${tier === 1 ? 'bg-brand-50 border border-brand-200' : 'bg-gray-50 border border-gray-100'}`}>
                       <div className="flex items-center gap-2">
