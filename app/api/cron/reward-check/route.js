@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { queryCollection, getDocument, updateDocument } from '@/lib/firestoreRest'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -23,18 +24,33 @@ export async function GET(req) {
   const periodStart = Math.floor(firstOfLastMonth.getTime() / 1000)
   const periodEnd = Math.floor(firstOfThisMonth.getTime() / 1000)
 
-  // List all active subscriptions with stripeAccountId in metadata
+  // List all active subscriptions
   const subscriptions = await stripe.subscriptions.list({
     status: 'active',
     limit: 100,
-    expand: ['data.customer'],
   })
 
   const results = []
 
   for (const sub of subscriptions.data) {
-    const stripeAccountId = sub.metadata?.stripeAccountId
-    if (!stripeAccountId) continue
+    // Look up stripeAccountId via Firestore (subscription metadata is unreliable —
+    // the save-account-metadata endpoint fire-and-forget races with Connect completion)
+    const subDoc = await queryCollection('subscriptions', 'stripeSubscriptionId', sub.id)
+    if (!subDoc) {
+      console.warn(`[reward-check] No subscriptions doc for ${sub.id} — skipping`)
+      continue
+    }
+    const uid = subDoc.data.gardenerUid
+    const userDoc = await getDocument('users', uid)
+    if (!userDoc) {
+      console.warn(`[reward-check] No users doc for uid=${uid} — skipping`)
+      continue
+    }
+    const stripeAccountId = userDoc.data.stripeAccountId
+    if (!stripeAccountId) {
+      console.log(`[reward-check] ${uid} has no stripeAccountId (Connect not complete) — skipping`)
+      continue
+    }
 
     // Sum paid charges on connected account for previous month
     const charges = await stripe.charges.list(
@@ -86,6 +102,15 @@ export async function GET(req) {
       },
     })
 
+    // Write reward status to Firestore user doc so Settings can display it
+    await updateDocument('users', uid, {
+      rewardTier:       newTierHeld,
+      rewardStreak:     newStreak,
+      lastVolumeCheck:  firstOfLastMonth.toISOString().slice(0, 7),
+      lastVolumeAmount: volumeDollars,
+      updatedAt:        new Date().toISOString(),
+    })
+
     // Apply discount at streak = 2
     if (newStreak >= 2) {
       const couponId = tier === 'free'
@@ -103,6 +128,13 @@ export async function GET(req) {
     // If fell back below threshold, remove discount
     if (tier === 'base' && sub.discount) {
       await stripe.subscriptions.deleteDiscount(sub.id)
+      await updateDocument('users', uid, {
+        rewardTier:       'base',
+        rewardStreak:     0,
+        lastVolumeCheck:  firstOfLastMonth.toISOString().slice(0, 7),
+        lastVolumeAmount: volumeDollars,
+        updatedAt:        new Date().toISOString(),
+      })
     }
 
     results.push({
@@ -115,5 +147,6 @@ export async function GET(req) {
     })
   }
 
+  console.log(`[reward-check] Processed ${results.length} subscriptions:`, JSON.stringify(results))
   return NextResponse.json({ processed: results.length, results })
 }

@@ -653,6 +653,35 @@ export default function SettingsPage() {
                   </span>
                 </p>
               )}
+              {(() => {
+                const tier = profile?.rewardTier
+                const streak = profile?.rewardStreak || 0
+                if (!tier || tier === 'base') return null
+                if (streak >= 2 && tier === 'free') {
+                  return (
+                    <div className="mt-2 inline-flex items-center gap-1.5 text-[11px] bg-green-100 text-green-800 px-2 py-1 rounded-full font-semibold">
+                      🏆 {lang === 'es' ? 'Nivel gratis activo' : 'Free tier active'}
+                    </div>
+                  )
+                }
+                if (streak >= 2 && tier === 'half') {
+                  return (
+                    <div className="mt-2 inline-flex items-center gap-1.5 text-[11px] bg-brand-100 text-brand-800 px-2 py-1 rounded-full font-semibold">
+                      ⭐ {lang === 'es' ? 'Descuento 50% activo' : '50% reward active'}
+                    </div>
+                  )
+                }
+                if (streak === 1) {
+                  return (
+                    <p className="text-[11px] text-amber-700 mt-2">
+                      {lang === 'es'
+                        ? `1 de 2 meses calificados completados (${tier === 'free' ? 'nivel gratis' : 'descuento 50%'})`
+                        : `1 of 2 qualifying months completed (${tier === 'free' ? 'free tier' : '50% off'})`}
+                    </p>
+                  )
+                }
+                return null
+              })()}
             </Card>
 
             {/* Upgrade prompt — only show for monthly subscribers */}
