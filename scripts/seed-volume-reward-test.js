@@ -78,16 +78,19 @@ async function main() {
   for (let i = 0; i < count; i++) {
     const amount = perCharge + (i === 0 ? remainder : 0)
     try {
-      const charge = await stripe.charges.create(
-        {
-          amount,
-          currency: 'usd',
-          source: 'tok_visa', // test-mode succeeds-with-no-auth token
-          description: `YardSync reward-cron seed ${i + 1}/${count}`,
-          metadata: { seeded: 'reward-cron-test', targetMonth: `${year}-${String(monthIdx + 1).padStart(2, '0')}` },
-        },
-        { stripeAccount: accountId }
-      )
+      // Destination charge from the platform (mirrors production /api/stripe/invoice).
+      // Direct charges on the connected account would require card_payments capability
+      // which test accounts often lack. Destination charges route via the platform
+      // and appear on the connected account's charges.list view as py_* objects.
+      const charge = await stripe.charges.create({
+        amount,
+        currency: 'usd',
+        source: 'tok_visa', // test-mode succeeds-with-no-auth token
+        description: `YardSync reward-cron seed ${i + 1}/${count}`,
+        transfer_data: { destination: accountId },
+        application_fee_amount: Math.round(amount * 0.055),
+        metadata: { seeded: 'reward-cron-test', targetMonth: `${year}-${String(monthIdx + 1).padStart(2, '0')}` },
+      })
       console.log(`  ✓ ${charge.id}  $${(amount / 100).toFixed(2)}  created=${charge.created}`)
       totalCreated += amount
     } catch (err) {
