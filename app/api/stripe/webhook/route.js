@@ -66,6 +66,7 @@ export async function POST(request) {
                                     ? new Date(subscription.current_period_end * 1000).toISOString()
                                     : null,
           lastPaymentAt:        new Date().toISOString(),
+          hasSeenRewardsIntro:  false,
           updatedAt:            new Date().toISOString(),
         })
 

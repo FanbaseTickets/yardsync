@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import BottomNav from './BottomNav'
+import RewardsIntroModal from '@/components/RewardsIntroModal'
 import { getGardenerProfile } from '@/lib/db'
 import { Leaf } from 'lucide-react'
 
@@ -174,6 +175,7 @@ export default function AppShell({ children }) {
       <div className="flex flex-col h-screen w-full max-w-lg bg-white shadow-xl relative">
         <main className="flex-1 overflow-hidden pb-14">{children}</main>
         <BottomNav />
+        <RewardsIntroModal />
       </div>
     </div>
   )
