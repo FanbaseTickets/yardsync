@@ -712,18 +712,36 @@ export default function SettingsPage() {
 
           {/* Volume Reward Tracker — Stripe users only */}
           {!!profile?.stripeAccountId && (() => {
+            // Authoritative reward state from reward-check cron (written to user doc)
+            const rewardTier   = profile?.rewardTier   || 'base'
+            const rewardStreak = profile?.rewardStreak || 0
+            // Previous month's qualifying volume (what the cron last saw)
+            const lastVolume   = profile?.lastVolumeAmount ?? 0
+            // Current month-to-date volume (from Firestore invoices — informational)
             const volumeDollars = monthlyVolume / 100
-            const tier = volumeDollars >= 3000 ? 3 : volumeDollars >= 1500 ? 2 : 1
-            const progressFill = tier === 1
-              ? Math.min(volumeDollars / 1500, 1)
-              : tier === 2
-              ? Math.min((volumeDollars - 1500) / 1500, 1)
-              : 1
-            const progressLabel = tier === 1
-              ? (lang === 'es' ? 'hacia 50% de descuento' : 'toward 50% off')
-              : tier === 2
-              ? (lang === 'es' ? 'hacia YardSync por $0/mes' : 'toward $0/mo YardSync')
-              : (lang === 'es' ? 'Nivel gratis alcanzado — racha en seguimiento' : 'Free tier reached — streak being tracked')
+
+            const tier = rewardTier === 'free' ? 3 : rewardTier === 'half' ? 2 : 1
+            const isActive = rewardStreak >= 2 && rewardTier !== 'base'
+
+            // Progress bar reflects streak progress (1 of 2 → 2 of 2) when at a qualifying tier
+            const progressFill = rewardTier === 'base'
+              ? Math.min(volumeDollars / 1500, 1)   // base: show month-to-date progress toward $1,500
+              : rewardStreak >= 2
+              ? 1
+              : 0.5
+
+            let progressLabel
+            if (isActive && rewardTier === 'free') {
+              progressLabel = lang === 'es' ? '🎉 Nivel gratis activo — tu suscripción es $0/mes' : '🎉 Free tier active — your subscription is $0/mo'
+            } else if (isActive && rewardTier === 'half') {
+              progressLabel = lang === 'es' ? '⭐ Descuento 50% activo — $19.50/mes' : '⭐ 50% reward active — $19.50/mo'
+            } else if (rewardStreak === 1 && rewardTier === 'free') {
+              progressLabel = lang === 'es' ? '1 de 2 meses al nivel gratis (próximo mes desbloquea $0/mes)' : '1 of 2 qualifying months at free tier (next month unlocks $0/mo)'
+            } else if (rewardStreak === 1 && rewardTier === 'half') {
+              progressLabel = lang === 'es' ? '1 de 2 meses al nivel 50% (próximo mes desbloquea $19.50/mes)' : '1 of 2 qualifying months at 50% tier (next month unlocks $19.50/mo)'
+            } else {
+              progressLabel = lang === 'es' ? 'hacia 50% de descuento' : 'toward 50% off'
+            }
             return (
               <section>
                 <div className="flex items-center gap-2 mb-3">
@@ -738,9 +756,15 @@ export default function SettingsPage() {
                       ? 'Tu suscripción se reduce a medida que crece tu volumen de facturas. El volumen calificado debe mantenerse por 2 meses consecutivos.'
                       : 'Your subscription reduces as your invoice volume grows. Qualifying volume must be held for 2 consecutive months.'}
                   </p>
-                  <p className="text-[12px] text-gray-700 font-medium mb-3">
-                    {lang === 'es' ? 'Volumen este mes:' : 'This month\'s volume:'}{' '}
-                    <span className="text-brand-700">${volumeDollars.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                  {lastVolume > 0 && (
+                    <p className="text-[12px] text-gray-700 font-medium mb-1">
+                      {lang === 'es' ? 'Volumen calificado último mes:' : 'Last month qualifying volume:'}{' '}
+                      <span className="text-brand-700">${Number(lastVolume).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                    </p>
+                  )}
+                  <p className="text-[12px] text-gray-500 mb-3">
+                    {lang === 'es' ? 'Este mes hasta ahora:' : 'This month so far:'}{' '}
+                    <span className="text-gray-700">${volumeDollars.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
                   </p>
                   <div className="space-y-2 mb-4">
                     <div className={`flex items-center justify-between rounded-xl px-3 py-2.5 ${tier === 1 ? 'bg-brand-50 border border-brand-200' : 'bg-gray-50 border border-gray-100'}`}>
