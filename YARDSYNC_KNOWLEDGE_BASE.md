@@ -337,6 +337,8 @@ Lives at `/admin/dashboard`. Dark mode UI. Only accessible to `admin@fanbasetick
   - Seed script (`scripts/seed-volume-reward-test.js`) uses destination charges to mirror production flow
   - Coupons `YARDSYNC_50OFF` (50% forever) and `YARDSYNC_FREE` (100% forever) created in Stripe test mode
   - All 5 scenarios visually verified on Victor Scales test account (half tier, free tier, streak building at each, base state)
+- **Volume Rewards UX Section 1 — Onboarding Modal** (commit fa72de6): first-login bilingual modal explaining tier system; gate shows only when `hasSeenRewardsIntro === false` (explicit); webhook sets flag on new signups; dismissed via client Firestore write; existing/admin accounts never see it
+- **Volume Rewards UX Section 2 — Notifications** (commit d99969c): 5-event notification system fires from reward-check cron on tier transitions. `milestone_half`/`milestone_free` (streak 0→1) send email only; `activated_half`/`activated_free` (coupon newly applied) + `dropped` (discount removed) send email + SMS. Bilingual, idempotent via `lastNotifiedEvent` + `lastNotifiedAt` on user doc (same event + same calendar month = skip). New `lib/sms.js` Twilio helper. Each send wrapped in try/catch — notification failure never crashes cron. Next natural fire: May 1, 2026 at 6am UTC.
 
 ---
 
@@ -495,6 +497,8 @@ These are real errors that crashed production or blocked deployment. Documented 
 - [x] ~~Volume Rewards end-to-end test (Tier 0)~~ (done 2026-04-21, all 5 scenarios verified)
 - [x] ~~Webhook hardening: log warnings on silent subscriptions doc lookups~~ (done 2026-04-21)
 - [x] ~~A2P privacy policy language~~ (done 2026-04-20)
+- [x] ~~Volume Rewards UX — onboarding modal + notifications~~ (done 2026-04-21)
+- [ ] LangContext → Firestore sync for `preferredLanguage` field (so cron notifications pick up ES preference)
 - [ ] `firestoreRest.js`: remove fallback email, require explicit env var
 - [ ] Email invoice delivery smoke test (Connect-complete account + email-only client)
 - [ ] Sweep remaining dead Square/quarterly UI from admin dashboard (lines 138/156/214 inline walkers)

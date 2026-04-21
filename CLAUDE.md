@@ -127,6 +127,8 @@ If a page uses `useSearchParams()`, wrap it in a Suspense boundary or use `windo
 - [x] ~~Backfill user subscription fields + webhook hardening~~ (done 2026-04-21)
 - [x] ~~Volume Rewards end-to-end verification (all 5 scenarios)~~ (done 2026-04-21)
 - [x] ~~A2P privacy policy language for SMS compliance~~ (done 2026-04-20)
+- [x] ~~Volume Rewards UX: onboarding modal + milestone/activation/drop notifications~~ (done 2026-04-21)
+- [ ] LangContext → Firestore sync for `preferredLanguage` (ES notifications)
 - [ ] Admin dashboard overhaul PR 3: CSV rebuild + email digest queue + mobile handling
 - [ ] Smoke test PR 2: paid test invoice → verify stripeProcessingFee + netToPlatform persist
 - [ ] Sweep remaining dead Square/quarterly inline walkers from admin dashboard
