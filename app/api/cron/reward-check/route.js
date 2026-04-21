@@ -111,22 +111,31 @@ export async function GET(req) {
       updatedAt:        new Date().toISOString(),
     })
 
-    // Apply discount at streak = 2
+    // Apply discount at streak = 2.
+    // Stripe 2025+ subscriptions use flexible billing mode which requires
+    // `discounts: [{ coupon }]` instead of the legacy `coupon` parameter.
     if (newStreak >= 2) {
       const couponId = tier === 'free'
         ? 'YARDSYNC_FREE'
         : 'YARDSYNC_50OFF'
 
-      // Only apply if not already discounted
-      if (!sub.discount || sub.discount.coupon.id !== couponId) {
+      // Read existing discounts (array in flexible mode, single object in legacy)
+      const existingCouponIds = (sub.discounts || []).map(d => d?.coupon?.id).filter(Boolean)
+      const legacyCouponId    = sub.discount?.coupon?.id
+      const alreadyApplied    = existingCouponIds.includes(couponId) || legacyCouponId === couponId
+
+      if (!alreadyApplied) {
         await stripe.subscriptions.update(sub.id, {
-          coupon: couponId,
+          discounts: [{ coupon: couponId }],
         })
       }
     }
 
-    // If fell back below threshold, remove discount
-    if (tier === 'base' && sub.discount) {
+    // If fell back below threshold, remove any active discount.
+    // Note: in flexible billing mode, `update({ discounts: [] })` silently no-ops;
+    // must use deleteDiscount to actually clear.
+    const hasActiveDiscount = (sub.discounts && sub.discounts.length > 0) || !!sub.discount
+    if (tier === 'base' && hasActiveDiscount) {
       await stripe.subscriptions.deleteDiscount(sub.id)
       await updateDocument('users', uid, {
         rewardTier:       'base',
