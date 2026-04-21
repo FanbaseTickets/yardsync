@@ -684,8 +684,13 @@ export default function SettingsPage() {
               })()}
             </Card>
 
-            {/* Upgrade prompt — only show for monthly subscribers */}
-            {profile?.subscriptionStatus === 'active' && profile?.subscriptionPlan !== 'annual' && (
+            {/* Upgrade prompt — only show for monthly subscribers WITHOUT an active
+                reward. The annual math ("Save \$78/year") assumes full \$39/mo pricing,
+                which is wrong for anyone on 50% off, and completely nonsensical at
+                free tier where the sub is already \$0. */}
+            {profile?.subscriptionStatus === 'active'
+              && profile?.subscriptionPlan !== 'annual'
+              && !(profile?.rewardStreak >= 2 && profile?.rewardTier && profile?.rewardTier !== 'base') && (
               <Card className="mt-3 border-brand-200 bg-white">
                 <div className="flex items-start gap-3">
                   <ArrowUpCircle size={20} className="text-brand-600 flex-shrink-0 mt-0.5" />
