@@ -190,6 +190,8 @@ export async function POST(request) {
               updatedAt:          new Date().toISOString(),
             })
             console.log(`Subscription renewed for ${uid}`)
+          } else {
+            console.warn(`[webhook] invoice.payment_succeeded: No subscriptions doc found for stripeSubscriptionId=${subscriptionId}. User fields (lastPaymentAt, currentPeriodEnd) NOT updated. This account may predate the checkout webhook or have a mismatched subscription doc.`)
           }
         }
 
@@ -218,7 +220,10 @@ export async function POST(request) {
         if (!subscriptionId) break
 
         const subDoc = await queryCollection('subscriptions', 'stripeSubscriptionId', subscriptionId)
-        if (!subDoc) break
+        if (!subDoc) {
+          console.warn(`[webhook] invoice.payment_failed: No subscriptions doc found for stripeSubscriptionId=${subscriptionId}. User status NOT updated to past_due.`)
+          break
+        }
 
         const uid = subDoc.data.gardenerUid
 
@@ -257,7 +262,10 @@ export async function POST(request) {
       case 'customer.subscription.deleted': {
         const subscriptionId = session.id
         const subDoc = await queryCollection('subscriptions', 'stripeSubscriptionId', subscriptionId)
-        if (!subDoc) break
+        if (!subDoc) {
+          console.warn(`[webhook] customer.subscription.deleted: No subscriptions doc found for stripeSubscriptionId=${subscriptionId}. User status NOT updated to canceled.`)
+          break
+        }
 
         const uid = subDoc.data.gardenerUid
 
