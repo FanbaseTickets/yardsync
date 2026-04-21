@@ -2,7 +2,7 @@
 
 > **Purpose:** Complete institutional memory for the YardSync project.
 > Read this file once at the start of a session to be fully briefed.
-> Updated: 2026-04-14 (end of session).
+> Updated: 2026-04-21 (end of session).
 >
 > **For Claude:** When the user says "get up to speed" or "read the knowledge base",
 > read this file. Do NOT re-explore the codebase — this file IS the exploration.
@@ -321,6 +321,23 @@ Lives at `/admin/dashboard`. Dark mode UI. Only accessible to `admin@fanbasetick
 - **Admin Dashboard Overhaul PR 1** (layout only): top-line collapsed from 8 → 6 cards in 2x3 (My Cut + Collected show realized headline + committed subtitle, Active Contractors, Active Clients, Subscription Mix with MRR, Pro Setup Pending). Removed Quarterly Fee Breakdown, standalone MRR, and top-line Outstanding. Added Attention panel (renders only when populated: Connect disabled / past_due / canceled <30d / going dark). Per-row tier badge (Sub: Monthly/Annual/Inactive/Other). Expanded row gains Outstanding card.
 - **Admin Dashboard Overhaul PR 2** (Q11 Stripe net-out): webhook `payment_intent.succeeded` now captures `pi.latest_charge.balance_transaction.fee` and persists `stripeProcessingFee` + `netToPlatform` on the invoice doc. Dashboard `splitInvoice()` prefers `netToPlatform` when present, so new paid invoices report true YardSync net (app fee minus Stripe's ~2.9% + $0.30) instead of gross. Corrects ~50%+ revenue overstatement on dashboard headline as new invoices flow.
 
+### Phase 5 continued (April 20-21, 2026)
+- Privacy policy: added mobile opt-in language for A2P compliance (never share SMS data with third parties)
+- Webhook hardening: `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.deleted` now log warnings instead of failing silently when `subscriptions` doc lookup returns null
+- One-shot backfill `scripts/backfill-user-subscription-fields.js` — 7 test accounts backfilled with `stripeSubscriptionId`, `currentPeriodEnd`, `lastPaymentAt`; 4 unbackfillable orphans flagged
+- Settings "Last charged" + "Next billing date" now render for backfilled accounts
+- **Volume Rewards system fully verified end-to-end (Tier 0 item CLOSED):**
+  - `reward-check` cron fixed: now looks up `stripeAccountId` via Firestore (was relying on unreliable metadata writes from `save-account-metadata`)
+  - Persists `rewardTier`, `rewardStreak`, `lastVolumeCheck`, `lastVolumeAmount` to user doc on every run
+  - Stripe flexible-billing compatibility: uses `discounts: [{ coupon }]` instead of legacy `coupon` param; uses `deleteDiscount()` for removal (`update({ discounts: [] })` silently no-ops)
+  - Settings Pay Rewards widget rewritten to read authoritative `profile.rewardTier` / `rewardStreak` instead of computing from local invoices
+  - "🏆 Free tier active" / "⭐ 50% reward active" badges on subscription card
+  - "Upgrade to Annual" card now hidden when any reward tier is active (math was misleading at 50% off, nonsensical at free)
+  - "Volume / You Pay" column headers added to Pay Rewards widget
+  - Seed script (`scripts/seed-volume-reward-test.js`) uses destination charges to mirror production flow
+  - Coupons `YARDSYNC_50OFF` (50% forever) and `YARDSYNC_FREE` (100% forever) created in Stripe test mode
+  - All 5 scenarios visually verified on Victor Scales test account (half tier, free tier, streak building at each, base state)
+
 ---
 
 ## 10. Deployment Breakers (Historical)
@@ -468,15 +485,20 @@ These are real errors that crashed production or blocked deployment. Documented 
 ### Immediate (next session)
 - [ ] End-to-end Pro Setup test in Stripe test mode
 - [x] ~~Admin dashboard PR 1 (layout overhaul)~~ (done 2026-04-14)
-- [x] ~~Admin dashboard PR 2 (Q11 Stripe net-out)~~ (done 2026-04-14, awaiting smoke test with paid test invoice)
+- [x] ~~Admin dashboard PR 2 (Q11 Stripe net-out)~~ (done 2026-04-14)
 - [ ] Admin Dashboard Overhaul PR 3: CSV rebuild (2-tier) + email digest queue scaffold + mobile handling decision
 - [ ] Smoke test PR 2: pay a test invoice on Connect-complete account, confirm `stripeProcessingFee` + `netToPlatform` land on invoice doc, verify dashboard headline uses net
 - [x] ~~Landing page: add Early Adopter deadline, clarify "FREE" wording~~ (done 2026-04-13)
 - [x] ~~Fix AppShell Connect gate~~ (done 2026-04-14, commit 39a049e)
 - [x] ~~Clean up poisoned `stripeAccountStatus` data~~ (done 2026-04-14, 6 orphans cleared)
+- [x] ~~Backfill user subscription fields (lastPaymentAt/currentPeriodEnd/stripeSubscriptionId)~~ (done 2026-04-21, 7 accounts)
+- [x] ~~Volume Rewards end-to-end test (Tier 0)~~ (done 2026-04-21, all 5 scenarios verified)
+- [x] ~~Webhook hardening: log warnings on silent subscriptions doc lookups~~ (done 2026-04-21)
+- [x] ~~A2P privacy policy language~~ (done 2026-04-20)
 - [ ] `firestoreRest.js`: remove fallback email, require explicit env var
 - [ ] Email invoice delivery smoke test (Connect-complete account + email-only client)
 - [ ] Sweep remaining dead Square/quarterly UI from admin dashboard (lines 138/156/214 inline walkers)
+- [ ] Investigate 4 unbackfillable orphan accounts (jarius.johnson@my.utsa.edu, testuser@yardsyncdemo.com, johnsonjarius19@gmail.com, johnsoncandace009@gmail.com) — either delete stale docs or clear fabricated `subscriptionStatus: 'active'`
 
 ### Before live launch
 - [ ] Audit `users` collection for stale `setupFeePaid: true` flags

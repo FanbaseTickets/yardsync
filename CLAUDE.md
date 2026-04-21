@@ -1,7 +1,7 @@
 # YardSync — Project Brief for Claude
 
 > This file is auto-loaded at the start of every Claude Code session.
-> Keep it current. Last updated: 2026-04-14.
+> Keep it current. Last updated: 2026-04-21.
 >
 > **Session startup:** When the user says "get up to speed", read `YARDSYNC_KNOWLEDGE_BASE.md`
 > in the project root. That single file contains the full project history, architecture,
@@ -124,10 +124,14 @@ If a page uses `useSearchParams()`, wrap it in a Suspense boundary or use `windo
 - [x] ~~Landing page: add Early Adopter deadline + clarify "FREE" → "$0"~~ (done 2026-04-13)
 - [x] ~~Fix AppShell Connect gate + clean poisoned stripeAccountStatus~~ (done 2026-04-14)
 - [x] ~~Admin dashboard overhaul PR 1 (layout) + PR 2 (Q11 net-out)~~ (done 2026-04-14)
+- [x] ~~Backfill user subscription fields + webhook hardening~~ (done 2026-04-21)
+- [x] ~~Volume Rewards end-to-end verification (all 5 scenarios)~~ (done 2026-04-21)
+- [x] ~~A2P privacy policy language for SMS compliance~~ (done 2026-04-20)
 - [ ] Admin dashboard overhaul PR 3: CSV rebuild + email digest queue + mobile handling
 - [ ] Smoke test PR 2: paid test invoice → verify stripeProcessingFee + netToPlatform persist
 - [ ] Sweep remaining dead Square/quarterly inline walkers from admin dashboard
 - [ ] `firestoreRest.js` line 22: remove `admin@fanbasetickets.net` fallback, fail loudly instead
 - [ ] End-to-end Pro Setup test (Stripe test mode → SMS + email + dashboard widget)
 - [ ] Email invoice delivery smoke test (Connect-complete account + email-only client)
+- [ ] Clean up 4 orphan user docs (UTSA, testuser, johnsonjarius19, johnsoncandace009)
 - [ ] Full QA pass per QA_PHASE5_CHECKLIST.md before live keys flip
