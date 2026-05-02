@@ -11,6 +11,7 @@ import { getClient, updateClient, deleteClient, getClientInvoices, getServices, 
 import { formatCents } from '@/lib/fee'
 import { Phone, MapPin, Mail, CalendarDays, DollarSign, Pencil, FileText, CheckCircle2, RefreshCw, Clock } from 'lucide-react'
 import PhoneInput from '@/components/ui/PhoneInput'
+import AiReminderDrafter from '@/components/AiReminderDrafter'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 
@@ -535,6 +536,13 @@ async function handleSendInvoice(channels = 'both') {
               </p>
             )}
           </Card>
+
+          {/* AI appointment reminder drafter */}
+          <AiReminderDrafter
+            client={client}
+            contractorName={profile?.businessName || profile?.displayName || user?.displayName || 'Your contractor'}
+            lang={lang}
+          />
 
           {/* Invoice history */}
           <div>

@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.92.0",
     "@sendgrid/mail": "^8.1.6",
     "@stripe/connect-js": "^3.3.35",
     "@stripe/react-connect-js": "^3.3.34",
