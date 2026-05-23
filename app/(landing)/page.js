@@ -191,9 +191,9 @@ export default function LandingPage() {
           <div>
             <div className="lp-sms-card">
               <div className="lp-smeta">📱 Auto SMS — English client</div>
-              <div className="lp-bub">Hi Sara! Your service is scheduled for Saturday, April 18 at 9:00AM. See you then! 🗓 — Marco&apos;s Services</div>
+              <div className="lp-bub">Hi Sara! Your service is scheduled for Saturday, April 18 at 9:00AM. See you then! Reply STOP to opt out. 🗓 — Marco&apos;s Services</div>
               <div className="lp-smeta" style={{textAlign:'right'}}>📱 SMS Automático — Cliente español</div>
-              <div className="lp-bub es">¡Hola Carlos! Su servicio está programado para el sábado, 18 de abril a las 9:00AM. ¡Hasta pronto! – Marco&apos;s Services</div>
+              <div className="lp-bub es">¡Hola Carlos! Su servicio está programado para el sábado, 18 de abril a las 9:00AM. ¡Hasta pronto! Responda STOP para cancelar. – Marco&apos;s Services</div>
             </div>
           </div>
         </div>
