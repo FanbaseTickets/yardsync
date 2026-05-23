@@ -38,7 +38,7 @@ export async function GET(request) {
       const language = gardener.language || 'en'
       const template = language === 'es'
         ? (gardener.smsTemplateEs || 'Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! — {business}')
-        : (gardener.smsTemplate   || 'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! — {business}')
+        : (gardener.smsTemplate   || 'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! Reply STOP to opt out. – YardSync')
 
       // Determine target dates based on reminder timing
       const targetDates = []

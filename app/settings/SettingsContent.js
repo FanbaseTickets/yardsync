@@ -94,7 +94,7 @@ export default function SettingsPage() {
         phone:          profile.phone          || '',
         reminderTiming: profile.reminderTiming || '48',
         language:       profile.language       || 'en',
-        smsTemplate:    profile.smsTemplate    || 'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! — {business}',
+        smsTemplate:    profile.smsTemplate    || 'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! Reply STOP to opt out. – YardSync',
         smsTemplateEs:  profile.smsTemplateEs  || 'Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! — {business}',
       })
     }

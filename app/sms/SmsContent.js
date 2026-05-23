@@ -41,7 +41,7 @@ export default function SMSPage() {
     if (profile?.smsTemplate) {
       setTemplate(profile.smsTemplate)
     } else {
-      setTemplate('Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! — {business}')
+      setTemplate('Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! Reply STOP to opt out. – YardSync')
     }
   }, [profile])
 
@@ -100,7 +100,7 @@ async function loadData() {
     const clientLang = resolveClientLanguage(schedule)
     const tpl = clientLang === 'es'
       ? (profile?.smsTemplateEs || 'Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! — {business}')
-      : (profile?.smsTemplate   || 'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! — {business}')
+      : (profile?.smsTemplate   || 'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! Reply STOP to opt out. – YardSync')
     return tpl
       .replace('{name}',     clientName.split(' ')[0])
       .replace('{date}',     formatServiceDate(schedule.serviceDate, clientLang))
@@ -244,7 +244,7 @@ async function loadData() {
                   <p className="text-[10px] text-gray-400 font-medium uppercase mb-1">English</p>
                   <Card className="bg-gray-50">
                     <p className="text-[13px] text-gray-600 leading-relaxed">
-                      {profile?.smsTemplate || 'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! — {business}'}
+                      {profile?.smsTemplate || 'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! Reply STOP to opt out. – YardSync'}
                     </p>
                   </Card>
                 </div>
