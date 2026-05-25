@@ -1,7 +1,7 @@
 # YardSync — Project Brief for Claude
 
 > This file is auto-loaded at the start of every Claude Code session.
-> Keep it current. Last updated: 2026-04-21.
+> Keep it current. Last updated: 2026-05-23.
 >
 > **Session startup:** When the user says "get up to speed", read `YARDSYNC_KNOWLEDGE_BASE.md`
 > in the project root. That single file contains the full project history, architecture,
@@ -128,6 +128,11 @@ If a page uses `useSearchParams()`, wrap it in a Suspense boundary or use `windo
 - [x] ~~Volume Rewards end-to-end verification (all 5 scenarios)~~ (done 2026-04-21)
 - [x] ~~A2P privacy policy language for SMS compliance~~ (done 2026-04-20)
 - [x] ~~Volume Rewards UX: onboarding modal + milestone/activation/drop notifications~~ (done 2026-04-21)
+- [x] ~~AI-powered SMS message drafting (Claude Sonnet 4.6) + eval suite + client-detail UI~~ (done 2026-05-23)
+- [x] ~~Public `/sms-opt-in` consent form (server component, A2P-reviewer accessible)~~ (done 2026-05-23)
+- [x] ~~A2P STOP language: EN + ES default templates, AI draft system prompt, landing demo bubbles~~ (done 2026-05-23)
+- [ ] **Post-Twilio approval:** re-run AI draft 5-sample eval with the new STOP rule (expect outputs to land in the 170–200 char range; structural checks should still pass)
+- [ ] **Post-Twilio approval:** add "Reply STOP to opt out. – YardSync" presence assertion to AI draft eval suite (one-line check matching the exclamation-count pattern)
 - [ ] LangContext → Firestore sync for `preferredLanguage` (ES notifications)
 - [ ] Admin dashboard overhaul PR 3: CSV rebuild + email digest queue + mobile handling
 - [ ] Smoke test PR 2: paid test invoice → verify stripeProcessingFee + netToPlatform persist
