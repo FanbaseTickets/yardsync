@@ -110,15 +110,15 @@ export async function POST(request) {
           const adminPhone = process.env.ADMIN_PHONE_NUMBER
           if (adminPhone) {
             try {
-              const twilioSid   = process.env.TWILIO_ACCOUNT_SID
-              const twilioToken = process.env.TWILIO_AUTH_TOKEN
-              const twilioFrom  = process.env.TWILIO_PHONE_NUMBER
-              const digits      = adminPhone.replace(/\D/g, '')
-              const to          = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
-              const smsBody     = new URLSearchParams({
-                To:   to,
-                From: twilioFrom,
-                Body: `New YardSync Pro Setup purchase – ${gardenerName} (${gardenerEmail}). Reach out to onboard. https://yardsync.vercel.app/admin/dashboard`,
+              const twilioSid    = process.env.TWILIO_ACCOUNT_SID
+              const twilioToken  = process.env.TWILIO_AUTH_TOKEN
+              const twilioMsgSvc = process.env.TWILIO_MESSAGING_SERVICE_SID
+              const digits       = adminPhone.replace(/\D/g, '')
+              const to           = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
+              const smsBody      = new URLSearchParams({
+                To:                  to,
+                MessagingServiceSid: twilioMsgSvc,
+                Body:                `New YardSync Pro Setup purchase – ${gardenerName} (${gardenerEmail}). Reach out to onboard. https://yardsync.vercel.app/admin/dashboard`,
               })
               await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
                 method:  'POST',

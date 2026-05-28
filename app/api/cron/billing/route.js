@@ -4,15 +4,15 @@ import { db } from '@/lib/firebase'
 import Stripe from 'stripe'
 
 const stripe     = new Stripe(process.env.STRIPE_SECRET_KEY)
-const TWILIO_SID   = process.env.TWILIO_ACCOUNT_SID
-const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN
-const TWILIO_FROM  = process.env.TWILIO_PHONE_NUMBER
+const TWILIO_SID     = process.env.TWILIO_ACCOUNT_SID
+const TWILIO_TOKEN   = process.env.TWILIO_AUTH_TOKEN
+const TWILIO_MSG_SVC = process.env.TWILIO_MESSAGING_SERVICE_SID
 
 async function sendSMS(to, message) {
   const digits = to.replace(/\D/g, '')
   if (digits.length < 10) return null
   const phone = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
-  const body = new URLSearchParams({ To: phone, From: TWILIO_FROM, Body: message })
+  const body = new URLSearchParams({ To: phone, MessagingServiceSid: TWILIO_MSG_SVC, Body: message })
   const res = await fetch(
     `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`,
     {

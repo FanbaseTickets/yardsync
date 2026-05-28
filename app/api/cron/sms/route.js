@@ -4,9 +4,9 @@ import { formatDateForSMS } from '@/lib/i18n'
 import { collection, getDocs, query, where, doc, updateDoc, setDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 
-const TWILIO_SID   = process.env.TWILIO_ACCOUNT_SID
-const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN
-const TWILIO_FROM  = process.env.TWILIO_PHONE_NUMBER
+const TWILIO_SID     = process.env.TWILIO_ACCOUNT_SID
+const TWILIO_TOKEN   = process.env.TWILIO_AUTH_TOKEN
+const TWILIO_MSG_SVC = process.env.TWILIO_MESSAGING_SERVICE_SID
 
 function addDaysToDate(date, days) {
   const result = new Date(date)
@@ -110,7 +110,7 @@ export async function GET(request) {
             : `\n📅 Add to calendar: ${calUrl}`
           const finalMsg = message + calLine
 
-          const body = new URLSearchParams({ To: to, From: TWILIO_FROM, Body: finalMsg })
+          const body = new URLSearchParams({ To: to, MessagingServiceSid: TWILIO_MSG_SVC, Body: finalMsg })
           const res  = await fetch(
             `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`,
             {
@@ -186,7 +186,7 @@ export async function GET(request) {
       const to     = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
 
       try {
-        const body = new URLSearchParams({ To: to, From: TWILIO_FROM, Body: summaryMessage })
+        const body = new URLSearchParams({ To: to, MessagingServiceSid: TWILIO_MSG_SVC, Body: summaryMessage })
         const res  = await fetch(
           `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`,
           {
@@ -254,7 +254,7 @@ export async function GET(request) {
           const digits = g.phone.replace(/\D/g, '')
           if (digits.length < 10) { feeReminderResults.skipped++; continue }
           const to   = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
-          const body = new URLSearchParams({ To: to, From: TWILIO_FROM, Body: msg })
+          const body = new URLSearchParams({ To: to, MessagingServiceSid: TWILIO_MSG_SVC, Body: msg })
           await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`, {
             method: 'POST',
             headers: {

@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server'
 
-const TWILIO_SID    = process.env.TWILIO_ACCOUNT_SID
-const TWILIO_TOKEN  = process.env.TWILIO_AUTH_TOKEN
-const TWILIO_FROM   = process.env.TWILIO_PHONE_NUMBER
+const TWILIO_SID     = process.env.TWILIO_ACCOUNT_SID
+const TWILIO_TOKEN   = process.env.TWILIO_AUTH_TOKEN
+const TWILIO_MSG_SVC = process.env.TWILIO_MESSAGING_SERVICE_SID
 
 export async function POST(request) {
   try {
     const { scheduleId, clientId, clientPhone, message, language } = await request.json()
 
-    if (!TWILIO_SID || !TWILIO_TOKEN || !TWILIO_FROM) {
+    if (!TWILIO_SID || !TWILIO_TOKEN || !TWILIO_MSG_SVC) {
       return NextResponse.json(
         { error: 'Twilio credentials not configured' },
         { status: 500 }
@@ -43,10 +43,12 @@ export async function POST(request) {
     }
 
     // ── STEP 3: Send SMS via Twilio REST API ─────────────────────────────────
+    // Use MessagingServiceSid (not From) so Twilio routes through the A2P-registered
+    // Messaging Service for 10DLC sender pool + compliance reporting.
     const body = new URLSearchParams({
-      To:   to,
-      From: TWILIO_FROM,
-      Body: finalMessage,
+      To:                   to,
+      MessagingServiceSid:  TWILIO_MSG_SVC,
+      Body:                 finalMessage,
     })
 
     const twilioRes = await fetch(

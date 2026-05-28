@@ -16,7 +16,7 @@ const REQUIRED_ENV_VARS = [
   'SQUARE_LOCATION_ID',
   'TWILIO_ACCOUNT_SID',
   'TWILIO_AUTH_TOKEN',
-  'TWILIO_PHONE_NUMBER',
+  'TWILIO_MESSAGING_SERVICE_SID',
   'CRON_SECRET',
 ]
 
@@ -79,12 +79,12 @@ export async function GET(request) {
   // 5. Twilio — env presence check (live ping would cost money)
   const twilioReady = process.env.TWILIO_ACCOUNT_SID &&
                       process.env.TWILIO_AUTH_TOKEN &&
-                      process.env.TWILIO_PHONE_NUMBER
+                      process.env.TWILIO_MESSAGING_SERVICE_SID
   if (twilioReady) {
     checks.twilio = 'configured'
   } else {
     checks.twilio = 'not configured — SMS will fail'
-    errors.push('Twilio credentials missing: TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_PHONE_NUMBER')
+    errors.push('Twilio credentials missing: TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_MESSAGING_SERVICE_SID')
   }
 
   const status = errors.length > 0 ? 'degraded' : warnings.length > 0 ? 'warning' : 'healthy'

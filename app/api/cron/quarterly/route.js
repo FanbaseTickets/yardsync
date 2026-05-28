@@ -3,9 +3,9 @@ import { collection, getDocs, query, where } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { formatCents } from '@/lib/fee'
 
-const TWILIO_SID   = process.env.TWILIO_ACCOUNT_SID
-const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN
-const TWILIO_FROM  = process.env.TWILIO_PHONE_NUMBER
+const TWILIO_SID     = process.env.TWILIO_ACCOUNT_SID
+const TWILIO_TOKEN   = process.env.TWILIO_AUTH_TOKEN
+const TWILIO_MSG_SVC = process.env.TWILIO_MESSAGING_SERVICE_SID
 
 export async function GET(request) {
   // Stripe-only migration — quarterly billing disabled
@@ -56,7 +56,7 @@ export async function GET(request) {
         const digits = gardener.phone.replace(/\D/g, '')
         if (digits.length < 10) continue
         const to   = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
-        const body = new URLSearchParams({ To: to, From: TWILIO_FROM, Body: message })
+        const body = new URLSearchParams({ To: to, MessagingServiceSid: TWILIO_MSG_SVC, Body: message })
 
         const twilioRes = await fetch(
           `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`,

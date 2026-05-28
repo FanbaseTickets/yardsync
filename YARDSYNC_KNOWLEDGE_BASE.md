@@ -429,7 +429,8 @@ These are real errors that crashed production or blocked deployment. Documented 
 | `FIREBASE_ADMIN_EMAIL` | Admin email for firestoreRest.js auth (defaults to admin@fanbasetickets.net — should be explicit) |
 | `TWILIO_ACCOUNT_SID` | Twilio account SID |
 | `TWILIO_AUTH_TOKEN` | Twilio auth token |
-| `TWILIO_PHONE_NUMBER` | Twilio sender number |
+| `TWILIO_MESSAGING_SERVICE_SID` | A2P-registered Messaging Service SID (e.g. `MG…`). All app SMS sends route through this; required for 10DLC compliance. |
+| `TWILIO_PHONE_NUMBER` | Legacy direct sender number — no longer read by app code; kept in env for reference only. |
 | `SENDGRID_API_KEY` | SendGrid API key (Mail Send permission) |
 | `SENDGRID_FROM_EMAIL` | Verified SendGrid sender address |
 | `ADMIN_EMAIL` | Where admin alerts go (email) |
