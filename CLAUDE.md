@@ -1,7 +1,7 @@
 # YardSync — Project Brief for Claude
 
 > This file is auto-loaded at the start of every Claude Code session.
-> Keep it current. Last updated: 2026-05-23.
+> Keep it current. Last updated: 2026-05-24.
 >
 > **Session startup:** When the user says "get up to speed", read `YARDSYNC_KNOWLEDGE_BASE.md`
 > in the project root. That single file contains the full project history, architecture,
@@ -131,6 +131,14 @@ If a page uses `useSearchParams()`, wrap it in a Suspense boundary or use `windo
 - [x] ~~AI-powered SMS message drafting (Claude Sonnet 4.6) + eval suite + client-detail UI~~ (done 2026-05-23)
 - [x] ~~Public `/sms-opt-in` consent form (server component, A2P-reviewer accessible)~~ (done 2026-05-23)
 - [x] ~~A2P STOP language: EN + ES default templates, AI draft system prompt, landing demo bubbles~~ (done 2026-05-23)
+- [x] ~~Twilio A2P 10DLC campaign APPROVED (campaign Verified, SMS now unrestricted to all US numbers)~~ (done 2026-05-24)
+- [x] ~~Twilio Messaging Service SID migration — every outbound SMS path (7 files) now routes through `MessagingServiceSid` instead of `From: TWILIO_PHONE_NUMBER` for A2P-compliant routing~~ (done 2026-05-24)
+- [x] ~~First end-to-end SMS sent and DELIVERED on the new pipeline (AI drafter EN → real US number via Twilio Messaging Service)~~ (done 2026-05-24)
+- [x] ~~Subagent roster created in `.claude/agents/` — 6 SMEs (stripe-payments, sms-a2p, firebase-firestore, bilingual-reviewer, regression-tester, ai-features), 3 personas (marco / established-skeptic / newbie-eager), 1 market-research~~ (done 2026-05-24)
+- [x] ~~`ROADMAP.md` skeleton with Phase 1 status + Phase 2 hypothesis backlog (awaiting market-research population) + Phase 3 scale plans~~ (done 2026-05-24)
+- [ ] **Set on Vercel before next SMS test or deploy:** `TWILIO_MESSAGING_SERVICE_SID=MG21e23c10d5d507045b0a1e263c0eb25b` (Production + Preview + Development) + trigger fresh deploy. Until set, every SMS path returns 500 "Twilio credentials not configured".
+- [ ] **Run Scenario A** (Pro Setup E2E test) via Chrome Claude — prompt with pauses ready in last session conversation
+- [ ] **2 more SMS consistency tests** via Chrome Claude (Spanish AI draft + manual /sms page send) to verify 3-for-3 delivery on the new Messaging Service SID pipeline
 - [ ] **Post-Twilio approval:** re-run AI draft 5-sample eval with the new STOP rule (expect outputs to land in the 170–200 char range; structural checks should still pass)
 - [ ] **Post-Twilio approval:** add "Reply STOP to opt out. – YardSync" presence assertion to AI draft eval suite (one-line check matching the exclamation-count pattern)
 - [ ] **Before heavy SMS volume:** wire Twilio status-callback webhook so "SMS sent ✓" reflects actual delivery (queued/sent/delivered/failed), not just API acceptance. Today the toast fires on Twilio API 2xx, which only confirms the message was queued, not delivered to the handset.

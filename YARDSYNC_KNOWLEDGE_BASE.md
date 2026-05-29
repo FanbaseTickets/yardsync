@@ -321,6 +321,26 @@ Lives at `/admin/dashboard`. Dark mode UI. Only accessible to `admin@fanbasetick
 - **Admin Dashboard Overhaul PR 1** (layout only): top-line collapsed from 8 → 6 cards in 2x3 (My Cut + Collected show realized headline + committed subtitle, Active Contractors, Active Clients, Subscription Mix with MRR, Pro Setup Pending). Removed Quarterly Fee Breakdown, standalone MRR, and top-line Outstanding. Added Attention panel (renders only when populated: Connect disabled / past_due / canceled <30d / going dark). Per-row tier badge (Sub: Monthly/Annual/Inactive/Other). Expanded row gains Outstanding card.
 - **Admin Dashboard Overhaul PR 2** (Q11 Stripe net-out): webhook `payment_intent.succeeded` now captures `pi.latest_charge.balance_transaction.fee` and persists `stripeProcessingFee` + `netToPlatform` on the invoice doc. Dashboard `splitInvoice()` prefers `netToPlatform` when present, so new paid invoices report true YardSync net (app fee minus Stripe's ~2.9% + $0.30) instead of gross. Corrects ~50%+ revenue overstatement on dashboard headline as new invoices flow.
 
+### Phase 5 continued (May 23-24, 2026) — AI drafter, A2P approval, Messaging Service SID, subagent roster
+
+**May 23 (commits 1f47313, bdfec75, 3c006e4, 9026f66, 7bb4610, e6fa707):**
+- **AI-powered SMS message drafting** — new `/api/ai/draft-message` route using Claude Sonnet 4.6 via `@anthropic-ai/sdk`. Core in `lib/aiDraft.js` with `validateInput()` + `draftMessage()`. UI in `components/AiReminderDrafter.js` on client detail page (between Billing and Invoice History). Date + time + service + notes inputs, EN/ES toggle, editable draft, char count with thresholds, Send via SMS reusing `/api/twilio/send`, Copy to clipboard.
+- **5-sample eval suite** at `app/api/ai/draft-message/__tests__/draft-message.eval.mjs` — HTTP-based against running dev server. Checks shape, length cap (≤320), charCount accuracy, first name, time form, contractor name, no placeholders, exclamation count ≤1, Spanish-hint for ES. Iterated prompt rules until 5/5 pass.
+- **Model bump:** Sonnet 4.5 → 4.6 for portfolio currency.
+- **Public `/sms-opt-in` consent form** for A2P review — server component, no auth, GET form with hidden `confirmed=true`. Name/phone inputs omit `name` attribute (values never enter URL — honors "not stored by this form"). Consent checkbox unchecked by default, not required. Success state via `?confirmed=true`. Terms + Privacy links outside checkbox label.
+- **STOP language across all default templates** — EN: `Reply STOP to opt out. – YardSync`. ES: `Responda STOP para cancelar. – YardSync`. Applied to: `context/AuthContext.js` (signup defaults, email + OAuth), `app/sms/SmsContent.js` (3 sites), `app/settings/SettingsContent.js`, `app/api/cron/sms/route.js`. User-customized templates untouched.
+- **AI draft prompt STOP rule** — mandatory opt-out line at end of every AI-drafted message.
+- **Landing page demo SMS bubbles** — EN (line 194) + ES (line 196) updated with STOP language to match real sent messages.
+
+**May 24 (commits 8b8a25d, d2c30b3, 9d9786f):**
+- **A2P 10DLC campaign APPROVED** (Twilio campaign status: Verified). SMS now fully unrestricted — sends to any US number.
+- **Twilio Messaging Service SID migration** — every outbound SMS path switched from `From: TWILIO_PHONE_NUMBER` to `MessagingServiceSid: TWILIO_MESSAGING_SERVICE_SID`. 7 files: `app/api/twilio/send/route.js`, `lib/sms.js`, `app/api/cron/sms/route.js` (3 fetch sites), `app/api/cron/quarterly/route.js`, `app/api/cron/billing/route.js`, `app/api/stripe/webhook/route.js` (Pro Setup admin alert), `app/api/cron/health/route.js` (env-var presence check). New env var `TWILIO_MESSAGING_SERVICE_SID` (value `MG21e23c10d5d507045b0a1e263c0eb25b`) required on Vercel before next deploy or cron runs will fail. `TWILIO_PHONE_NUMBER` is legacy — kept in env, unused by code.
+- **First SMS sent end-to-end on the new pipeline — DELIVERED** to Jay's phone via AI drafter EN. Confirms post-A2P Messaging Service routing works.
+- **Subagent roster created in `.claude/agents/`** — 6 SME agents (stripe-payments, sms-a2p, firebase-firestore, bilingual-reviewer, regression-tester, ai-features), 3 persona agents (marco/established-skeptic/newbie-eager for UX dogfooding), 1 market-research agent. Auto-invoke based on description triggers. Future sessions automatically have these specialists.
+- **`ROADMAP.md` created** with Phase 1 status, Phase 2 hypothesis backlog (awaiting market-research population), Phase 3 scale plans.
+- **Twilio status-callback webhook backlogged** (CLAUDE.md) — current `"SMS sent ✓"` toast fires on Twilio queued, not on handset delivery. Required before heavy SMS volume.
+- **Scenario A (Pro Setup E2E) Chrome Claude prompt with pauses** ready in conversation — queued for next session.
+
 ### Phase 5 continued (April 20-21, 2026)
 - Privacy policy: added mobile opt-in language for A2P compliance (never share SMS data with third parties)
 - Webhook hardening: `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.deleted` now log warnings instead of failing silently when `subscriptions` doc lookup returns null
@@ -480,6 +500,7 @@ These are real errors that crashed production or blocked deployment. Documented 
 11. ~~**AppShell Connect gate is weak**~~ — RESOLVED 2026-04-14: All 4 Connect gates now check `!!profile.stripeAccountId` (commit 39a049e).
 12. **Historical invoices lack `stripeProcessingFee`** — Q11 captures this going forward via webhook, but pre-April 14 paid invoices have no processing-fee data. Dashboard shows gross for those, net for new ones. Acceptable — gap closes naturally as new invoices flow. Optional backfill script if accounting wants exact historical numbers.
 13. **Three dead inline line-item walkers remain** in `app/admin/dashboard/page.js` (lines ~138, ~156, ~214) — obsolete quarterly-billing code. Low priority cleanup.
+14. **Twilio status-callback webhook not wired** — current `/api/twilio/send` returns success on Twilio 2xx (queued), not on handset delivery. Toast says "SMS sent ✓" before Twilio attempts the carrier handoff. Required before heavy SMS volume so users don't believe undelivered messages went through. Implementation: add `StatusCallback` param when creating the message, route handler at `/api/twilio/status-callback` that receives queued/sent/delivered/failed/undelivered events and updates message status in Firestore.
 
 ---
 
@@ -499,6 +520,16 @@ These are real errors that crashed production or blocked deployment. Documented 
 - [x] ~~Webhook hardening: log warnings on silent subscriptions doc lookups~~ (done 2026-04-21)
 - [x] ~~A2P privacy policy language~~ (done 2026-04-20)
 - [x] ~~Volume Rewards UX — onboarding modal + notifications~~ (done 2026-04-21)
+- [x] ~~AI-powered SMS message drafting (Claude Sonnet 4.6) + 5-sample eval suite + client-detail UI~~ (done 2026-05-23)
+- [x] ~~Public `/sms-opt-in` consent form (server component, A2P-reviewer accessible)~~ (done 2026-05-23)
+- [x] ~~A2P STOP language: EN + ES templates, AI draft prompt, landing demos~~ (done 2026-05-23)
+- [x] ~~Twilio Messaging Service SID migration (all 6 send sites)~~ (done 2026-05-24)
+- [x] ~~Subagent roster (6 SMEs + 3 personas + market-research) + ROADMAP.md~~ (done 2026-05-24)
+- [ ] **Post-Twilio approval:** re-run AI draft 5-sample eval with the new STOP rule (expect 170–200 char outputs)
+- [ ] **Post-Twilio approval:** add `Reply STOP to opt out. – YardSync` presence assertion to AI eval
+- [ ] **Before heavy SMS volume:** wire Twilio status-callback webhook for accurate delivery indicator
+- [ ] **Run Scenario A** (Pro Setup E2E test, Chrome Claude prompt with pauses ready)
+- [ ] **2 more SMS consistency tests** via Chrome Claude (Spanish AI draft + manual /sms)
 - [ ] LangContext → Firestore sync for `preferredLanguage` field (so cron notifications pick up ES preference)
 - [ ] `firestoreRest.js`: remove fallback email, require explicit env var
 - [ ] Email invoice delivery smoke test (Connect-complete account + email-only client)
@@ -509,7 +540,8 @@ These are real errors that crashed production or blocked deployment. Documented 
 - [ ] Audit `users` collection for stale `setupFeePaid: true` flags
 - [ ] Swap all Stripe keys to live in Vercel
 - [ ] Create live Stripe webhook + update signing secret
-- [ ] Verify Twilio A2P registration approved
+- [x] ~~Verify Twilio A2P registration approved~~ (done 2026-05-24, campaign Verified)
+- [ ] Set `TWILIO_MESSAGING_SERVICE_SID=MG21e23c10d5d507045b0a1e263c0eb25b` on Vercel (Production + Preview + Development) + trigger fresh deploy
 - [ ] Full QA pass per QA_PHASE5_CHECKLIST.md
 - [ ] Lawyer review of ToS Section 5 (Early Adopter Pricing Lock)
 
