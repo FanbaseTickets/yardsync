@@ -133,6 +133,7 @@ If a page uses `useSearchParams()`, wrap it in a Suspense boundary or use `windo
 - [x] ~~A2P STOP language: EN + ES default templates, AI draft system prompt, landing demo bubbles~~ (done 2026-05-23)
 - [ ] **Post-Twilio approval:** re-run AI draft 5-sample eval with the new STOP rule (expect outputs to land in the 170–200 char range; structural checks should still pass)
 - [ ] **Post-Twilio approval:** add "Reply STOP to opt out. – YardSync" presence assertion to AI draft eval suite (one-line check matching the exclamation-count pattern)
+- [ ] **Before heavy SMS volume:** wire Twilio status-callback webhook so "SMS sent ✓" reflects actual delivery (queued/sent/delivered/failed), not just API acceptance. Today the toast fires on Twilio API 2xx, which only confirms the message was queued, not delivered to the handset.
 - [ ] LangContext → Firestore sync for `preferredLanguage` (ES notifications)
 - [ ] Admin dashboard overhaul PR 3: CSV rebuild + email digest queue + mobile handling
 - [ ] Smoke test PR 2: paid test invoice → verify stripeProcessingFee + netToPlatform persist
