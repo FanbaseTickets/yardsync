@@ -541,7 +541,7 @@ These are real errors that crashed production or blocked deployment. Documented 
 - [ ] Swap all Stripe keys to live in Vercel
 - [ ] Create live Stripe webhook + update signing secret
 - [x] ~~Verify Twilio A2P registration approved~~ (done 2026-05-24, campaign Verified)
-- [ ] Set `TWILIO_MESSAGING_SERVICE_SID=MG21e23c10d5d507045b0a1e263c0eb25b` on Vercel (Production + Preview + Development) + trigger fresh deploy
+- [x] ~~Set `TWILIO_MESSAGING_SERVICE_SID=MG21e23c10d5d507045b0a1e263c0eb25b` on Vercel (Production + Preview + Development) + trigger fresh deploy~~ (done 2026-05-24)
 - [ ] Full QA pass per QA_PHASE5_CHECKLIST.md
 - [ ] Lawyer review of ToS Section 5 (Early Adopter Pricing Lock)
 

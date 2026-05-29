@@ -136,7 +136,7 @@ If a page uses `useSearchParams()`, wrap it in a Suspense boundary or use `windo
 - [x] ~~First end-to-end SMS sent and DELIVERED on the new pipeline (AI drafter EN → real US number via Twilio Messaging Service)~~ (done 2026-05-24)
 - [x] ~~Subagent roster created in `.claude/agents/` — 6 SMEs (stripe-payments, sms-a2p, firebase-firestore, bilingual-reviewer, regression-tester, ai-features), 3 personas (marco / established-skeptic / newbie-eager), 1 market-research~~ (done 2026-05-24)
 - [x] ~~`ROADMAP.md` skeleton with Phase 1 status + Phase 2 hypothesis backlog (awaiting market-research population) + Phase 3 scale plans~~ (done 2026-05-24)
-- [ ] **Set on Vercel before next SMS test or deploy:** `TWILIO_MESSAGING_SERVICE_SID=MG21e23c10d5d507045b0a1e263c0eb25b` (Production + Preview + Development) + trigger fresh deploy. Until set, every SMS path returns 500 "Twilio credentials not configured".
+- [x] ~~Set `TWILIO_MESSAGING_SERVICE_SID=MG21e23c10d5d507045b0a1e263c0eb25b` on Vercel (Production + Preview + Development) + trigger fresh deploy~~ (done 2026-05-24, all SMS paths now live on the A2P-approved Messaging Service)
 - [ ] **Run Scenario A** (Pro Setup E2E test) via Chrome Claude — prompt with pauses ready in last session conversation
 - [ ] **2 more SMS consistency tests** via Chrome Claude (Spanish AI draft + manual /sms page send) to verify 3-for-3 delivery on the new Messaging Service SID pipeline
 - [ ] **Post-Twilio approval:** re-run AI draft 5-sample eval with the new STOP rule (expect outputs to land in the 170–200 char range; structural checks should still pass)
