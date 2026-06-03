@@ -321,6 +321,25 @@ Lives at `/admin/dashboard`. Dark mode UI. Only accessible to `admin@fanbasetick
 - **Admin Dashboard Overhaul PR 1** (layout only): top-line collapsed from 8 → 6 cards in 2x3 (My Cut + Collected show realized headline + committed subtitle, Active Contractors, Active Clients, Subscription Mix with MRR, Pro Setup Pending). Removed Quarterly Fee Breakdown, standalone MRR, and top-line Outstanding. Added Attention panel (renders only when populated: Connect disabled / past_due / canceled <30d / going dark). Per-row tier badge (Sub: Monthly/Annual/Inactive/Other). Expanded row gains Outstanding card.
 - **Admin Dashboard Overhaul PR 2** (Q11 Stripe net-out): webhook `payment_intent.succeeded` now captures `pi.latest_charge.balance_transaction.fee` and persists `stripeProcessingFee` + `netToPlatform` on the invoice doc. Dashboard `splitInvoice()` prefers `netToPlatform` when present, so new paid invoices report true YardSync net (app fee minus Stripe's ~2.9% + $0.30) instead of gross. Corrects ~50%+ revenue overstatement on dashboard headline as new invoices flow.
 
+### Phase 5 continued (June 3, 2026) — Scenario A + A2 (Pro Setup E2E test)
+
+Pre-launch dogfooding via Chrome Claude. **YardSync has zero real customers; Marco is a test account, not the first customer.**
+
+**Scenario A (June 1, commits 1f47313, 2a7d877):**
+- Pro Setup E2E test run via Chrome Claude through full UI flow (signup → /subscribe → Stripe Checkout with Pro Setup add-on → webhook → Firestore writes)
+- All UI/data paths green: subscription activated, `setupFeePaid: true` written, admin email arrived, dashboard widget appeared
+- Found a /dashboard auto-redirect regression for brand-new no-subscription users (5+ second blank-page wait before manual nav)
+- Found admin SMS NOT arriving despite webhook firing (looked like an env-var issue)
+- Diagnostic logging added to webhook (`2a7d877`) to surface `ADMIN_PHONE_NUMBER` state in Vercel logs
+
+**Scenario A2 (June 3, commit e23c65d):**
+- Redirect fix: `context/AuthContext.js` now writes `subscriptionStatus: 'none'` explicitly on signup (both email and Google OAuth paths). Eliminates the async fallback race in AppShell.
+- AppShell 4-second timeout log enhanced with `subStatus` + `user?.uid` for future diagnostics
+- Safety audit confirmed: no code in the repo checks `subscriptionStatus === undefined` / `=== null` / `!subscriptionStatus`. The new explicit `'none'` is fully backward-compatible.
+- A2 re-test confirmed: signup → /subscribe redirect now fires ≤2 seconds, no blank window
+- **Admin SMS root cause solved: AT&T + Android spam blocker silently dropping the admin SMS body into the device spam folder.** Twilio shows all sends as `delivered` (carrier accepted handoff). Phone-side classifier filtered the "Pro Setup purchase – ... Reach out to onboard ... vercel.app URL" body as promotional. Whitelisted by reporting as not-spam.
+- Customer-facing SMS (appointment reminder format) is NOT subject to the same filtering — the May 29 test of "Hi Sara! Your yard service is scheduled..." landed in the main inbox on the same phone. The format is carrier-whitelisted.
+
 ### Phase 5 continued (May 23-24, 2026) — AI drafter, A2P approval, Messaging Service SID, subagent roster
 
 **May 23 (commits 1f47313, bdfec75, 3c006e4, 9026f66, 7bb4610, e6fa707):**

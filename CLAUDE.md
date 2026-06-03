@@ -22,7 +22,7 @@ Contractors manage clients, schedule jobs, send Stripe invoices, track materials
 - Early Adopter Pricing Lock: accounts created before April 15, 2028 lock in 5.5% for life (see terms page Section 5)
 
 **Target market:** Hispanic lawn care operators — San Antonio first, then Houston, Dallas, Miami, LA.
-**First customer:** Marco (Jay's personal gardener).
+**First customer:** none yet. Pre-launch. Marco is a TEST account used for dogfooding the contractor experience, NOT a paying customer.
 
 ## Tech Stack
 
