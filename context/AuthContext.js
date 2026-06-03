@@ -46,6 +46,7 @@ export function AuthProvider({ children }) {
       businessName,
       email,
       language: language || 'en',
+      subscriptionStatus: 'none',
       basePackages: {
         monthly:   { label: 'Monthly',   visits: 2,  basePriceCents: 6500  },
         quarterly: { label: 'Quarterly', visits: 6,  basePriceCents: 18500 },
@@ -74,6 +75,7 @@ export function AuthProvider({ children }) {
         name:         cred.user.displayName || '',
         businessName: '',
         email:        cred.user.email || '',
+        subscriptionStatus: 'none',
         smsTemplate:   'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! Reply STOP to opt out. – YardSync',
         smsTemplateEs: 'Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! Responda STOP para cancelar. – YardSync',
       }
