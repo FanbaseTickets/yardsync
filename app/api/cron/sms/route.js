@@ -108,7 +108,16 @@ export async function GET(request) {
           const calLine = clientLang === 'es'
             ? `\n📅 Agregar al calendario: ${calUrl}`
             : `\n📅 Add to calendar: ${calUrl}`
-          const finalMsg = message + calLine
+          let finalMsg = message + calLine
+
+          // A2P compliance — append STOP line if gardener's template doesn't already have it.
+          // Existing pre-migration contractors have custom smsTemplate fields without STOP.
+          const hasOptOut = /\bSTOP\s+to\s+opt\s+out\b/i.test(finalMsg) || /\bSTOP\s+para\s+cancelar\b/i.test(finalMsg)
+          if (!hasOptOut) {
+            finalMsg += clientLang === 'es'
+              ? '\nResponda STOP para cancelar. – YardSync'
+              : '\nReply STOP to opt out. – YardSync'
+          }
 
           const cbUrl   = `${appUrl}/api/twilio/status-callback?ctx=cron_reminder&scheduleId=${schedule.id}&clientId=${schedule.clientId}&gardenerUid=${gardener.id}`
           const body = new URLSearchParams({ To: to, MessagingServiceSid: TWILIO_MSG_SVC, Body: finalMsg, StatusCallback: cbUrl })
@@ -178,9 +187,13 @@ export async function GET(request) {
       const jobCount  = todayJobs.length
       const language  = gardener.language || 'en'
 
-      const summaryMessage = language === 'es'
+      const summaryBody = language === 'es'
         ? `¡Buenos días ${firstName}! Tienes ${jobCount} trabajo${jobCount !== 1 ? 's' : ''} hoy: ${jobList}. — YardSync`
         : `Good morning ${firstName}! You have ${jobCount} job${jobCount !== 1 ? 's' : ''} today: ${jobList}. — YardSync`
+      // A2P compliance — append STOP line (this body never had it)
+      const summaryMessage = summaryBody + (language === 'es'
+        ? '\nResponda STOP para cancelar. – YardSync'
+        : '\nReply STOP to opt out. – YardSync')
 
       const digits = gardener.phone.replace(/\D/g, '')
       if (digits.length < 10) { summaryResults.skipped++; continue }
@@ -249,9 +262,13 @@ export async function GET(request) {
 
         const firstName = g.name?.split(' ')[0] || 'there'
         const amount    = (totalFees / 100).toFixed(2)
-        const msg = g.language === 'es'
+        const msgBody = g.language === 'es'
           ? `Hola ${firstName}! Tus tarifas de plataforma YardSync de ${qLabel} son $${amount}. Vencen al final del trimestre. Paga en yardsync.vercel.app/settings — YardSync`
           : `Hi ${firstName}! Your YardSync ${qLabel} platform fees are $${amount}. Due end of quarter. Pay at yardsync.vercel.app/settings — YardSync`
+        // A2P compliance — append STOP line (this body never had it)
+        const msg = msgBody + (g.language === 'es'
+          ? '\nResponda STOP para cancelar. – YardSync'
+          : '\nReply STOP to opt out. – YardSync')
 
         try {
           const digits = g.phone.replace(/\D/g, '')

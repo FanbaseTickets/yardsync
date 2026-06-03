@@ -42,6 +42,22 @@ export async function POST(request) {
       console.log('SMS route — calendar link SKIPPED (missing scheduleId or clientId)')
     }
 
+    // ── STEP 2.5: A2P compliance — enforce STOP opt-out language ─────────────
+    // Pre-migration contractors have customized `smsTemplate` fields without
+    // STOP language. Rather than modify their stored templates (intrusive),
+    // we append the opt-out line at send time if the message body doesn't
+    // already include a recognized STOP phrase. This guarantees every
+    // outbound SMS is A2P 10DLC compliant regardless of which template
+    // generated it.
+    const hasOptOut = /\bSTOP\s+to\s+opt\s+out\b/i.test(finalMessage) || /\bSTOP\s+para\s+cancelar\b/i.test(finalMessage)
+    if (!hasOptOut) {
+      const stopLine = language === 'es'
+        ? '\nResponda STOP para cancelar. – YardSync'
+        : '\nReply STOP to opt out. – YardSync'
+      finalMessage += stopLine
+      console.log('SMS route — appended STOP language (template was missing it)')
+    }
+
     // ── STEP 3: Send SMS via Twilio REST API ─────────────────────────────────
     // Use MessagingServiceSid (not From) so Twilio routes through the A2P-registered
     // Messaging Service for 10DLC sender pool + compliance reporting.
