@@ -178,7 +178,7 @@ async function fireNotification({ eventKey, userData, uid, withSms, volumeDollar
     if (withSms && tmpl.sms) {
       const phone = userData?.phone
       if (phone) {
-        await sendSms({ to: phone, body: tmpl.sms })
+        await sendSms({ to: phone, body: tmpl.sms, context: 'reward_notification', refIds: { gardenerUid: uid, event: eventKey } })
       } else {
         console.log(`[reward-check] ${uid} — no phone on file for ${eventKey} SMS`)
       }

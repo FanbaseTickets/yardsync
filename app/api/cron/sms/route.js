@@ -110,7 +110,8 @@ export async function GET(request) {
             : `\n📅 Add to calendar: ${calUrl}`
           const finalMsg = message + calLine
 
-          const body = new URLSearchParams({ To: to, MessagingServiceSid: TWILIO_MSG_SVC, Body: finalMsg })
+          const cbUrl   = `${appUrl}/api/twilio/status-callback?ctx=cron_reminder&scheduleId=${schedule.id}&clientId=${schedule.clientId}&gardenerUid=${gardener.id}`
+          const body = new URLSearchParams({ To: to, MessagingServiceSid: TWILIO_MSG_SVC, Body: finalMsg, StatusCallback: cbUrl })
           const res  = await fetch(
             `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`,
             {
@@ -186,7 +187,9 @@ export async function GET(request) {
       const to     = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
 
       try {
-        const body = new URLSearchParams({ To: to, MessagingServiceSid: TWILIO_MSG_SVC, Body: summaryMessage })
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://yardsync.vercel.app'
+        const cbUrl  = `${appUrl}/api/twilio/status-callback?ctx=cron_summary&gardenerUid=${gardener.id}`
+        const body = new URLSearchParams({ To: to, MessagingServiceSid: TWILIO_MSG_SVC, Body: summaryMessage, StatusCallback: cbUrl })
         const res  = await fetch(
           `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`,
           {
@@ -254,7 +257,9 @@ export async function GET(request) {
           const digits = g.phone.replace(/\D/g, '')
           if (digits.length < 10) { feeReminderResults.skipped++; continue }
           const to   = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
-          const body = new URLSearchParams({ To: to, MessagingServiceSid: TWILIO_MSG_SVC, Body: msg })
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://yardsync.vercel.app'
+          const cbUrl  = `${appUrl}/api/twilio/status-callback?ctx=cron_fee_reminder&gardenerUid=${g.id}`
+          const body = new URLSearchParams({ To: to, MessagingServiceSid: TWILIO_MSG_SVC, Body: msg, StatusCallback: cbUrl })
           await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`, {
             method: 'POST',
             headers: {

@@ -45,10 +45,21 @@ export async function POST(request) {
     // ── STEP 3: Send SMS via Twilio REST API ─────────────────────────────────
     // Use MessagingServiceSid (not From) so Twilio routes through the A2P-registered
     // Messaging Service for 10DLC sender pool + compliance reporting.
+    //
+    // StatusCallback URL tells Twilio to POST delivery updates to our status-callback
+    // route so we can record real delivery status (queued/sent/delivered/undelivered/failed)
+    // in Firestore — instead of the toast lying based on Twilio API 2xx.
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://yardsync.vercel.app'
+    const cbParams = new URLSearchParams({ ctx: 'twilio_send' })
+    if (scheduleId) cbParams.set('scheduleId', scheduleId)
+    if (clientId)   cbParams.set('clientId', clientId)
+    const statusCallback = `${appUrl}/api/twilio/status-callback?${cbParams.toString()}`
+
     const body = new URLSearchParams({
       To:                   to,
       MessagingServiceSid:  TWILIO_MSG_SVC,
       Body:                 finalMessage,
+      StatusCallback:       statusCallback,
     })
 
     const twilioRes = await fetch(

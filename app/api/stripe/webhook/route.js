@@ -116,10 +116,13 @@ export async function POST(request) {
               const twilioMsgSvc = process.env.TWILIO_MESSAGING_SERVICE_SID
               const digits       = adminPhone.replace(/\D/g, '')
               const to           = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
+              const cbAppUrl     = process.env.NEXT_PUBLIC_APP_URL || 'https://yardsync.vercel.app'
+              const cbUrl        = `${cbAppUrl}/api/twilio/status-callback?ctx=pro_setup_admin&gardenerUid=${gardenerUid}`
               const smsBody      = new URLSearchParams({
                 To:                  to,
                 MessagingServiceSid: twilioMsgSvc,
                 Body:                `New YardSync Pro Setup purchase – ${gardenerName} (${gardenerEmail}). Reach out to onboard. https://yardsync.vercel.app/admin/dashboard`,
+                StatusCallback:      cbUrl,
               })
               console.log('Admin SMS firing to:', process.env.ADMIN_PHONE_NUMBER, '— msg svc:', process.env.TWILIO_MESSAGING_SERVICE_SID ? 'SET' : 'MISSING')
               await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
