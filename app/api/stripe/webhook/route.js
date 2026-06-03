@@ -108,6 +108,7 @@ export async function POST(request) {
 
           // ── Admin SMS alert ──
           const adminPhone = process.env.ADMIN_PHONE_NUMBER
+          console.log('Pro Setup admin SMS gate — ADMIN_PHONE_NUMBER:', adminPhone ? 'SET' : 'MISSING')
           if (adminPhone) {
             try {
               const twilioSid    = process.env.TWILIO_ACCOUNT_SID
@@ -120,6 +121,7 @@ export async function POST(request) {
                 MessagingServiceSid: twilioMsgSvc,
                 Body:                `New YardSync Pro Setup purchase – ${gardenerName} (${gardenerEmail}). Reach out to onboard. https://yardsync.vercel.app/admin/dashboard`,
               })
+              console.log('Admin SMS firing to:', process.env.ADMIN_PHONE_NUMBER, '— msg svc:', process.env.TWILIO_MESSAGING_SERVICE_SID ? 'SET' : 'MISSING')
               await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
                 method:  'POST',
                 headers: {
