@@ -32,10 +32,12 @@ service cloud.firestore {
     match /smsStatus/{doc} {
       // SMS delivery status records written by the Twilio status-callback
       // handler (server-side, authed as admin via lib/firestoreRest.js).
-      // Read access is broad-authenticated so future contractor UI can
-      // surface "delivered / undelivered" per their own outbound messages.
-      allow read:  if isAdmin() || request.auth != null;
-      allow write: if isAdmin();
+      // Admin-only access — these docs contain client phone numbers and
+      // would leak across contractors if reads were broad-authenticated.
+      // When a contractor-facing UI for delivery status is built, replace
+      // with a scoped rule (resource.data.gardenerUid == request.auth.uid)
+      // or proxy reads through a server-side API endpoint.
+      allow read, write: if isAdmin();
     }
   }
 }
