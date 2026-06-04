@@ -1,7 +1,7 @@
 # YardSync — Project Brief for Claude
 
 > This file is auto-loaded at the start of every Claude Code session.
-> Keep it current. Last updated: 2026-05-24.
+> Keep it current. Last updated: 2026-06-03.
 >
 > **Session startup:** When the user says "get up to speed", read `YARDSYNC_KNOWLEDGE_BASE.md`
 > in the project root. That single file contains the full project history, architecture,
@@ -137,6 +137,14 @@ If a page uses `useSearchParams()`, wrap it in a Suspense boundary or use `windo
 - [x] ~~Subagent roster created in `.claude/agents/` — 6 SMEs (stripe-payments, sms-a2p, firebase-firestore, bilingual-reviewer, regression-tester, ai-features), 3 personas (marco / established-skeptic / newbie-eager), 1 market-research~~ (done 2026-05-24)
 - [x] ~~`ROADMAP.md` skeleton with Phase 1 status + Phase 2 hypothesis backlog (awaiting market-research population) + Phase 3 scale plans~~ (done 2026-05-24)
 - [x] ~~Set `TWILIO_MESSAGING_SERVICE_SID=MG21e23c10d5d507045b0a1e263c0eb25b` on Vercel (Production + Preview + Development) + trigger fresh deploy~~ (done 2026-05-24, all SMS paths now live on the A2P-approved Messaging Service)
+- [x] ~~Scenario A + A2 (Pro Setup E2E test via Chrome Claude) — redirect regression fix verified, admin SMS root cause identified as AT&T spam filter (Twilio delivered, phone whitelisted by reporting as not-spam)~~ (done 2026-06-03, commits e23c65d + 2a7d877 + 27b075c)
+- [x] ~~Twilio status-callback webhook + Firestore `smsStatus` collection — records real delivery status (queued/sent/delivered/undelivered/failed) instead of toast lying based on Twilio API 2xx~~ (done 2026-06-03, commits d86508a + adf97ca + f6646fe + 4d017d2 soft-mode signature)
+- [x] ~~Server-side STOP enforcement on every Twilio send site — 12 of 14 active contractors had legacy non-STOP templates; this guarantees A2P compliance regardless of which template generated the message~~ (done 2026-06-03, commit 0195180)
+- [x] ~~Comprehensive SMS sweep — Phases A through H via Chrome Claude (create client, schedule, AI EN, AI ES, manual Send, manual Resend, invoice payment link, UX punch list) + Phase G payment verified end-to-end with real test card → webhook → invoice-paid~~ (done 2026-06-03)
+- [ ] **🔴 LAUNCH BLOCKER discovered via sweep:** cron SMS routes (sms/billing/quarterly/reward-check) use Firebase client SDK without auth context → Firestore denies all queries → daily reminders silently fail in production. Refactor to `firestoreRest.js` (1-2 hours)
+- [ ] **🔴 LAUNCH BLOCKER:** `PhoneInput.js` formatter mangles `+1...` country-code phones with false green validation (real contractors will paste from email signatures and silently save broken numbers)
+- [ ] **🔴 LAUNCH BLOCKER:** Webhook NOT writing `stripeProcessingFee` + `netToPlatform` on paid invoice (CLAUDE.md backlog "Smoke test PR 2" now confirmed via Phase G real test payment)
+- [ ] **🔴 LAUNCH BLOCKER:** Rotate `CRON_SECRET` from `yardsync-cron-2026` (guessable) to a random 32+ char string in Vercel
 - [ ] **Run Scenario A** (Pro Setup E2E test) via Chrome Claude — prompt with pauses ready in last session conversation
 - [ ] **2 more SMS consistency tests** via Chrome Claude (Spanish AI draft + manual /sms page send) to verify 3-for-3 delivery on the new Messaging Service SID pipeline
 - [ ] **Post-Twilio approval:** re-run AI draft 5-sample eval with the new STOP rule (expect outputs to land in the 170–200 char range; structural checks should still pass)

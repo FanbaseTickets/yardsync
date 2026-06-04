@@ -321,6 +321,41 @@ Lives at `/admin/dashboard`. Dark mode UI. Only accessible to `admin@fanbasetick
 - **Admin Dashboard Overhaul PR 1** (layout only): top-line collapsed from 8 → 6 cards in 2x3 (My Cut + Collected show realized headline + committed subtitle, Active Contractors, Active Clients, Subscription Mix with MRR, Pro Setup Pending). Removed Quarterly Fee Breakdown, standalone MRR, and top-line Outstanding. Added Attention panel (renders only when populated: Connect disabled / past_due / canceled <30d / going dark). Per-row tier badge (Sub: Monthly/Annual/Inactive/Other). Expanded row gains Outstanding card.
 - **Admin Dashboard Overhaul PR 2** (Q11 Stripe net-out): webhook `payment_intent.succeeded` now captures `pi.latest_charge.balance_transaction.fee` and persists `stripeProcessingFee` + `netToPlatform` on the invoice doc. Dashboard `splitInvoice()` prefers `netToPlatform` when present, so new paid invoices report true YardSync net (app fee minus Stripe's ~2.9% + $0.30) instead of gross. Corrects ~50%+ revenue overstatement on dashboard headline as new invoices flow.
 
+### Phase 5 continued (June 3, 2026 — late session) — Comprehensive SMS sweep + status-callback infra + STOP enforcement + 4 launch blockers found
+
+The single most thorough pre-launch testing session to date. Ran all 8 outbound SMS paths systematically, built delivery-status infrastructure, fixed compliance gaps, and surfaced 4 launch blockers that would have shipped silently.
+
+**Infrastructure shipped:**
+- `app/api/twilio/status-callback/route.js` (commit d86508a) — receives Twilio's per-message status events (queued/sent/delivered/undelivered/failed), verifies X-Twilio-Signature, writes snapshots to `smsStatus/{MessageSid}` Firestore collection. Every outbound SMS site now passes `StatusCallback` URL with context (ctx + scheduleId/clientId/gardenerUid) so the callback can link the delivery state to a business event.
+- Firestore `smsStatus` collection rule (admin-only read+write, commits adf97ca → f6646fe). Reads scoped tight because docs contain client phone numbers; broadening for contractor UI requires `gardenerUid` scoping.
+- Soft-mode signature verification on the callback (commit 4d017d2) — URL reconstruction in the Vercel proxy environment doesn't match Twilio's signing URL yet, so signatures fail. Logs the diagnostic but writes to Firestore anyway. **TODO post-launch:** capture a successful verification, then tighten back to hard-reject (logged in tech debt).
+- **Server-side STOP enforcement** on every outbound send path (commit 0195180): `/api/twilio/send`, `/api/cron/sms` × 3 sites, plus webhook admin SMS. Detection regex covers both EN (`Reply STOP to opt out`) and ES (`Responda STOP para cancelar`); appends the language-appropriate STOP line if neither pattern is present. Defense-in-depth — 12 of 14 active contractors have legacy custom templates without STOP language.
+
+**SMS sweep — 8 paths exercised:**
+1. AI drafter EN → ✅ delivered + verbatim received
+2. AI drafter ES → ✅ delivered + natural Latin American Spanish
+3. Manual `/sms` page Send → ✅ template + calendar link + server-appended STOP
+4. Manual `/sms` page Resend → ✅ new MessageSid, schedule doc updated to latest
+5. Invoice payment link SMS → ✅ delivered single-segment, payment link works on Android
+6. Pro Setup admin SMS (webhook) → ✅ (was filtered to spam earlier; whitelisted)
+7. Daily cron reminder → ❌ **BROKEN** (PERMISSION_DENIED — cron uses Firebase client SDK with no auth context, Firestore rules reject all queries)
+8. Cron morning summary + fee reminder → ❌ same root cause as #7
+
+**Revenue flow verified end-to-end (Phase G):**
+- Invoice created → Stripe PaymentIntent with `application_fee_amount: 495` (5.5% of $90), `transfer_data.destination` to Scales Cuts' Connect account
+- SMS with payment link delivered to client phone
+- Client tapped link → Stripe-hosted payment page loaded
+- Test card 4242 4242 4242 4242 → Stripe charged → webhook fired → invoice flipped to `status: paid`, `paidAt` populated, `contractorReceives: 8505` ($85.05)
+- All math exact, destination-charge model correct down to the cent
+
+**4 launch blockers surfaced** (see Section 14 roadmap):
+1. 🔴 Cron SMS routes (sms/billing/quarterly/reward-check) use Firebase client SDK without auth context — Firestore rules deny all queries. Daily reminders silently fail in production. Needs refactor to `lib/firestoreRest.js` pattern (same as Stripe webhook).
+2. 🔴 `PhoneInput` formatter mangles `+1...` numbers to `(191) XXX-XXXX` with false green-check validation. Real contractors pasting numbers with country codes silently save broken phones.
+3. 🔴 Webhook NOT writing `stripeProcessingFee` + `netToPlatform` on paid invoice (CLAUDE.md backlog "Smoke test PR 2" item — now confirmed via Phase G payment).
+4. 🔴 `CRON_SECRET` value is `yardsync-cron-2026` — easily guessable. Anyone hitting the cron endpoint could trigger SMS sends at YardSync's expense.
+
+**Polish items (15+, all post-launch):** AI drafter doesn't pre-fill from next scheduled visit; calendar day-cell numbers lack legend; fixed mobile-only shell on desktop; date format inconsistencies; AI drafter Spanish prompt outputs English STOP; segment cost optimization for emoji/UCS-2; `/api/ical` UA detection for Android vs iOS; `/sms` page Resend lacks duplicate-send guard; stat counters double-count on resend; invoice modal "Text" button label terse; `Hi SMS!` first-token name parsing reads odd on business names; Add Job modal default is 8 recurring visits; Add Job helper text stale after picking "Just this once"; `Remove client` destructive action lacks visual differentiation; AI drafter button loading state subtle; `/sms` full-screen loading flash inconsistent with rest of app.
+
 ### Phase 5 continued (June 3, 2026) — Scenario A + A2 (Pro Setup E2E test)
 
 Pre-launch dogfooding via Chrome Claude. **YardSync has zero real customers; Marco is a test account, not the first customer.**
@@ -519,7 +554,12 @@ These are real errors that crashed production or blocked deployment. Documented 
 11. ~~**AppShell Connect gate is weak**~~ — RESOLVED 2026-04-14: All 4 Connect gates now check `!!profile.stripeAccountId` (commit 39a049e).
 12. **Historical invoices lack `stripeProcessingFee`** — Q11 captures this going forward via webhook, but pre-April 14 paid invoices have no processing-fee data. Dashboard shows gross for those, net for new ones. Acceptable — gap closes naturally as new invoices flow. Optional backfill script if accounting wants exact historical numbers.
 13. **Three dead inline line-item walkers remain** in `app/admin/dashboard/page.js` (lines ~138, ~156, ~214) — obsolete quarterly-billing code. Low priority cleanup.
-14. **Twilio status-callback webhook not wired** — current `/api/twilio/send` returns success on Twilio 2xx (queued), not on handset delivery. Toast says "SMS sent ✓" before Twilio attempts the carrier handoff. Required before heavy SMS volume so users don't believe undelivered messages went through. Implementation: add `StatusCallback` param when creating the message, route handler at `/api/twilio/status-callback` that receives queued/sent/delivered/failed/undelivered events and updates message status in Firestore.
+14. ~~**Twilio status-callback webhook not wired**~~ — RESOLVED 2026-06-03 (commit d86508a). Status events now write to `smsStatus/{MessageSid}` Firestore collection. Soft-mode signature verification (item 17) still TODO.
+15. **Cron SMS routes use Firebase client SDK with no auth context** — Firestore rules deny all queries. Daily SMS reminders / morning summaries / fee reminders silently fail in production. Cron infra was migrated away from firebase-admin but the cron files still use the unauthenticated client SDK. Refactor to `lib/firestoreRest.js` pattern (~1-2 hours). Discovered via SMS sweep cron-trigger probe 2026-06-03.
+16. **`PhoneInput.js` formatter mangles country-code phones** — entering `+1 (910) 723-0609` becomes `(191) 072-3060` with false-green validation. Real contractors pasting from email signatures / CRMs will silently save broken numbers. Discovered Phase A of SMS sweep.
+17. **Status-callback signature verification in soft-mode** — Vercel proxy URL reconstruction doesn't match Twilio's signing URL. Currently logs mismatch but writes anyway. Tighten back to hard-reject once a successful verification is captured in production logs.
+18. **`CRON_SECRET` is guessable** (`yardsync-cron-2026`) — rotate to a random 32+ char string (`openssl rand -hex 32`) before launch.
+19. **Webhook NOT writing `stripeProcessingFee` + `netToPlatform`** on paid invoice — Q11 fields missing despite the rest of the invoice doc being correct. CLAUDE.md "Smoke test PR 2" item — now confirmed via Phase G of SMS sweep. Investigate `payment_intent.succeeded` handler's expand call for `latest_charge.balance_transaction`.
 
 ---
 
@@ -556,13 +596,23 @@ These are real errors that crashed production or blocked deployment. Documented 
 - [ ] Investigate 4 unbackfillable orphan accounts (jarius.johnson@my.utsa.edu, testuser@yardsyncdemo.com, johnsonjarius19@gmail.com, johnsoncandace009@gmail.com) — either delete stale docs or clear fabricated `subscriptionStatus: 'active'`
 
 ### Before live launch
+- [ ] **🔴 LAUNCH BLOCKER — Refactor cron SMS routes to `lib/firestoreRest.js` pattern.** cron/sms, cron/billing, cron/quarterly, cron/reward-check all currently use Firebase client SDK without auth context → Firestore denies all queries → daily reminders silently fail in production. Discovered 2026-06-03 via SMS sweep cron-trigger probe. ~1-2 hours.
+- [ ] **🔴 LAUNCH BLOCKER — Fix `PhoneInput.js` formatter.** Strip leading `1` from 11+ digit inputs; reject results without exactly 10 digits instead of green-checking them. Real contractors pasting `+1...` numbers from email signatures silently save broken phones. Discovered Phase A of SMS sweep.
+- [ ] **🔴 LAUNCH BLOCKER — Fix Q11 webhook.** `stripeProcessingFee` + `netToPlatform` not landing on paid invoice docs. Investigate `payment_intent.succeeded` handler's `latest_charge.balance_transaction` expand. Discovered Phase G of SMS sweep via real test-card payment.
+- [ ] **🔴 LAUNCH BLOCKER — Rotate `CRON_SECRET`** in Vercel from `yardsync-cron-2026` (guessable) to random 32+ chars (`openssl rand -hex 32`).
 - [ ] Audit `users` collection for stale `setupFeePaid: true` flags
 - [ ] Swap all Stripe keys to live in Vercel
 - [ ] Create live Stripe webhook + update signing secret
 - [x] ~~Verify Twilio A2P registration approved~~ (done 2026-05-24, campaign Verified)
-- [x] ~~Set `TWILIO_MESSAGING_SERVICE_SID=MG21e23c10d5d507045b0a1e263c0eb25b` on Vercel (Production + Preview + Development) + trigger fresh deploy~~ (done 2026-05-24)
+- [x] ~~Set `TWILIO_MESSAGING_SERVICE_SID=MG21e23c10d5d507045b0a1e263c0eb25b` on Vercel~~ (done 2026-05-24)
+- [x] ~~SMS sweep — comprehensive end-to-end of every outbound SMS path~~ (done 2026-06-03, 6 of 8 paths green, 2 cron paths surfaced as broken — see launch blockers)
+- [x] ~~Twilio status-callback webhook + smsStatus Firestore collection~~ (done 2026-06-03)
+- [x] ~~Server-side STOP enforcement on every Twilio send site~~ (done 2026-06-03)
+- [x] ~~Revenue flow E2E verified (invoice → SMS → payment → webhook → invoice-paid)~~ (done 2026-06-03 via Phase G real test-card payment)
 - [ ] Full QA pass per QA_PHASE5_CHECKLIST.md
 - [ ] Lawyer review of ToS Section 5 (Early Adopter Pricing Lock)
+- [ ] Tighten status-callback signature verification from soft-mode to hard-reject (once production verifications confirm URL reconstruction is correct)
+- [ ] Fix AI drafter Spanish prompt to use Spanish STOP line (currently emits English STOP on Spanish messages — A2P compliant but cosmetically inconsistent)
 
 ### Post-launch
 - [ ] `/invoices` index page (currently "coming soon" toast)
