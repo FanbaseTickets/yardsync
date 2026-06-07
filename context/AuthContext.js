@@ -56,7 +56,22 @@ export function AuthProvider({ children }) {
       smsTemplateEs: 'Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! Responda STOP para cancelar. – YardSync',
     }
     await saveGardenerProfile(cred.user.uid, profileData)
+
+    // Eagerly populate AuthContext state. Without this, the login page's
+    // `router.replace('/dashboard')` can fire BEFORE onAuthStateChanged
+    // propagates the new user — AppShell mounts on /dashboard with user=null,
+    // hits its redirect-to-login guard, bounces to /login, and the login
+    // page's own redirect-when-user-present bounces back to /dashboard.
+    // On a cold Vercel lambda this ping-pong produces an 11+ second hang
+    // (root cause of the 2026-06-03 post-signup regression).
+    //
+    // onAuthStateChanged will still fire shortly after and re-set these to
+    // the same values — idempotent, no flicker. Same pattern applied to
+    // signInWithGoogle() below.
+    setUser(cred.user)
     setProfile(profileData)
+    setLoading(false)
+
     // Persist language to localStorage so pre-auth pages (subscribe) can read it
     if (typeof window !== 'undefined') {
       window.localStorage.setItem('yardsync_lang', profileData.language || 'en')
@@ -89,6 +104,10 @@ export function AuthProvider({ children }) {
       }
       setProfile(existing)
     }
+
+    // Eagerly populate user + loading state (see signUp() comment above for rationale)
+    setUser(cred.user)
+    setLoading(false)
 
     return cred
   }

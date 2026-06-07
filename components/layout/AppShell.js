@@ -20,9 +20,14 @@ export default function AppShell({ children }) {
   const hasChecked    = useRef(false)
   const redirectedRef = useRef(false)
 
-  // Redirect to login if not authenticated
+  // Redirect to login if not authenticated.
+  // Note: signUp/signInWithGoogle now eagerly setUser/setLoading in AuthContext
+  // to avoid a race where this fires post-signup (user=null transiently because
+  // onAuthStateChanged hasn't fired yet). The log line below will tell us in
+  // Vercel logs if this guard ever fires from a post-signup mount despite the fix.
   useEffect(() => {
     if (!loading && !user) {
+      console.log('[AppShell] redirect→/login fired — loading:', loading, 'user:', user?.uid || 'null', 'path:', typeof window !== 'undefined' ? window.location.pathname : '(ssr)')
       router.replace('/login')
     }
   }, [user, loading, router])
