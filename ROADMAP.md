@@ -1,6 +1,6 @@
 # YardSync Roadmap
 
-> Living document. Last meaningful update: 2026-05-24.
+> Living document. Last meaningful update: 2026-06-07.
 > Phase 2 sections marked `[TBD: market-research]` are placeholders to be filled by the `market-research` subagent. Persona-feedback sections are placeholders to be filled by `persona-marco`, `persona-established-skeptic`, and `persona-newbie-eager` dogfooding the live app.
 
 ---
@@ -86,7 +86,56 @@ These are unvalidated. Treat as candidates pending market signal.
 
 ---
 
-## Phase 3 — Scale & Partnerships (6-18 months)
+## Phase 3 — YardSync Community & Visibility Platform
+*Runs in parallel with Phase 2 post-launch growth*
+
+### Overview
+A YardSync-owned Facebook presence and contractor discovery platform that drives client acquisition for contractors — making YardSync valuable not just for managing work, but for getting more work.
+
+### Core Features (in build order)
+
+1. **YardSync Facebook Page**
+   - Managed from yardsyncapp.com brand
+   - Contractor spotlight posts by city/neighborhood
+   - Service-specific promotion (lawn care, landscaping, pressure washing, etc.)
+   - Real verified reviews sourced from completed YardSync invoices
+
+2. **Verified Review System**
+   - Reviews auto-generated from completed + paid invoices (client opts in at payment)
+   - Tied to real transaction — not self-reported
+   - Displayed on contractor's YardSync profile and Facebook page
+   - Star rating + written review option for client at payment confirmation screen
+
+3. **Location-Based Contractor Discovery**
+   - Contractors searchable by ZIP code and service type
+   - Public-facing contractor profile pages at `yardsyncapp.com/contractor/[slug]`
+   - Embedded map showing service area
+
+4. **AI-Powered Visibility Engine** *(future)*
+   - Contractors who hit volume thresholds automatically get promoted
+   - AI determines optimal posting time, neighborhood targeting, and service category for each contractor
+   - Higher invoice volume = more visibility (aligns with volume reward model)
+
+5. **Visibility Tiers** *(monetization)*
+   - Base: included with YardSync subscription
+   - Boosted: paid add-on for priority placement
+   - Featured: premium neighborhood spotlight
+
+### Strategic Notes
+- Inspired by Black-Owned Market Movement model — community-sourced visibility that actually drives revenue for small operators
+- Verified invoice-backed reviews are a stronger trust signal than any other review platform
+- Creates a flywheel: more clients → more invoices → more reviews → more visibility → more clients
+- Bilingual posts (EN/ES) align with YardSync's core differentiator for Spanish-speaking operators
+
+### Dependencies
+- Contractor public profile pages (build first)
+- Client-facing payment confirmation screen (already partially built in `/pay/[id]`)
+- Facebook Business API for automated posting
+- Review collection flow at invoice payment
+
+---
+
+## Phase 4 — Scale & Partnerships (6-18 months)
 
 **Goal:** Move beyond direct sales into channels and verticals.
 
