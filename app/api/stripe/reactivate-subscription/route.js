@@ -33,8 +33,8 @@ export async function POST(req) {
     }
 
     const priceId = plan === 'annual'
-      ? process.env.STRIPE_ANNUAL_PRICE_ID
-      : process.env.STRIPE_MONTHLY_PRICE_ID
+      ? process.env.STRIPE_PRICE_ANNUAL
+      : process.env.STRIPE_PRICE_MONTHLY
 
     const subscription = await stripe.subscriptions.create({
       customer: stripeCustomerId,
