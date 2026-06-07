@@ -59,7 +59,7 @@ export default function AppShell({ children }) {
       // Normal flow: 4-second hard timeout → redirect to /subscribe
       timeoutRef.current = setTimeout(() => {
         if (subLoading && !redirectedRef.current) {
-          console.log('[AppShell] 4s timeout fired — subStatus:', subStatus, 'user:', user?.uid, 'redirecting to /subscribe')
+          console.log('[AppShell] 4s timeout — redirecting to /subscribe. subStatus was:', subStatus, 'user:', user?.uid)
           redirectedRef.current = true
           setSubStatus('none')
           setSubLoading(false)
