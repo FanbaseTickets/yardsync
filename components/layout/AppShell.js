@@ -9,7 +9,7 @@ import { getGardenerProfile } from '@/lib/db'
 import { Leaf } from 'lucide-react'
 
 export default function AppShell({ children }) {
-  const { user, loading } = useAuth()
+  const { user, loading, signingUp } = useAuth()
   const router = useRouter()
 
   const [subStatus,  setSubStatus]  = useState(null)
@@ -21,16 +21,22 @@ export default function AppShell({ children }) {
   const redirectedRef = useRef(false)
 
   // Redirect to login if not authenticated.
-  // Note: signUp/signInWithGoogle now eagerly setUser/setLoading in AuthContext
-  // to avoid a race where this fires post-signup (user=null transiently because
-  // onAuthStateChanged hasn't fired yet). The log line below will tell us in
-  // Vercel logs if this guard ever fires from a post-signup mount despite the fix.
+  //
+  // Defense in depth against the cold-lambda post-signup hang:
+  //   1) signUp / signInWithGoogle eagerly setUser/setLoading in AuthContext
+  //      to short-circuit the gap before onAuthStateChanged fires.
+  //   2) signingUp ref (also set by signUp / signInWithGoogle) suppresses
+  //      this guard for ~5s after a signup begins. On a cold Vercel lambda
+  //      this component can mount with user=null even AFTER the eager setUser
+  //      because the AuthProvider hasn't finished hydrating in the new tree —
+  //      so the redirect-to-login guard fires, /login bounces back, ping-pong.
+  //      The flag tells us "an auth hydration is in flight, don't bounce."
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !user && !signingUp?.current) {
       console.log('[AppShell] redirect→/login fired — loading:', loading, 'user:', user?.uid || 'null', 'path:', typeof window !== 'undefined' ? window.location.pathname : '(ssr)')
       router.replace('/login')
     }
-  }, [user, loading, router])
+  }, [user, loading, router, signingUp])
 
   // Run subscription check ONCE when user is available
   useEffect(() => {
@@ -61,8 +67,15 @@ export default function AppShell({ children }) {
         }
       }, 10000)
     } else {
-      // Normal flow: 4-second hard timeout → redirect to /subscribe
+      // Normal flow: 4-second hard timeout → redirect to /subscribe.
+      // Skipped during a signup window — during signup the profile write
+      // races the auth hydration on cold lambdas and a 4s subscribe bounce
+      // would short-circuit the post-signup /dashboard mount.
       timeoutRef.current = setTimeout(() => {
+        if (signingUp?.current) {
+          console.log('[AppShell] 4s timeout — skipped, signup in progress')
+          return
+        }
         if (subLoading && !redirectedRef.current) {
           console.log('[AppShell] 4s timeout — redirecting to /subscribe. subStatus was:', subStatus, 'user:', user?.uid)
           redirectedRef.current = true

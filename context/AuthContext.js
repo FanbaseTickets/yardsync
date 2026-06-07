@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -19,6 +19,15 @@ export function AuthProvider({ children }) {
   const [user,    setUser]    = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  // True from the moment a signup/Google sign-in begins until the auth
+  // hydration window has comfortably passed. AppShell reads this to suppress
+  // its redirect-to-login guard during the cold-lambda mount window where
+  // Firebase Auth hasn't propagated yet. Cleared by a 5s timeout in
+  // signUp()/signInWithGoogle() — generous enough to cover slow cold starts
+  // without leaving the guard disabled long enough for a real logged-out
+  // visit to /dashboard to slip through.
+  const signingUpRef = useRef(false)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -40,6 +49,7 @@ export function AuthProvider({ children }) {
   }
 
   async function signUp(email, password, name, businessName, language) {
+    signingUpRef.current = true
     const cred = await createUserWithEmailAndPassword(auth, email, password)
     const profileData = {
       name,
@@ -76,10 +86,18 @@ export function AuthProvider({ children }) {
     if (typeof window !== 'undefined') {
       window.localStorage.setItem('yardsync_lang', profileData.language || 'en')
     }
+
+    // Clear the signup-in-progress flag after the navigation + auth-hydration
+    // window has comfortably passed. AppShell's login-redirect guard reads
+    // this ref to avoid bouncing to /login while Firebase Auth is still
+    // hydrating on a cold Vercel lambda.
+    setTimeout(() => { signingUpRef.current = false }, 5000)
+
     return cred
   }
 
   async function signInWithGoogle() {
+    signingUpRef.current = true
     const provider = new GoogleAuthProvider()
     const cred     = await signInWithPopup(auth, provider)
 
@@ -109,6 +127,9 @@ export function AuthProvider({ children }) {
     setUser(cred.user)
     setLoading(false)
 
+    // Clear the signup-in-progress flag after the auth-hydration window
+    setTimeout(() => { signingUpRef.current = false }, 5000)
+
     return cred
   }
 
@@ -136,7 +157,8 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       user, profile, loading,
       signIn, signUp, signInWithGoogle,
-      signOut, resetPassword, refreshProfile
+      signOut, resetPassword, refreshProfile,
+      signingUp: signingUpRef,
     }}>
       {children}
     </AuthContext.Provider>
