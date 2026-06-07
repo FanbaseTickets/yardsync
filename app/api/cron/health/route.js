@@ -2,6 +2,34 @@ import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { listCollection } from '@/lib/firestoreRest'
 
+/**
+ * Weekly health check (runs Mondays 14:00 UTC per vercel.json).
+ *
+ * Verifies every external service YardSync depends on is reachable and that
+ * every critical env var is set. On any failure, sends an admin SMS via the
+ * A2P-registered Messaging Service so we hear about outages without having
+ * to read Vercel logs manually.
+ *
+ * Response shape (per the 2026-06-03 audit):
+ *   {
+ *     status: 'healthy' | 'degraded' | 'down',
+ *     checks: {
+ *       firestore: 'ok' | 'error: …',
+ *       stripe:    'ok (live mode)' | 'ok (test mode)' | 'error: …',
+ *       twilio:    'ok' | 'error: …',
+ *       anthropic: 'ok' | 'missing key',
+ *       envVars:   'ok' | 'missing: …',
+ *     },
+ *     timestamp: ISO string,
+ *   }
+ *
+ *   - 'healthy'  = everything passed
+ *   - 'degraded' = a non-critical check failed (Anthropic missing, env vars missing)
+ *   - 'down'     = a critical service is unreachable (Firestore, Stripe, or Twilio)
+ *
+ * HTTP status: 200 for healthy/degraded, 503 for down.
+ */
+
 const REQUIRED_ENV_VARS = [
   'NEXT_PUBLIC_APP_URL',
   'NEXT_PUBLIC_FIREBASE_API_KEY',
@@ -11,11 +39,10 @@ const REQUIRED_ENV_VARS = [
   'STRIPE_PRICE_MONTHLY',
   'STRIPE_PRICE_ANNUAL',
   'STRIPE_WEBHOOK_SECRET',
-  'SQUARE_ACCESS_TOKEN',
-  'SQUARE_LOCATION_ID',
   'TWILIO_ACCOUNT_SID',
   'TWILIO_AUTH_TOKEN',
   'TWILIO_MESSAGING_SERVICE_SID',
+  'ADMIN_PHONE_NUMBER',
   'CRON_SECRET',
 ]
 
@@ -26,35 +53,28 @@ export async function GET(request) {
   }
 
   const checks = {}
-  const warnings = []
-  const errors = []
+  const criticalFailures = []
+  const degradedReasons = []
 
-  // 1. Environment variables
-  const missing = REQUIRED_ENV_VARS.filter(v => !process.env[v])
-  if (missing.length === 0) {
-    checks.env = 'ok'
+  // ── 1. Env vars ────────────────────────────────────────────────────────
+  const missingVars = REQUIRED_ENV_VARS.filter(v => !process.env[v])
+  if (missingVars.length === 0) {
+    checks.envVars = 'ok'
   } else {
-    checks.env = `missing: ${missing.join(', ')}`
-    errors.push(`Missing env vars: ${missing.join(', ')}`)
+    checks.envVars = `missing: ${missingVars.join(', ')}`
+    degradedReasons.push(`Missing env vars: ${missingVars.join(', ')}`)
   }
 
-  // 2. Firebase — lightweight read to confirm connectivity.
-  // Uses lib/firestoreRest (admin REST auth via FIREBASE_ADMIN_PASSWORD).
-  // The previous Firebase client SDK pattern (db from @/lib/firebase) had
-  // no auth context server-side and was rejected by Firestore rules,
-  // making this probe report PERMISSION_DENIED every Monday even when
-  // Firestore itself was healthy. Same bug class as cron/sms (fixed in
-  // commit ae1407e). A single-doc read against the `users` collection is
-  // sufficient to verify Firestore connectivity + auth path.
+  // ── 2. Firestore — admin REST probe (lib/firestoreRest auths as admin) ──
   try {
     await listCollection('users', { limit: 1 })
-    checks.firebase = 'ok'
+    checks.firestore = 'ok'
   } catch (err) {
-    checks.firebase = `error: ${err.message}`
-    errors.push(`Firebase unreachable: ${err.message}`)
+    checks.firestore = `error: ${err.message}`
+    criticalFailures.push(`Firestore unreachable: ${err.message}`)
   }
 
-  // 3. Stripe — verify secret key works and prices exist
+  // ── 3. Stripe — verify secret key works and prices exist ────────────────
   try {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
     const [monthly, annual] = await Promise.all([
@@ -62,50 +82,131 @@ export async function GET(request) {
       stripe.prices.retrieve(process.env.STRIPE_PRICE_ANNUAL),
     ])
     const isLive = process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_')
-    checks.stripe = isLive ? 'ok (live mode)' : 'ok (test mode — switch to live before launch)'
-    if (!isLive) warnings.push('Stripe is in test mode — update to live keys before launch')
-    if (!monthly.active) errors.push('Stripe monthly price is inactive')
-    if (!annual.active)  errors.push('Stripe annual price is inactive')
+    checks.stripe = isLive ? 'ok (live mode)' : 'ok (test mode)'
+    if (!isLive) {
+      degradedReasons.push('Stripe is in test mode — switch to live keys before launch')
+    }
+    if (!monthly.active) {
+      checks.stripe = 'error: monthly price inactive'
+      criticalFailures.push('Stripe monthly price is inactive')
+    }
+    if (!annual.active) {
+      checks.stripe = 'error: annual price inactive'
+      criticalFailures.push('Stripe annual price is inactive')
+    }
   } catch (err) {
     checks.stripe = `error: ${err.message}`
-    errors.push(`Stripe error: ${err.message}`)
+    criticalFailures.push(`Stripe unreachable: ${err.message}`)
   }
 
-  // 4. Square — env presence + sandbox detection
-  const squareToken = process.env.SQUARE_ACCESS_TOKEN || ''
-  if (!squareToken) {
-    checks.square = 'missing token'
-    errors.push('Square access token not set')
+  // ── 4. Twilio — light live API call to verify credentials work ──────────
+  // GET /v1/Accounts/{SID}.json is free (just returns account metadata) and
+  // confirms the SID + auth token are valid. Previously this check was env
+  // presence only, which couldn't tell us if a leaked / rotated token had
+  // happened.
+  try {
+    const sid    = process.env.TWILIO_ACCOUNT_SID
+    const token  = process.env.TWILIO_AUTH_TOKEN
+    const msgSvc = process.env.TWILIO_MESSAGING_SERVICE_SID
+    if (!sid || !token)  throw new Error('TWILIO_ACCOUNT_SID or TWILIO_AUTH_TOKEN not set')
+    if (!msgSvc)         throw new Error('TWILIO_MESSAGING_SERVICE_SID not set — SMS will fail')
+
+    const res = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${sid}.json`,
+      { headers: { Authorization: 'Basic ' + Buffer.from(`${sid}:${token}`).toString('base64') } }
+    )
+    if (!res.ok) {
+      throw new Error(`Twilio account fetch returned ${res.status}`)
+    }
+    checks.twilio = 'ok'
+  } catch (err) {
+    checks.twilio = `error: ${err.message}`
+    criticalFailures.push(`Twilio unreachable: ${err.message}`)
+  }
+
+  // ── 5. Anthropic — env presence (a live ping would cost credit) ─────────
+  if (process.env.ANTHROPIC_API_KEY) {
+    checks.anthropic = 'ok'
   } else {
-    const isSandbox = squareToken.includes('sandbox') || squareToken.startsWith('EAAAlq')
-    checks.square = isSandbox ? 'sandbox (switch to production before launch)' : 'ok (production)'
-    if (isSandbox) warnings.push('Square is in sandbox mode — switch to production before launch')
+    checks.anthropic = 'missing key'
+    degradedReasons.push('ANTHROPIC_API_KEY not set — AI drafter will fail')
   }
 
-  // 5. Twilio — env presence check (live ping would cost money)
-  const twilioReady = process.env.TWILIO_ACCOUNT_SID &&
-                      process.env.TWILIO_AUTH_TOKEN &&
-                      process.env.TWILIO_MESSAGING_SERVICE_SID
-  if (twilioReady) {
-    checks.twilio = 'configured'
-  } else {
-    checks.twilio = 'not configured — SMS will fail'
-    errors.push('Twilio credentials missing: TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_MESSAGING_SERVICE_SID')
-  }
-
-  const status = errors.length > 0 ? 'degraded' : warnings.length > 0 ? 'warning' : 'healthy'
+  // ── Determine overall status ───────────────────────────────────────────
+  let status = 'healthy'
+  if (criticalFailures.length > 0)      status = 'down'
+  else if (degradedReasons.length > 0)  status = 'degraded'
 
   const result = {
     status,
-    timestamp: new Date().toISOString(),
     checks,
-    warnings,
-    errors,
+    timestamp: new Date().toISOString(),
   }
 
   console.log(`[HEALTH] ${status.toUpperCase()}`, JSON.stringify(result, null, 2))
 
+  // ── Admin SMS on any failure (best-effort — don't crash the cron) ──────
+  if (status !== 'healthy') {
+    await notifyAdminOnFailure(status, [...criticalFailures, ...degradedReasons])
+  }
+
   return NextResponse.json(result, {
-    status: errors.length > 0 ? 207 : 200,
+    status: criticalFailures.length > 0 ? 503 : 200,
   })
+}
+
+/**
+ * Sends an admin SMS via Twilio MessagingServiceSid when the health check
+ * reports a non-healthy status. Best-effort: silently logs if any required
+ * piece (admin phone, Twilio creds) is missing or if the send fails.
+ */
+async function notifyAdminOnFailure(status, failures) {
+  const adminPhone = process.env.ADMIN_PHONE_NUMBER
+  const sid        = process.env.TWILIO_ACCOUNT_SID
+  const token      = process.env.TWILIO_AUTH_TOKEN
+  const msgSvc     = process.env.TWILIO_MESSAGING_SERVICE_SID
+
+  if (!adminPhone || !sid || !token || !msgSvc) {
+    console.warn('[health] cannot notify admin — missing Twilio config or ADMIN_PHONE_NUMBER')
+    return
+  }
+
+  try {
+    const digits = adminPhone.replace(/\D/g, '')
+    const to     = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
+
+    // Truncate the failure list to keep the SMS to a single segment when possible.
+    const summary = failures.join('; ').slice(0, 240)
+    const body    = `YardSync health check ${status.toUpperCase()} — ${summary}. Check Vercel logs immediately.`
+
+    const appUrl  = process.env.NEXT_PUBLIC_APP_URL || 'https://yardsync.vercel.app'
+    const cbUrl   = `${appUrl}/api/twilio/status-callback?ctx=health_alert`
+    const params  = new URLSearchParams({
+      To:                  to,
+      MessagingServiceSid: msgSvc,
+      Body:                body,
+      StatusCallback:      cbUrl,
+    })
+
+    const res = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/x-www-form-urlencoded',
+          Authorization: 'Basic ' + Buffer.from(`${sid}:${token}`).toString('base64'),
+        },
+        body: params.toString(),
+      }
+    )
+
+    if (res.ok) {
+      console.log('[health] admin failure SMS sent')
+    } else {
+      const errText = await res.text()
+      console.error('[health] admin SMS Twilio returned non-OK:', res.status, errText)
+    }
+  } catch (err) {
+    console.error('[health] admin SMS failed (non-fatal):', err.message)
+  }
 }
