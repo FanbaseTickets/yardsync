@@ -2,7 +2,7 @@
 
 > **Purpose:** Complete institutional memory for the YardSync project.
 > Read this file once at the start of a session to be fully briefed.
-> Updated: 2026-04-21 (end of session).
+> Updated: 2026-06-07 (end of session — pre-live-keys flip).
 >
 > **For Claude:** When the user says "get up to speed" or "read the knowledge base",
 > read this file. Do NOT re-explore the codebase — this file IS the exploration.
@@ -320,6 +320,43 @@ Lives at `/admin/dashboard`. Dark mode UI. Only accessible to `admin@fanbasetick
 - **Bug F Part B (recent invoices row)**: replaced duplicate inline walker with `splitInvoice()` call so per-gardener Recent Invoices list shows correct "My cut / Gardener kept" breakdown
 - **Admin Dashboard Overhaul PR 1** (layout only): top-line collapsed from 8 → 6 cards in 2x3 (My Cut + Collected show realized headline + committed subtitle, Active Contractors, Active Clients, Subscription Mix with MRR, Pro Setup Pending). Removed Quarterly Fee Breakdown, standalone MRR, and top-line Outstanding. Added Attention panel (renders only when populated: Connect disabled / past_due / canceled <30d / going dark). Per-row tier badge (Sub: Monthly/Annual/Inactive/Other). Expanded row gains Outstanding card.
 - **Admin Dashboard Overhaul PR 2** (Q11 Stripe net-out): webhook `payment_intent.succeeded` now captures `pi.latest_charge.balance_transaction.fee` and persists `stripeProcessingFee` + `netToPlatform` on the invoice doc. Dashboard `splitInvoice()` prefers `netToPlatform` when present, so new paid invoices report true YardSync net (app fee minus Stripe's ~2.9% + $0.30) instead of gross. Corrects ~50%+ revenue overstatement on dashboard headline as new invoices flow.
+
+### Phase 5 continued (June 7, 2026 — end of session) — Pre-live-keys flip: legal docs, signup race round 2, save-account-metadata auth fix, Stripe env-var standardization, live products + coupons created in Stripe
+
+Last session before the live-keys flip. Focus shifted from launch-blocker firefighting to legal/compliance polish + closing the last race conditions + setting up the Stripe live configuration. Jay completed the Stripe-side manual work (live products + coupons + price IDs captured) so the next session is mechanical: webhook + Vercel env split + redeploy + verify.
+
+**Code shipped (7 commits):**
+- **Phase 3 added to `ROADMAP.md`** — YardSync Community & Visibility Platform (parallel to Phase 2 post-launch growth): YardSync-branded Facebook page with contractor spotlights, invoice-backed verified review system (clients opt-in at payment), location-based contractor discovery at `/contractor/[slug]`, AI visibility engine (volume-threshold promotion), monetization tiers (Base/Boosted/Featured). Strategic anchor: invoice-backed reviews are stronger trust than any self-reported platform; flywheel = clients → invoices → reviews → visibility → clients. Old Phase 3 (Scale & Partnerships) renumbered to Phase 4. (commit `02d0336`)
+- **Settings Volume Reward Tracker fix** — `loadMonthlyVolume()` called `getInvoices(user.uid)` but the symbol was missing from the `lib/db` import on line 13. Every Settings mount was throwing `ReferenceError: getInvoices is not defined` inside the tracker, silently falling back to `monthlyVolume = 0` — every Stripe-connected contractor's tier progress bar was wrong. Added `getInvoices` to the import and added `paymentPath === 'stripe'` filter to the volume sum (defense vs legacy pre-April Square invoices that don't carry the 5.5% application fee). (commit `e32dcda`)
+- **Privacy Policy + Terms of Service comprehensive rewrite** (commit `33d7a5d`):
+  - Privacy → 11 sections. New: Cookies and Tracking (§4), Your Rights w/ Texas TDPSA 45-day response window (§7), Children's Privacy under 13 (§8), Image and File Storage (§9). Updated: Section 2 adds logo files + usage data (IP/browser/device/pages) + platform communications; Section 3 removes Square + adds Anthropic Claude API + logo display on payment pages; Section 6 (Data Sharing) vendor list now Firebase / Stripe / Twilio / Anthropic + adds retention + permanent-deletion language; Contact (§11) adds Texas governing law.
+  - Terms → 18 sections. New: Stripe Payment Processing w/ Connected Account Agreement reference + destination-charges + JNew as merchant of record (§5), Intellectual Property and Your Data (§7), User Content (§8), Prohibited Uses (§9), Account Termination (§11), Indemnification (§13), Force Majeure listing Stripe/Twilio/Firebase/Anthropic (§14), Dispute Resolution w/ TX governing law + Bexar County AAA arbitration + class action waiver (§15), General w/ severability + waiver + entire agreement (§17). Section 2 drops Square, adds AI-assisted SMS drafting + logo storage. Spec implied 10/15 sections (would have dropped Data Security + User Responsibilities + Limitation of Liability + Changes to Terms) but those were preserved per "preserve all existing content" rule — final counts 11/18 with Contact at the end of each.
+- **Signup cold-start race round 2** — the `11cc3d1` eager `setUser/setProfile/setLoading` fix from June 3 wasn't enough. On a particularly cold Vercel lambda, AppShell still mounted on `/dashboard` with `user=null` before the new context state propagated to the new component tree, fired its redirect-to-login guard, login bounced back when Firebase finally hydrated, ping-pong. Fix: `signingUpRef = useRef(false)` in AuthContext, set true at the top of `signUp()` + `signInWithGoogle()` before the Firebase call, cleared via `setTimeout(..., 5000)` after the navigation + auth-hydration window. Exposed through context as `signingUp: signingUpRef` (ref, not state — no re-render churn). AppShell login-redirect guard and 4s subscription timeout both bail when `signingUp.current === true`. Email-password `signIn()` is NOT covered per spec; if cold-start race shows up on email login, same three-line pattern applies. (commit `cea72fb`)
+- **`/api/stripe/connect/save-account-metadata` 500 → auth fix + retry + 202** — Scenario A4 hit a Vercel 500 with 310ms response time and no detail. Root cause was the route was making an *unauthenticated* Firestore REST GET against `users/{uid}` — Firestore rules' `isAdmin()` check fails without an ID token, so Firestore returns 403 PERMISSION_DENIED, `res.ok` is false, route bails with generic 500. The retry-loop spec assumed a webhook race (which was a secondary risk) — actual proximate cause was auth, and the spec's `userDoc.fields.X.stringValue` shape would have been a separate bug since `firestoreRest.getDocument` returns `{ id, name, data }` already-unwrapped. Fix: use `firestoreRest.getDocument` + 5-attempt exponential backoff (500ms → 1s → 2s → 4s → 8s, ~10s worst case) reading `userDoc.data.stripeSubscriptionId`. 202 'skipped' returned when either field is still missing after retries — metadata write is informational (used by reward cron for volume attribution), not gating onboarding. Detailed `[save-account-metadata]`-prefixed logs at every step. ConnectStripeContent ordering verified correct — no change needed there. (commit `8366b18`)
+- **Stripe price env var standardization** — `app/api/stripe/reactivate-subscription/route.js` was the lone holdout using `STRIPE_ANNUAL_PRICE_ID` / `STRIPE_MONTHLY_PRICE_ID` (with `_ID` suffix). Every other route — checkout, webhook, upgrade, cron/health — uses `STRIPE_PRICE_ANNUAL` / `STRIPE_PRICE_MONTHLY` (no suffix). Would have silently broken cancel→reactivate flow during the live-keys flip when Jay set the non-suffix names per the rest of the codebase: `priceId` would have been `undefined`, Stripe API would have errored on "No such price". Fixed in 2 lines. Grep confirmed zero remaining occurrences of the old names in `app/`. (commit `73d3727`)
+
+**Stripe live setup completed manually by Jay (no code change):**
+- Live products created: Monthly ($39/mo), Annual ($390/yr), Pro Setup ($99 one-time)
+- Live price IDs captured: `STRIPE_PRICE_MONTHLY = price_1TfjxS1qcLHs32s2RuiooKwH`, `STRIPE_PRICE_ANNUAL = price_1TfjyH1qcLHs32s2VEiY2KP0`, `STRIPE_PRICE_SETUP = price_1TfjzC1qcLHs32s2eSsZqOAu`
+- Live coupons created: `YARDSYNC_FREE` (100% off forever, for $3000+/mo Volume Reward Tier 3) + `YARDSYNC_50OFF` (50% off forever, for $1500-2999/mo Volume Reward Tier 2)
+
+**Stripe live webhook NOT yet created** — first task next session. Live endpoint at `https://yardsyncapp.com/api/stripe/webhook` with same event list as the test endpoint emits its own `whsec_…` signing secret.
+
+**Vercel env-var Production-vs-Preview split plan documented in this session** but not executed. 6 variables need to split:
+1. `STRIPE_SECRET_KEY` — test in Preview/Dev, sk_live in Production
+2. `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` — test in Preview/Dev, pk_live in Production
+3. `STRIPE_WEBHOOK_SECRET` — test whsec in Preview/Dev, live whsec (from step above) in Production
+4. `STRIPE_PRICE_MONTHLY` — test price in Preview/Dev, `price_1TfjxS1qcLHs32s2RuiooKwH` in Production
+5. `STRIPE_PRICE_ANNUAL` — test price in Preview/Dev, `price_1TfjyH1qcLHs32s2VEiY2KP0` in Production
+6. `STRIPE_PRICE_SETUP` — test price in Preview/Dev, `price_1TfjzC1qcLHs32s2eSsZqOAu` in Production
+Plus the public price-id variants (`NEXT_PUBLIC_STRIPE_PRICE_MONTHLY/ANNUAL`) need the live IDs in Production too.
+
+**Non-Stripe vars stay common across all environments:** Firebase config (single Firestore project), Twilio (single A2P-approved Messaging Service), SendGrid, Anthropic, CRON_SECRET, ADMIN_EMAIL, ADMIN_PHONE_NUMBER.
+
+**Recurring environmental blockers (still unresolved on Jay's local machine):**
+- `FIREBASE_ADMIN_PASSWORD` in `.env.local` is stale — every attempt at a one-off Firestore admin operation (Victor lookup, jay+scenarioa3 delete) fails with `INVALID_LOGIN_CREDENTIALS`. Workaround: do these via Firebase Console.
+- `CRON_SECRET` is only in Vercel (rotated June 3 manually), not in `.env.local` — can't trigger `/api/cron/health` or `/api/cron/sms` from the dev machine without pasting the secret in by hand each time.
+- One-time setup fix: paste fresh values for both into `.env.local` (stays gitignored). Then future cron triggers + Firestore admin queries run straight through.
 
 ### Phase 5 continued (June 3, 2026 — late late session) — All 4 SMS-sweep launch blockers closed + signup polish + Firebase CLI now wired
 
@@ -642,11 +679,28 @@ These are real errors that crashed production or blocked deployment. Documented 
 - [x] ~~Storage rules + Firestore rules deployed via CLI~~ done 2026-06-03
 - [x] ~~Firebase project upgraded Spark → Blaze~~ done 2026-06-03 (required for Storage)
 - [x] ~~Post-signup 11-second hang regression — root cause = cold-lambda race between router.replace and onAuthStateChanged. Fixed by eagerly populating AuthContext state inside signUp/signInWithGoogle~~ done 2026-06-03, commit `11cc3d1`
-- [ ] **Next session:** wire payment page (`/pay/[paymentIntentId]`) to display contractor's `logoUrl` (trust signal showing client they're paying the right person) with YardSync as primary brand
-- [ ] **Verify on next signup:** confirm post-signup hang fix (`11cc3d1`) actually closes the 11s race + logo upload works end-to-end on Settings
+- [x] ~~Phase 3 added to `ROADMAP.md` (YardSync Community & Visibility Platform)~~ done 2026-06-07, commit `02d0336`
+- [x] ~~Settings Volume Reward Tracker `getInvoices` ReferenceError fix + `paymentPath === 'stripe'` filter~~ done 2026-06-07, commit `e32dcda`
+- [x] ~~Privacy + Terms comprehensive rewrite (11 + 18 sections; Cookies, Your Rights w/ TX TDPSA, Children's Privacy, Image Storage, Stripe Connected Account Agreement, IP, User Content, Prohibited Uses, Account Termination, Indemnification, Force Majeure, Bexar Cty AAA arbitration + class action waiver, General; remove Square refs)~~ done 2026-06-07, commit `33d7a5d`
+- [x] ~~Signup cold-start race round 2 (signingUpRef in AuthContext + guard in AppShell login-redirect + 4s subscription timeout)~~ done 2026-06-07, commit `cea72fb`
+- [x] ~~`/api/stripe/connect/save-account-metadata` 500 root-cause fix (unauthenticated Firestore REST → firestoreRest.getDocument + retry + 202 on missing fields)~~ done 2026-06-07, commit `8366b18`
+- [x] ~~Stripe price env var name standardized — `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_ANNUAL` across all routes (reactivate-subscription was the lone holdout)~~ done 2026-06-07, commit `73d3727`
+- [x] ~~Live Stripe products + price IDs + Volume Reward coupons created in Stripe (manual, no code change)~~ done 2026-06-07 (Jay) — Monthly `price_1TfjxS1qcLHs32s2RuiooKwH`, Annual `price_1TfjyH1qcLHs32s2VEiY2KP0`, Pro Setup `price_1TfjzC1qcLHs32s2eSsZqOAu`, coupons `YARDSYNC_FREE` (100% off) + `YARDSYNC_50OFF`
+
+### Next session — live-keys flip checklist (in this exact order)
+- [ ] **Create live Stripe webhook endpoint** at `https://yardsyncapp.com/api/stripe/webhook`, copy live `whsec_…`
+- [ ] **Split 6 Vercel env vars** Production-only live vs Preview+Dev test: `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_MONTHLY/ANNUAL/SETUP` + the public price-id variants
+- [ ] **Redeploy production** so the env split actually takes effect
+- [ ] **Hit `/api/cron/health`** with `Authorization: Bearer $CRON_SECRET` → confirm `"stripe": "ok (live mode)"`
+- [ ] **Final comprehensive Chrome Claude E2E test** against live (signup → Connect → invoice → SMS → live card payment → webhook → invoice-paid)
+- [ ] **Begin outreach** — first San Antonio contractor cold-DM batch
+
+### Backlog (pre-launch, not gating)
+- [ ] Wire payment page (`/pay/[paymentIntentId]`) to display contractor's `logoUrl` (trust signal showing client they're paying the right person) with YardSync as primary brand
+- [ ] Verify on next signup: confirm `11cc3d1` + `cea72fb` actually close all cold-start races + logo upload works end-to-end on Settings
 - [ ] Audit `users` collection for stale `setupFeePaid: true` flags
-- [ ] Swap all Stripe keys to live in Vercel
-- [ ] Create live Stripe webhook + update signing secret
+- [ ] Refresh `FIREBASE_ADMIN_PASSWORD` + add `CRON_SECRET` to local `.env.local` so future cron triggers + admin Firestore queries don't require Console pivots
+- [ ] Delete `jay+scenarioa3@fanbasetickets.net` from Firestore + Firebase Auth (blocked on stale local admin password — via Firebase Console)
 - [x] ~~Verify Twilio A2P registration approved~~ (done 2026-05-24, campaign Verified)
 - [x] ~~Set `TWILIO_MESSAGING_SERVICE_SID=MG21e23c10d5d507045b0a1e263c0eb25b` on Vercel~~ (done 2026-05-24)
 - [x] ~~SMS sweep — comprehensive end-to-end of every outbound SMS path~~ (done 2026-06-03, 6 of 8 paths green, 2 cron paths surfaced as broken — see launch blockers)
@@ -654,7 +708,7 @@ These are real errors that crashed production or blocked deployment. Documented 
 - [x] ~~Server-side STOP enforcement on every Twilio send site~~ (done 2026-06-03)
 - [x] ~~Revenue flow E2E verified (invoice → SMS → payment → webhook → invoice-paid)~~ (done 2026-06-03 via Phase G real test-card payment)
 - [ ] Full QA pass per QA_PHASE5_CHECKLIST.md
-- [ ] Lawyer review of ToS Section 5 (Early Adopter Pricing Lock)
+- [ ] Lawyer review of ToS Section 6 (Early Adopter Pricing Lock) before any volume marketing — note section number is now §6, not §5 (renumbered in 33d7a5d)
 - [ ] Tighten status-callback signature verification from soft-mode to hard-reject (once production verifications confirm URL reconstruction is correct)
 - [ ] Fix AI drafter Spanish prompt to use Spanish STOP line (currently emits English STOP on Spanish messages — A2P compliant but cosmetically inconsistent)
 

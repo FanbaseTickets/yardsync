@@ -1,7 +1,7 @@
 # YardSync — Project Brief for Claude
 
 > This file is auto-loaded at the start of every Claude Code session.
-> Keep it current. Last updated: 2026-06-03 (late late session).
+> Keep it current. Last updated: 2026-06-07 (end of session — pre-live-keys flip).
 >
 > **Session startup:** When the user says "get up to speed", read `YARDSYNC_KNOWLEDGE_BASE.md`
 > in the project root. That single file contains the full project history, architecture,
@@ -149,20 +149,34 @@ If a page uses `useSearchParams()`, wrap it in a Suspense boundary or use `windo
 - [x] ~~Firebase CLI now wired (`firebase.json` + `.firebaserc`) — `firebase deploy --only firestore:rules` and `--only storage` work with `NODE_OPTIONS=--use-system-ca`~~ done 2026-06-03 (commit `f1367f5`)
 - [x] ~~Post-signup hang regression — cold-lambda race fix (eager AuthContext population)~~ done 2026-06-03 (commit `11cc3d1`)
 - [x] ~~Firebase project upgraded Spark → Blaze (needed to enable Storage)~~ done 2026-06-03
-- [ ] **Next session:** wire payment page (`/pay/[paymentIntentId]`) to display contractor's `logoUrl` (trust signal) with YardSync as primary brand
-- [ ] **Next session:** tighten Twilio status-callback signature verification from soft-mode to hard-reject (once a successful verification appears in Vercel logs)
-- [ ] **Test next signup:** verify post-signup hang fix (`11cc3d1`) and logo upload works end-to-end on Settings
-- [ ] **Run Scenario A** (Pro Setup E2E test) via Chrome Claude — prompt with pauses ready in last session conversation
-- [ ] **2 more SMS consistency tests** via Chrome Claude (Spanish AI draft + manual /sms page send) to verify 3-for-3 delivery on the new Messaging Service SID pipeline
-- [ ] **Post-Twilio approval:** re-run AI draft 5-sample eval with the new STOP rule (expect outputs to land in the 170–200 char range; structural checks should still pass)
-- [ ] **Post-Twilio approval:** add "Reply STOP to opt out. – YardSync" presence assertion to AI draft eval suite (one-line check matching the exclamation-count pattern)
-- [ ] **Before heavy SMS volume:** wire Twilio status-callback webhook so "SMS sent ✓" reflects actual delivery (queued/sent/delivered/failed), not just API acceptance. Today the toast fires on Twilio API 2xx, which only confirms the message was queued, not delivered to the handset.
+- [x] ~~Phase 3 added to `ROADMAP.md` — YardSync Community & Visibility Platform (FB page, verified reviews, contractor discovery, AI visibility engine, monetization tiers)~~ done 2026-06-07 (commit `02d0336`)
+- [x] ~~Settings Volume Reward Tracker `getInvoices` ReferenceError fix + `paymentPath === 'stripe'` filter~~ done 2026-06-07 (commit `e32dcda`)
+- [x] ~~Privacy Policy + Terms rewrite — 11 + 18 sections, removed Square, added Cookies / Your Rights / TX TDPSA / Children's Privacy / Image Storage / Stripe Connected Account Agreement / IP / User Content / Prohibited Uses / Account Termination / Indemnification / Force Majeure / Dispute Resolution (Bexar Cty AAA arbitration + class action waiver) / General~~ done 2026-06-07 (commit `33d7a5d`)
+- [x] ~~Signup cold-start race round 2 — `signingUpRef` in AuthContext suppresses AppShell login-redirect during auth hydration window (defense-in-depth on top of `11cc3d1`)~~ done 2026-06-07 (commit `cea72fb`)
+- [x] ~~`/api/stripe/connect/save-account-metadata` — was making unauthenticated Firestore REST call → 403 → 500 on every Connect onboarding. Refactored to `firestoreRest.getDocument` + 5-attempt exponential-backoff retry + 202 'skipped' on missing-but-non-fatal fields~~ done 2026-06-07 (commit `8366b18`)
+- [x] ~~Stripe price env var naming standardized — `reactivate-subscription/route.js` was the lone holdout using `STRIPE_ANNUAL_PRICE_ID` / `STRIPE_MONTHLY_PRICE_ID`. All routes now use `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_ANNUAL`~~ done 2026-06-07 (commit `73d3727`)
+- [x] ~~Live Stripe products + coupons created (manual in Stripe dashboard, Jay 2026-06-07)~~ — Monthly `price_1TfjxS1qcLHs32s2RuiooKwH`, Annual `price_1TfjyH1qcLHs32s2VEiY2KP0`, Pro Setup `price_1TfjzC1qcLHs32s2eSsZqOAu`; coupons `YARDSYNC_FREE` (100% forever) + `YARDSYNC_50OFF` (50% forever)
+
+### Next session — live-keys flip (in this exact order)
+- [ ] **Create live Stripe webhook endpoint:** Stripe dashboard → toggle Test off → Webhooks → Add endpoint → `https://yardsyncapp.com/api/stripe/webhook` → mirror event list from test endpoint → reveal + copy live `whsec_…`
+- [ ] **Split 6 Vercel env vars into Production vs Preview+Dev scopes:** `STRIPE_SECRET_KEY` (sk_live_), `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (pk_live_), `STRIPE_WEBHOOK_SECRET` (whsec_ from step above), `STRIPE_PRICE_MONTHLY` → `price_1TfjxS1qcLHs32s2RuiooKwH`, `STRIPE_PRICE_ANNUAL` → `price_1TfjyH1qcLHs32s2VEiY2KP0`, `STRIPE_PRICE_SETUP` → `price_1TfjzC1qcLHs32s2eSsZqOAu`. Don't forget the public price-id variants (`NEXT_PUBLIC_STRIPE_PRICE_MONTHLY/ANNUAL`) need the live price IDs in Production too.
+- [ ] **Redeploy production** (Vercel dashboard → latest prod deployment → ⋯ → Redeploy) so the new vars actually load
+- [ ] **Run `/api/cron/health`** with `Authorization: Bearer $CRON_SECRET`; confirm `"stripe": "ok (live mode)"`
+- [ ] **Final comprehensive Chrome Claude E2E test** against the live deployment (signup → Connect onboarding → invoice → SMS → real payment with live card → webhook → invoice-paid)
+- [ ] **Begin outreach** — first San Antonio contractor cold-DM batch
+
+### Backlog (pre-launch, not gating)
+- [ ] Wire payment page (`/pay/[paymentIntentId]`) to display contractor's `logoUrl` (trust signal — client sees they're paying the right person) with YardSync as primary brand
+- [ ] Tighten Twilio status-callback signature verification from soft-mode to hard-reject (once a successful verification appears in Vercel logs)
+- [ ] Verify logo upload UX on Settings live (next signup test)
+- [ ] Post-Twilio approval: re-run AI draft 5-sample eval with the new STOP rule (expect 170–200 char outputs)
+- [ ] Post-Twilio approval: add `Reply STOP to opt out. – YardSync` presence assertion to AI draft eval suite
 - [ ] LangContext → Firestore sync for `preferredLanguage` (ES notifications)
 - [ ] Admin dashboard overhaul PR 3: CSV rebuild + email digest queue + mobile handling
-- [ ] Smoke test PR 2: paid test invoice → verify stripeProcessingFee + netToPlatform persist
+- [ ] Smoke test PR 2: paid test invoice → verify `stripeProcessingFee` + `netToPlatform` persist (✅ webhook formula now writes both — needs live verification)
 - [ ] Sweep remaining dead Square/quarterly inline walkers from admin dashboard
 - [ ] `firestoreRest.js` line 22: remove `admin@fanbasetickets.net` fallback, fail loudly instead
-- [ ] End-to-end Pro Setup test (Stripe test mode → SMS + email + dashboard widget)
 - [ ] Email invoice delivery smoke test (Connect-complete account + email-only client)
 - [ ] Clean up 4 orphan user docs (UTSA, testuser, johnsonjarius19, johnsoncandace009)
-- [ ] Full QA pass per QA_PHASE5_CHECKLIST.md before live keys flip
+- [ ] Delete `jay+scenarioa3@fanbasetickets.net` from Firestore + Firebase Auth (blocked on stale local admin password; do via Firebase Console)
+- [ ] Lawyer review of ToS Section 6 (Early Adopter Pricing Lock) before any volume marketing
