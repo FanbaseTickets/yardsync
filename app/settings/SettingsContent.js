@@ -10,7 +10,7 @@ import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Input, Select } from '@/components/ui'
 import PhoneInput from '@/components/ui/PhoneInput'
 import LogoUpload from '@/components/ui/LogoUpload'
-import { saveGardenerProfile, getGardenerProfile, getFeePayments, saveFeePayment, markQuarterFeesCollected, getQuarterlyFeesOwed } from '@/lib/db'
+import { saveGardenerProfile, getGardenerProfile, getFeePayments, saveFeePayment, markQuarterFeesCollected, getQuarterlyFeesOwed, getInvoices } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { Bell, Globe, User, Clock, BarChart2, CreditCard, Link2, AlertTriangle, Wallet, CheckCircle2, ArrowUpCircle, TrendingUp, Lock, Zap, LogOut } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
@@ -141,6 +141,7 @@ export default function SettingsPage() {
       let total = 0
       allInvoices.forEach(inv => {
         if (inv.status !== 'paid') return
+        if (inv.paymentPath !== 'stripe') return
         const d = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
         if (d >= monthStart && d <= monthEnd) {
           total += inv.totalCents || 0
