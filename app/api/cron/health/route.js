@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { collection, getDocs, query, limit } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { listCollection } from '@/lib/firestoreRest'
 
 const REQUIRED_ENV_VARS = [
   'NEXT_PUBLIC_APP_URL',
@@ -39,9 +38,16 @@ export async function GET(request) {
     errors.push(`Missing env vars: ${missing.join(', ')}`)
   }
 
-  // 2. Firebase — lightweight read to confirm connectivity
+  // 2. Firebase — lightweight read to confirm connectivity.
+  // Uses lib/firestoreRest (admin REST auth via FIREBASE_ADMIN_PASSWORD).
+  // The previous Firebase client SDK pattern (db from @/lib/firebase) had
+  // no auth context server-side and was rejected by Firestore rules,
+  // making this probe report PERMISSION_DENIED every Monday even when
+  // Firestore itself was healthy. Same bug class as cron/sms (fixed in
+  // commit ae1407e). A single-doc read against the `users` collection is
+  // sufficient to verify Firestore connectivity + auth path.
   try {
-    await getDocs(query(collection(db, 'users'), limit(1)))
+    await listCollection('users', { limit: 1 })
     checks.firebase = 'ok'
   } catch (err) {
     checks.firebase = `error: ${err.message}`
