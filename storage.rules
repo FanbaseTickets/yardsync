@@ -1,0 +1,33 @@
+rules_version = '2';
+
+// Firebase Storage rules (separate from Firestore rules in firestore.rules).
+//
+// Publish manually via Firebase Console:
+//   console.firebase.google.com → yardsync-41886 → Build → Storage → Rules
+//   → paste this file → Publish
+//
+// Or via CLI:
+//   firebase deploy --only storage
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Business logos written by LogoUpload component.
+    //
+    // - Write: contractor can write to their own `users/{uid}/` folder only.
+    //          Capped at 2MB, image content-types only.
+    // - Read:  public. Required so the payment page (`/pay/[paymentIntentId]`)
+    //          can render the contractor's logo to clients tapping the
+    //          SMS payment link — that page has no auth context.
+    //
+    // Path pattern: users/{uid}/logo.png  (or .jpg / .webp)
+    match /users/{uid}/{filename} {
+      allow read:  if true;
+      allow write: if request.auth != null
+                   && request.auth.uid == uid
+                   && request.resource.size < 2 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Default deny — anything else is blocked.
+  }
+}

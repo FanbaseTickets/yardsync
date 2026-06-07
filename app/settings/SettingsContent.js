@@ -9,6 +9,7 @@ import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Input, Select } from '@/components/ui'
 import PhoneInput from '@/components/ui/PhoneInput'
+import LogoUpload from '@/components/ui/LogoUpload'
 import { saveGardenerProfile, getGardenerProfile, getFeePayments, saveFeePayment, markQuarterFeesCollected, getQuarterlyFeesOwed } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { Bell, Globe, User, Clock, BarChart2, CreditCard, Link2, AlertTriangle, Wallet, CheckCircle2, ArrowUpCircle, TrendingUp, Lock, Zap, LogOut } from 'lucide-react'
@@ -83,6 +84,7 @@ export default function SettingsPage() {
     language:       'en',
     smsTemplate:    '',
     smsTemplateEs:  '',
+    logoUrl:        '',
   })
   const [saving, setSaving] = useState(false)
 
@@ -96,6 +98,7 @@ export default function SettingsPage() {
         language:       profile.language       || 'en',
         smsTemplate:    profile.smsTemplate    || 'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! Reply STOP to opt out. – YardSync',
         smsTemplateEs:  profile.smsTemplateEs  || 'Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! Responda STOP para cancelar. – YardSync',
+        logoUrl:        profile.logoUrl        || '',
       })
     }
   }, [profile])
@@ -523,6 +526,14 @@ export default function SettingsPage() {
                   value={form.businessName}
                   onChange={e => setField('businessName', e.target.value)}
                   placeholder="Rodriguez Lawn Care"
+                />
+                <LogoUpload
+                  label={lang === 'es' ? 'Logo del negocio' : 'Business logo'}
+                  value={form.logoUrl}
+                  onChange={url => setField('logoUrl', url)}
+                  hint={lang === 'es'
+                    ? 'PNG, JPG o WebP. Máximo 2MB. Se mostrará a tus clientes en la página de pago.'
+                    : 'PNG, JPG, or WebP. Max 2MB. Shown to your clients on the payment page.'}
                 />
                 <PhoneInput
                   label={translate('settings', 'phone')}

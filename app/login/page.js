@@ -22,12 +22,14 @@ export default function LoginPage() {
   }, [])
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [name,     setName]     = useState('')
   const [bizName,  setBizName]  = useState('')
   const [busy,     setBusy]     = useState(false)
   const [googleBusy, setGoogleBusy] = useState(false)
   const [errors,   setErrors]   = useState({})
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [failedAttempts, setFailedAttempts] = useState(0)
   const [signupLang, setSignupLang] = useState('en')
 
@@ -43,12 +45,14 @@ export default function LoginPage() {
 
   function validate() {
     const e = {}
-    if (!email)                               e.email    = 'Email is required'
-    else if (!email.includes('@'))            e.email    = 'Enter a valid email'
-    if (mode !== 'reset' && !password)        e.password = 'Password is required'
-    else if (mode !== 'reset' && password.length < 8) e.password = 'Min 8 characters'
-    if (mode === 'signup' && !name)           e.name     = 'Your name is required'
-    if (mode === 'signup' && !bizName)        e.bizName  = 'Business name is required'
+    if (!email)                               e.email    = isEs ? 'Correo requerido' : 'Email is required'
+    else if (!email.includes('@'))            e.email    = isEs ? 'Correo inválido' : 'Enter a valid email'
+    if (mode !== 'reset' && !password)        e.password = isEs ? 'Contraseña requerida' : 'Password is required'
+    else if (mode !== 'reset' && password.length < 8) e.password = isEs ? 'Mínimo 8 caracteres' : 'Min 8 characters'
+    if (mode === 'signup' && !confirmPassword)            e.confirmPassword = isEs ? 'Confirma tu contraseña' : 'Please confirm your password'
+    else if (mode === 'signup' && password !== confirmPassword) e.confirmPassword = isEs ? 'Las contraseñas no coinciden' : "Passwords don't match"
+    if (mode === 'signup' && !name)           e.name     = isEs ? 'Tu nombre es requerido' : 'Your name is required'
+    if (mode === 'signup' && !bizName)        e.bizName  = isEs ? 'Nombre del negocio es requerido' : 'Business name is required'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -105,6 +109,8 @@ export default function LoginPage() {
     setMode(newMode)
     setErrors({})
     setShowPassword(false)
+    setShowConfirmPassword(false)
+    setConfirmPassword('')
     if (newMode === 'signup') setPassword('')
   }
 
@@ -216,7 +222,7 @@ export default function LoginPage() {
                 type={showPassword ? 'text' : 'password'}
                 placeholder={mode === 'signup' ? (isEs ? 'Mínimo 8 caracteres' : 'Min 8 characters') : '••••••••'}
                 value={password}
-                onChange={e => { setPassword(e.target.value); clearError('password') }}
+                onChange={e => { setPassword(e.target.value); clearError('password'); clearError('confirmPassword') }}
                 error={errors.password}
               />
               <button
@@ -226,6 +232,26 @@ export default function LoginPage() {
                 className="absolute right-3 top-[34px] text-gray-400 hover:text-gray-600 transition-colors"
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          )}
+          {mode === 'signup' && (
+            <div className="relative">
+              <Input
+                label={isEs ? 'Confirmar contraseña' : 'Confirm password'}
+                type={showConfirmPassword ? 'text' : 'password'}
+                placeholder={isEs ? 'Repite tu contraseña' : 'Re-enter password'}
+                value={confirmPassword}
+                onChange={e => { setConfirmPassword(e.target.value); clearError('confirmPassword') }}
+                error={errors.confirmPassword}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                className="absolute right-3 top-[34px] text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           )}
