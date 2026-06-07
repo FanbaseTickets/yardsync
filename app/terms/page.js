@@ -2,7 +2,7 @@ export default function TermsPage() {
   return (
     <div className="max-w-2xl mx-auto px-6 py-12">
       <h1 className="text-3xl font-bold mb-2">Terms and Conditions</h1>
-      <p className="text-sm text-gray-500 mb-8">Last updated: April 8, 2026</p>
+      <p className="text-sm text-gray-500 mb-8">Last updated: June 7, 2026</p>
 
       <section className="space-y-6 text-gray-700 text-sm leading-relaxed">
 
@@ -13,7 +13,7 @@ export default function TermsPage() {
 
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">2. Description of Service</h2>
-          <p>YardSync provides lawn care and field service management tools including client scheduling, invoicing via Stripe, materials tracking, volume-based subscription rewards, and SMS appointment reminders via Twilio. YardSync charges a monthly or annual subscription fee for access to the platform, plus a separate per-invoice application fee on payments processed through Stripe Connect. Both charges are described in Section 4.</p>
+          <p>YardSync provides lawn care and field service management tools including client scheduling, invoicing via Stripe Connect, materials tracking, AI-assisted SMS drafting, logo storage, volume-based subscription rewards, and SMS appointment reminders via Twilio.</p>
         </div>
 
         <div>
@@ -36,11 +36,17 @@ export default function TermsPage() {
           </ul>
           <p className="mt-2"><strong>Volume rewards.</strong> Service providers who consistently process high invoice volume through YardSync earn automatic discounts on their subscription. Processing $1,500 or more in invoices in a month for two consecutive months reduces the subscription fee by 50%. Processing $3,000 or more in invoices in a month for two consecutive months waives the subscription fee entirely. Discounts persist as long as the qualifying volume is maintained and revert if volume drops below the threshold.</p>
           <p className="mt-2"><strong>Stripe&apos;s own processing fees are separate</strong> and are charged by Stripe directly against the payment, in addition to the YardSync application fee. YardSync does not control, collect, or rebate Stripe processing fees.</p>
-          <p className="mt-2">YardSync may adjust either the subscription fee or the application fee for new accounts at any time, with at least 30 days&apos; notice posted to this page. Existing accounts may be subject to the Early Adopter Pricing Lock described in Section 5.</p>
+          <p className="mt-2">YardSync may adjust either the subscription fee or the application fee for new accounts at any time, with at least 30 days&apos; notice posted to this page. Existing accounts may be subject to the Early Adopter Pricing Lock described in Section 6.</p>
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">5. Early Adopter Pricing Lock</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">5. Stripe Payment Processing</h2>
+          <p>Payment processing services for service providers on YardSync are provided by Stripe and are subject to the Stripe Connected Account Agreement, which includes the Stripe Terms of Service (collectively, the &quot;Stripe Services Agreement&quot;). By connecting a bank account and accepting payments through YardSync, you agree to be bound by the Stripe Services Agreement, as the same may be modified by Stripe from time to time. As a condition of YardSync enabling payment processing services through Stripe, you agree to provide YardSync accurate and complete information about you and your business, and you authorize YardSync to share it and transaction information related to your use of the payment processing services provided by Stripe.</p>
+          <p className="mt-2">YardSync uses destination charges. For each client payment processed through YardSync Pay, JNew Technologies is the merchant of record. The contractor (connected account) receives the payment net of the 5.5% application fee.</p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">6. Early Adopter Pricing Lock</h2>
           <p>Service providers who create a YardSync account on or before <strong>April 15, 2028</strong> are eligible for the Early Adopter Pricing Lock, which guarantees the launch per-invoice application fee rate of <strong>5.5%</strong> for the lifetime of the account, even if the standard rate for new accounts is later increased.</p>
           <p className="mt-2">The Early Adopter Pricing Lock is contingent on continuous, uninterrupted membership in good standing. The Lock is permanently forfeited, and the account becomes subject to the then-current standard rate, if any of the following occur:</p>
           <ul className="list-disc pl-5 mt-2 space-y-1">
@@ -54,22 +60,70 @@ export default function TermsPage() {
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">6. User Responsibilities</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">7. Intellectual Property and Your Data</h2>
+          <p>You retain ownership of all data you enter into YardSync, including client information, schedules, and invoice records. By using YardSync, you grant JNew Technologies a limited license to store, process, and display your data solely for the purpose of providing the service. YardSync&apos;s platform, branding, and software are the exclusive property of JNew Technologies and may not be copied or reproduced without written permission.</p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">8. User Content</h2>
+          <p>Service providers may upload logos and other content to YardSync. You represent that you have the rights to any content you upload and that it does not infringe any third-party intellectual property rights. JNew Technologies reserves the right to remove content that violates these Terms.</p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">9. Prohibited Uses</h2>
+          <p>You agree not to use YardSync to:</p>
+          <ul className="list-disc pl-5 mt-2 space-y-1">
+            <li>Send spam, unsolicited messages, or harassing communications</li>
+            <li>Violate any applicable law or regulation</li>
+            <li>Impersonate another person or business</li>
+            <li>Attempt to gain unauthorized access to any part of the platform</li>
+            <li>Use the platform for any purpose other than legitimate lawn care business management</li>
+          </ul>
+          <p className="mt-2">Violations may result in immediate account termination without refund.</p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">10. User Responsibilities</h2>
           <p>Service providers are responsible for obtaining appropriate consent from their clients before entering client contact information into YardSync. Users agree not to use the platform for spam, harassment, or any unlawful purpose.</p>
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">7. Limitation of Liability</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">11. Account Termination</h2>
+          <p>JNew Technologies reserves the right to suspend or terminate any account that violates these Terms, with or without notice. Terminated accounts for cause are not eligible for refunds. Service providers may cancel their own subscription at any time per Section 4.</p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">12. Limitation of Liability</h2>
           <p>JNew Technologies is not liable for indirect, incidental, or consequential damages arising from use of YardSync. The platform is provided as-is without warranties of any kind.</p>
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">8. Changes to Terms</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">13. Indemnification</h2>
+          <p>You agree to indemnify and hold harmless JNew Technologies, its officers, directors, and employees from any claims, damages, or expenses arising from your use of YardSync, your violation of these Terms, or your violation of any third-party rights.</p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">14. Force Majeure</h2>
+          <p>JNew Technologies is not liable for any failure or delay in providing the platform due to causes beyond its reasonable control, including but not limited to outages of third-party services (Stripe, Twilio, Firebase, Anthropic), internet disruptions, or natural disasters.</p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">15. Dispute Resolution and Governing Law</h2>
+          <p>These Terms are governed by the laws of the State of Texas, without regard to conflict of law principles. Any dispute arising from these Terms shall be resolved by binding arbitration in Bexar County, Texas, under the rules of the American Arbitration Association. You waive any right to participate in a class action lawsuit or class-wide arbitration against JNew Technologies.</p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">16. Changes to Terms</h2>
           <p>We may update these terms at any time. Continued use of YardSync after changes constitutes acceptance of the new terms. Material changes to the platform application fee or subscription fee for new accounts will be posted here at least 30 days before taking effect.</p>
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">9. Contact</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">17. General</h2>
+          <p>If any provision of these Terms is found unenforceable, the remaining provisions remain in full effect (severability). YardSync&apos;s failure to enforce any right is not a waiver of that right. These Terms constitute the entire agreement between you and JNew Technologies regarding your use of YardSync.</p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">18. Contact</h2>
           <p>For questions about these terms: <a href="mailto:support@yardsyncapp.com" className="text-green-700 underline">support@yardsyncapp.com</a></p>
         </div>
 
