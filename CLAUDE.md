@@ -1,7 +1,7 @@
 # YardSync — Project Brief for Claude
 
 > This file is auto-loaded at the start of every Claude Code session.
-> Keep it current. Last updated: 2026-06-03.
+> Keep it current. Last updated: 2026-06-03 (late late session).
 >
 > **Session startup:** When the user says "get up to speed", read `YARDSYNC_KNOWLEDGE_BASE.md`
 > in the project root. That single file contains the full project history, architecture,
@@ -141,10 +141,17 @@ If a page uses `useSearchParams()`, wrap it in a Suspense boundary or use `windo
 - [x] ~~Twilio status-callback webhook + Firestore `smsStatus` collection — records real delivery status (queued/sent/delivered/undelivered/failed) instead of toast lying based on Twilio API 2xx~~ (done 2026-06-03, commits d86508a + adf97ca + f6646fe + 4d017d2 soft-mode signature)
 - [x] ~~Server-side STOP enforcement on every Twilio send site — 12 of 14 active contractors had legacy non-STOP templates; this guarantees A2P compliance regardless of which template generated the message~~ (done 2026-06-03, commit 0195180)
 - [x] ~~Comprehensive SMS sweep — Phases A through H via Chrome Claude (create client, schedule, AI EN, AI ES, manual Send, manual Resend, invoice payment link, UX punch list) + Phase G payment verified end-to-end with real test card → webhook → invoice-paid~~ (done 2026-06-03)
-- [ ] **🔴 LAUNCH BLOCKER discovered via sweep:** cron SMS routes (sms/billing/quarterly/reward-check) use Firebase client SDK without auth context → Firestore denies all queries → daily reminders silently fail in production. Refactor to `firestoreRest.js` (1-2 hours)
-- [ ] **🔴 LAUNCH BLOCKER:** `PhoneInput.js` formatter mangles `+1...` country-code phones with false green validation (real contractors will paste from email signatures and silently save broken numbers)
-- [ ] **🔴 LAUNCH BLOCKER:** Webhook NOT writing `stripeProcessingFee` + `netToPlatform` on paid invoice (CLAUDE.md backlog "Smoke test PR 2" now confirmed via Phase G real test payment)
-- [ ] **🔴 LAUNCH BLOCKER:** Rotate `CRON_SECRET` from `yardsync-cron-2026` (guessable) to a random 32+ char string in Vercel
+- [x] ~~**🔴 LAUNCH BLOCKER:** cron SMS routes use Firebase client SDK without auth context → daily reminders silently fail. Refactor to `firestoreRest.js`~~ done 2026-06-03 (commit `ae1407e`). Also fixed `cron/health` (commit `21d1a20`) + full health-check audit (`529eb3d`).
+- [x] ~~**🔴 LAUNCH BLOCKER:** `PhoneInput.js` formatter mangles `+1...` country-code phones with false green validation~~ done 2026-06-03 (commit `ae1407e`)
+- [x] ~~**🔴 LAUNCH BLOCKER:** Webhook NOT writing `stripeProcessingFee` + `netToPlatform`~~ done 2026-06-03 (commit `ae1407e`)
+- [x] ~~**🔴 LAUNCH BLOCKER:** Rotate `CRON_SECRET`~~ done 2026-06-03 (manual Vercel rotation)
+- [x] ~~Signup: confirm-password field + business logo upload (Settings) + Storage rules deployed~~ done 2026-06-03 (commits `bcc87ed` + CLI deploy)
+- [x] ~~Firebase CLI now wired (`firebase.json` + `.firebaserc`) — `firebase deploy --only firestore:rules` and `--only storage` work with `NODE_OPTIONS=--use-system-ca`~~ done 2026-06-03 (commit `f1367f5`)
+- [x] ~~Post-signup hang regression — cold-lambda race fix (eager AuthContext population)~~ done 2026-06-03 (commit `11cc3d1`)
+- [x] ~~Firebase project upgraded Spark → Blaze (needed to enable Storage)~~ done 2026-06-03
+- [ ] **Next session:** wire payment page (`/pay/[paymentIntentId]`) to display contractor's `logoUrl` (trust signal) with YardSync as primary brand
+- [ ] **Next session:** tighten Twilio status-callback signature verification from soft-mode to hard-reject (once a successful verification appears in Vercel logs)
+- [ ] **Test next signup:** verify post-signup hang fix (`11cc3d1`) and logo upload works end-to-end on Settings
 - [ ] **Run Scenario A** (Pro Setup E2E test) via Chrome Claude — prompt with pauses ready in last session conversation
 - [ ] **2 more SMS consistency tests** via Chrome Claude (Spanish AI draft + manual /sms page send) to verify 3-for-3 delivery on the new Messaging Service SID pipeline
 - [ ] **Post-Twilio approval:** re-run AI draft 5-sample eval with the new STOP rule (expect outputs to land in the 170–200 char range; structural checks should still pass)

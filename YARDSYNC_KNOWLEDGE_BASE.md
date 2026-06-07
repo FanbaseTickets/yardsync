@@ -321,6 +321,43 @@ Lives at `/admin/dashboard`. Dark mode UI. Only accessible to `admin@fanbasetick
 - **Admin Dashboard Overhaul PR 1** (layout only): top-line collapsed from 8 → 6 cards in 2x3 (My Cut + Collected show realized headline + committed subtitle, Active Contractors, Active Clients, Subscription Mix with MRR, Pro Setup Pending). Removed Quarterly Fee Breakdown, standalone MRR, and top-line Outstanding. Added Attention panel (renders only when populated: Connect disabled / past_due / canceled <30d / going dark). Per-row tier badge (Sub: Monthly/Annual/Inactive/Other). Expanded row gains Outstanding card.
 - **Admin Dashboard Overhaul PR 2** (Q11 Stripe net-out): webhook `payment_intent.succeeded` now captures `pi.latest_charge.balance_transaction.fee` and persists `stripeProcessingFee` + `netToPlatform` on the invoice doc. Dashboard `splitInvoice()` prefers `netToPlatform` when present, so new paid invoices report true YardSync net (app fee minus Stripe's ~2.9% + $0.30) instead of gross. Corrects ~50%+ revenue overstatement on dashboard headline as new invoices flow.
 
+### Phase 5 continued (June 3, 2026 — late late session) — All 4 SMS-sweep launch blockers closed + signup polish + Firebase CLI now wired
+
+Following the SMS sweep that found 4 launch blockers, this session knocked them all out plus stacked on additional polish.
+
+**Launch blockers — all 4 resolved:**
+1. ✅ Cron SMS Firestore auth — refactored `cron/sms/route.js` to use `lib/firestoreRest.js` (commit `ae1407e`). Added a new `listCollection(collectionId, options)` helper to firestoreRest.js supporting compound `where` filters (AND-combined via compositeFilter). All 3 send sites within cron/sms (per-schedule reminder, morning summary, fee reminder) migrated. Also fixed a latent ReferenceError: `now.getDate()` was called without `now` being declared at the top of the try block.
+2. ✅ `cron/health/route.js` (separate from cron/sms — same bug class) — migrated to firestoreRest in commit `21d1a20`, then expanded in `529eb3d` with full audit: added Anthropic key check, `ADMIN_PHONE_NUMBER` env presence check, live Twilio API reachability (free account-info fetch), structured response shape `{ status, checks, timestamp }`, admin SMS notification on `degraded`/`down` status, removed Square checks (Square fully removed Apr 2026).
+3. ✅ PhoneInput formatter — fixed `+1`/country-code mangling in `ae1407e`. Strips leading `1` when input is 11+ digits before slicing to 10 — handles `+19107230609`, `19107230609`, `9107230609`, `+1 (910) 723-0609`, `1-910-723-0609`. False-green validation eliminated for under-10-digit inputs.
+4. ✅ Webhook Q11 fields — fixed in `ae1407e`. Two cascading bugs: (a) the retrieve+expand approach for `latest_charge.balance_transaction.fee` returned null on destination charges (BT lives on the connected account, not the platform), so the field-write block was always skipped, and (b) `invDoc.applicationFee` was always undefined because `queryCollection` returns `{ id, name, data }` — the read was missing `.data.`. Replaced with formula: `stripeProcessingFee = round(amount × 0.029) + 30`; `netToPlatform = applicationFee - stripeProcessingFee`. Always writes both fields when invoice is marked paid.
+
+**Signup polish:**
+- Confirm-password field added to signup form (commit `bcc87ed`) — EN/ES, match validation, independent show/hide eye toggle. Validation error messages now language-aware (previously hardcoded English).
+- LogoUpload component (`components/ui/LogoUpload.js`) added — PNG/JPG/WebP, 2MB cap, uploads to `users/{uid}/logo.{ext}` in Firebase Storage. Self-contained: file picker, validation, upload, download URL, preview, remove.
+- `lib/firebase.js` now exports `storage` via `getStorage(app)`.
+- Settings Profile section integrated LogoUpload between Business name and Phone.
+- `storage.rules` file in repo root with admin-only write + public read (so payment page can render contractor logos for clients without auth).
+- Payment page logo display **deferred** to next session.
+
+**Post-signup hang fix (commit `11cc3d1`):**
+- Initial fix `e23c65d` (write explicit `subscriptionStatus: 'none'`) was verified still in place but a SECOND race surfaced on cold Vercel lambdas: AppShell mounts on `/dashboard` with `user=null` because `onAuthStateChanged` hasn't propagated yet — fires its redirect-to-login guard, bounces to `/login`, login page bounces back to `/dashboard`. Two cold-starts + two AppShell mounts ≈ 11s user-visible hang.
+- Subagent (`firebase-firestore`) diagnosed via Option D: eagerly populate `setUser(cred.user)` + `setProfile(profileData)` + `setLoading(false)` inside `signUp()` and `signInWithGoogle()` so AuthContext is already populated by the time `router.replace('/dashboard')` fires. `onAuthStateChanged` re-sets the same values after (idempotent, no flicker).
+- Instrumentation log added to AppShell's redirect-to-login guard so if this ever fires from a post-signup mount despite the fix, Vercel logs will surface it.
+- AppShell 4s timeout log wording tweaked (`9faf920`) to match diagnostic spec.
+
+**Firebase CLI now wired (commits `f1367f5` + deploy):**
+- `firebase.json` scaffolded — points firestore rules → `firestore.rules`, storage rules → `storage.rules`. No hosting/functions config.
+- `.firebaserc` pins default project to `yardsync-41886`.
+- Both `firebase deploy --only firestore:rules` and `firebase deploy --only storage` now succeed on this machine when prefixed with `NODE_OPTIONS="--use-system-ca"` (Windows Schannel doesn't ship Node's bundled CA trust for Google API endpoints — same root cause as the `npm run build` issue earlier in the project).
+- Storage rules + Firestore rules deployed via CLI this session. No more Console paste-and-publish dance for future rule updates.
+- Firebase project was upgraded to Blaze plan during this session to enable Storage (was on Spark, which doesn't include Storage).
+
+**Side cleanup:**
+- Test contractor `jay+scenarioa2@fanbasetickets.net` (UID `3kqD9Z0zMWSxEX3tROJXOQE2Qfk1`) deleted from Firestore. No Stripe customer existed. Firebase Auth deletion pending (admin can't via REST — Jay manual via Console).
+
+**Discovered during session — bash quirk worth knowing:**
+- `UID` is a readonly built-in in bash (holds the current OS user's numeric ID). Assigning `UID=...` in a script silently fails — use a different name like `TARGET_UID`. Caught when a Firestore delete went to `users/197609` (Jay's Windows user ID) instead of the actual target doc.
+
 ### Phase 5 continued (June 3, 2026 — late session) — Comprehensive SMS sweep + status-callback infra + STOP enforcement + 4 launch blockers found
 
 The single most thorough pre-launch testing session to date. Ran all 8 outbound SMS paths systematically, built delivery-status infrastructure, fixed compliance gaps, and surfaced 4 launch blockers that would have shipped silently.
@@ -596,10 +633,17 @@ These are real errors that crashed production or blocked deployment. Documented 
 - [ ] Investigate 4 unbackfillable orphan accounts (jarius.johnson@my.utsa.edu, testuser@yardsyncdemo.com, johnsonjarius19@gmail.com, johnsoncandace009@gmail.com) — either delete stale docs or clear fabricated `subscriptionStatus: 'active'`
 
 ### Before live launch
-- [ ] **🔴 LAUNCH BLOCKER — Refactor cron SMS routes to `lib/firestoreRest.js` pattern.** cron/sms, cron/billing, cron/quarterly, cron/reward-check all currently use Firebase client SDK without auth context → Firestore denies all queries → daily reminders silently fail in production. Discovered 2026-06-03 via SMS sweep cron-trigger probe. ~1-2 hours.
-- [ ] **🔴 LAUNCH BLOCKER — Fix `PhoneInput.js` formatter.** Strip leading `1` from 11+ digit inputs; reject results without exactly 10 digits instead of green-checking them. Real contractors pasting `+1...` numbers from email signatures silently save broken phones. Discovered Phase A of SMS sweep.
-- [ ] **🔴 LAUNCH BLOCKER — Fix Q11 webhook.** `stripeProcessingFee` + `netToPlatform` not landing on paid invoice docs. Investigate `payment_intent.succeeded` handler's `latest_charge.balance_transaction` expand. Discovered Phase G of SMS sweep via real test-card payment.
-- [ ] **🔴 LAUNCH BLOCKER — Rotate `CRON_SECRET`** in Vercel from `yardsync-cron-2026` (guessable) to random 32+ chars (`openssl rand -hex 32`).
+- [x] ~~**🔴 LAUNCH BLOCKER — Refactor cron SMS routes** to `lib/firestoreRest.js` pattern~~ done 2026-06-03, commits `ae1407e` (cron/sms) + `21d1a20` (cron/health) + `529eb3d` (cron/health audit). billing + quarterly cron files have early-return dead-code paths — left alone per scope. reward-check already used firestoreRest.
+- [x] ~~**🔴 LAUNCH BLOCKER — Fix `PhoneInput.js` formatter**~~ done 2026-06-03, commit `ae1407e`. Strips leading `1` when input is 11+ digits before slicing to 10 — eliminates the `+19107230609 → (191) 072-3060` false-green mangling.
+- [x] ~~**🔴 LAUNCH BLOCKER — Fix Q11 webhook**~~ done 2026-06-03, commit `ae1407e`. Switched to formula `stripeProcessingFee = round(amount × 0.029) + 30` since destination-charge balance_transaction lives on the connected account, not the platform. Also fixed `invDoc.applicationFee` was always undefined (`queryCollection` returns `{ id, name, data }` — read was missing `.data.`).
+- [x] ~~**🔴 LAUNCH BLOCKER — Rotate `CRON_SECRET`**~~ done 2026-06-03 (Jay rotated manually in Vercel from `yardsync-cron-2026` to random 32+ chars).
+- [x] ~~Signup polish — confirm-password field + Settings business-logo upload (LogoUpload component, Firebase Storage rules)~~ done 2026-06-03, commit `bcc87ed`
+- [x] ~~Firebase CLI wired (firebase.json + .firebaserc) — deploys work with NODE_OPTIONS=--use-system-ca on Windows~~ done 2026-06-03, commit `f1367f5`
+- [x] ~~Storage rules + Firestore rules deployed via CLI~~ done 2026-06-03
+- [x] ~~Firebase project upgraded Spark → Blaze~~ done 2026-06-03 (required for Storage)
+- [x] ~~Post-signup 11-second hang regression — root cause = cold-lambda race between router.replace and onAuthStateChanged. Fixed by eagerly populating AuthContext state inside signUp/signInWithGoogle~~ done 2026-06-03, commit `11cc3d1`
+- [ ] **Next session:** wire payment page (`/pay/[paymentIntentId]`) to display contractor's `logoUrl` (trust signal showing client they're paying the right person) with YardSync as primary brand
+- [ ] **Verify on next signup:** confirm post-signup hang fix (`11cc3d1`) actually closes the 11s race + logo upload works end-to-end on Settings
 - [ ] Audit `users` collection for stale `setupFeePaid: true` flags
 - [ ] Swap all Stripe keys to live in Vercel
 - [ ] Create live Stripe webhook + update signing secret
