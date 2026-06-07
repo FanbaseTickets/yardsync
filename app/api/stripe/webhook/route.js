@@ -297,38 +297,34 @@ export async function POST(request) {
         console.log('Invoice query result – empty:', !invDoc, 'searching for:', pi.id)
 
         if (invDoc) {
-          // Capture Stripe processing fee for net-out (Q11).
-          // Modern Stripe API uses latest_charge, not the deprecated charges array.
-          let stripeProcessingFee = null
-          try {
-            const fullPi = (pi.latest_charge && typeof pi.latest_charge === 'object' && pi.latest_charge.balance_transaction)
-              ? pi
-              : await stripe.paymentIntents.retrieve(pi.id, {
-                  expand: ['latest_charge.balance_transaction'],
-                })
-            const bt = fullPi.latest_charge?.balance_transaction
-            if (bt && typeof bt.fee === 'number') {
-              stripeProcessingFee = bt.fee // already in cents
-            }
-          } catch (err) {
-            console.error('[webhook] failed to fetch balance_transaction for', pi.id, err.message)
-            // Continue without — invoice still marks as paid, fee field stays null
-          }
+          // Compute Stripe processing fee from the standard US card formula:
+          // 2.9% of the amount + $0.30 (30¢) fixed. This is the rate Stripe
+          // charges on a destination charge, taken from the platform's portion
+          // (the application_fee_amount). The fee is stable and predictable
+          // across the common card types YardSync sees.
+          //
+          // Previously we tried to fetch `latest_charge.balance_transaction.fee`
+          // via stripe.paymentIntents.retrieve(), but for destination charges
+          // the balance_transaction lives on the connected account, not the
+          // platform — the retrieve returned null and the fields were never
+          // written. (Found via Phase G of the 2026-06-03 SMS sweep.)
+          //
+          // ALSO: queryCollection returns { id, name, data } — earlier code
+          // read invDoc.applicationFee directly (always undefined) instead of
+          // invDoc.data.applicationFee. That's now fixed.
+          const amountCents          = pi.amount || 0
+          const applicationFee       = invDoc.data.applicationFee || pi.application_fee_amount || 0
+          const stripeProcessingFee  = Math.round(amountCents * 0.029) + 30
+          const netToPlatform        = applicationFee - stripeProcessingFee
 
-          const updates = {
-            status:    'paid',
-            paidAt:    new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          }
-          if (stripeProcessingFee !== null) {
-            const applicationFee = invDoc.applicationFee || 0
-            updates.stripeProcessingFee = stripeProcessingFee
-            updates.netToPlatform       = applicationFee - stripeProcessingFee
-          }
-
-          await updateDocument('invoices', invDoc.id, updates)
-          console.log(`Invoice ${invDoc.id} marked paid via PaymentIntent ${pi.id}` +
-            (stripeProcessingFee !== null ? ` (processing fee: ${stripeProcessingFee}¢)` : ' (processing fee unavailable)'))
+          await updateDocument('invoices', invDoc.id, {
+            status:               'paid',
+            paidAt:               new Date().toISOString(),
+            updatedAt:            new Date().toISOString(),
+            stripeProcessingFee,
+            netToPlatform,
+          })
+          console.log(`Invoice ${invDoc.id} marked paid via PaymentIntent ${pi.id} — amount: ${amountCents}¢, appFee: ${applicationFee}¢, stripeFee: ${stripeProcessingFee}¢, net: ${netToPlatform}¢`)
         } else {
           console.log('No invoice found for PaymentIntent:', pi.id)
         }

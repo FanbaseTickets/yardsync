@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 import { formatDate } from '@/lib/date'
 import { formatDateForSMS } from '@/lib/i18n'
-import { collection, getDocs, query, where, doc, updateDoc, setDoc } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { listCollection, setDocument, updateDocument } from '@/lib/firestoreRest'
 
 const TWILIO_SID     = process.env.TWILIO_ACCOUNT_SID
 const TWILIO_TOKEN   = process.env.TWILIO_AUTH_TOKEN
@@ -22,18 +21,20 @@ export async function GET(request) {
   }
 
   try {
-    const today   = formatDate(new Date())
+    const now     = new Date()
+    const today   = formatDate(now)
     const results = { sent: 0, skipped: 0, errors: 0 }
 
-    const usersSnap   = await getDocs(query(
-      collection(db, 'users'),
-      where('subscriptionStatus', '==', 'active')
-    ))
-    const clientsSnap = await getDocs(collection(db, 'clients'))
-    const allClients  = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+    // Firestore reads via lib/firestoreRest (admin REST auth). The previous
+    // Firebase client SDK pattern had no auth context server-side and was
+    // rejected by Firestore rules — daily SMS reminders silently failed.
+    const users      = await listCollection('users', {
+      where: [{ field: 'subscriptionStatus', value: 'active' }],
+    })
+    const allClients = (await listCollection('clients')).map(c => ({ id: c.id, ...c.data }))
 
-    for (const userDoc of usersSnap.docs) {
-      const gardener = { id: userDoc.id, ...userDoc.data() }
+    for (const user of users) {
+      const gardener = { id: user.id, ...user.data }
       const timing   = gardener.reminderTiming || '48'
       const language = gardener.language || 'en'
       const template = language === 'es'
@@ -45,26 +46,27 @@ export async function GET(request) {
       if (timing === 'all') {
         targetDates.push(
           today,
-          formatDate(addDaysToDate(new Date(), 1)),
-          formatDate(addDaysToDate(new Date(), 2)),
-          formatDate(addDaysToDate(new Date(), 3))
+          formatDate(addDaysToDate(now, 1)),
+          formatDate(addDaysToDate(now, 2)),
+          formatDate(addDaysToDate(now, 3))
         )
       } else if (timing === '0') {
         targetDates.push(today)
       } else {
         const hoursAhead = parseInt(timing)
         const daysAhead  = Math.round(hoursAhead / 24)
-        targetDates.push(formatDate(addDaysToDate(new Date(), daysAhead)))
+        targetDates.push(formatDate(addDaysToDate(now, daysAhead)))
       }
 
-      const schedulesSnap = await getDocs(query(
-        collection(db, 'schedules'),
-        where('gardenerUid', '==', gardener.id),
-        where('smsSent',     '==', false)
-      ))
+      const pendingSchedules = await listCollection('schedules', {
+        where: [
+          { field: 'gardenerUid', value: gardener.id },
+          { field: 'smsSent',     value: false },
+        ],
+      })
 
-      const pending = schedulesSnap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
+      const pending = pendingSchedules
+        .map(s => ({ id: s.id, ...s.data }))
         .filter(s => targetDates.includes(s.serviceDate) && s.status === 'scheduled')
 
       for (const schedule of pending) {
@@ -87,7 +89,7 @@ export async function GET(request) {
         try {
           // Write iCal event data — fail silently so SMS still sends
           try {
-            await setDoc(doc(db, 'icalEvents', schedule.id), {
+            await setDocument('icalEvents', schedule.id, {
               clientId:     schedule.clientId,
               clientName:   client.name || '',
               businessName: gardener.businessName || 'YardSync',
@@ -136,7 +138,7 @@ export async function GET(request) {
           const data = await res.json()
 
           if (data.sid) {
-            await updateDoc(doc(db, 'schedules', schedule.id), {
+            await updateDocument('schedules', schedule.id, {
               smsSent:      true,
               smsSentAt:    new Date().toISOString(),
               twilioSmsSid: data.sid,
@@ -158,19 +160,20 @@ export async function GET(request) {
     // After sending client reminders, text each gardener their jobs for today
     const summaryResults = { sent: 0, skipped: 0, errors: 0 }
 
-    for (const userDoc of usersSnap.docs) {
-      const gardener = { id: userDoc.id, ...userDoc.data() }
+    for (const user of users) {
+      const gardener = { id: user.id, ...user.data }
       if (!gardener.phone) { summaryResults.skipped++; continue }
 
       // Get today's schedules for this gardener
-      const todaySchedulesSnap = await getDocs(query(
-        collection(db, 'schedules'),
-        where('gardenerUid', '==', gardener.id),
-        where('serviceDate', '==', today),
-        where('status',      '==', 'scheduled')
-      ))
+      const todaySchedules = await listCollection('schedules', {
+        where: [
+          { field: 'gardenerUid', value: gardener.id },
+          { field: 'serviceDate', value: today },
+          { field: 'status',      value: 'scheduled' },
+        ],
+      })
 
-      const todayJobs = todaySchedulesSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      const todayJobs = todaySchedules.map(s => ({ id: s.id, ...s.data }))
       if (todayJobs.length === 0) { summaryResults.skipped++; continue }
 
       // Build job list string
@@ -229,6 +232,10 @@ export async function GET(request) {
     }
 
     // ── PHASE 3: Quarterly fee reminder (runs on 1st of Mar, Jun, Sep, Dec) ──
+    // NOTE: the prior version of this route referenced `now` here without
+    // defining it earlier — once Firestore auth started working again this
+    // block would have thrown a ReferenceError. Fixed by defining `now` at
+    // the top of the try block.
     const feeReminderResults = { sent: 0, skipped: 0 }
     const dayOfMonth = now.getDate()
     const monthNum   = now.getMonth() // 0-indexed
@@ -240,11 +247,10 @@ export async function GET(request) {
       const qStart   = new Date(now.getFullYear(), (currentQ - 1) * 3, 1)
       const qEnd     = new Date(now.getFullYear(), currentQ * 3, 0, 23, 59, 59)
 
-      const allInvoicesSnap = await getDocs(collection(db, 'invoices'))
-      const allInvoices     = allInvoicesSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      const allInvoices = (await listCollection('invoices')).map(i => ({ id: i.id, ...i.data }))
 
-      for (const gDoc of usersSnap.docs) {
-        const g = { id: gDoc.id, ...gDoc.data() }
+      for (const user of users) {
+        const g = { id: user.id, ...user.data }
         if (!g.phone) continue
 
         const uncollected = allInvoices.filter(inv => {
