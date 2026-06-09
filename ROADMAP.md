@@ -84,6 +84,35 @@ These are unvalidated. Treat as candidates pending market signal.
 | Year-end tax pack | Auto-generated income summary + expense categorization for filing | Medium |
 | Referral link / affiliate program | Contractors invite contractors; revenue share | Low |
 
+### YardSync Smart Business Card + QR Client Intake
+
+**Overview**
+Each contractor gets a shareable public intake page at `yardsyncapp.com/join/[slug]` that doubles as a digital business card. Prospective clients land on the page via QR code (printed card, yard sign, social post), fill out a quick intake form, and get added directly to the contractor's Firestore `clients` collection — no "text me your info" friction. Combined with a printable PDF business card, this gives every contractor a polished, low-friction acquisition channel from day one.
+
+**Technical Components**
+- Public `/join/[slug]` route — no auth, server-rendered
+- QR code generation per contractor (URL points to their `/join/[slug]`)
+- Printable business card PDF (logo, name, photo, QR code, contact)
+- Client intake form (name / phone / address / service interest / preferred language)
+- On submit: writes new client doc to Firestore + SMS-notifies the contractor of the new lead
+- Personal headshot/photo upload (separate from business logo — stored in Firebase Storage at `users/{uid}/photo.jpg`)
+- Photo displayed on `/join/[slug]` intake page alongside business logo for a personal, trustworthy first impression
+- Photo also appears on business card PDF
+- Same upload pattern as logo — Settings page, 2MB max, PNG/JPG/WebP
+
+### Social & Future Connections
+- The `/join/[slug]` page doubles as a shareable profile link for social media posts
+- Contractor can share `yardsyncapp.com/join/[slug]` directly in Facebook groups, Nextdoor, neighborhood apps — link shows their photo, logo, services, and intake form
+- Future: verified reviews from paid invoices display on this same page (Phase 3 — Community & Visibility Platform)
+- Future: Google Business Profile link
+- Future: "Book a cleanup" direct CTA tied to contractor's calendar availability
+
+### Why Personal Photo Matters
+- Lawn care is a trust business — clients want to know who is coming to their home
+- A face + logo + business name on the intake page converts significantly better than a generic form
+- Same photo on the business card PDF makes the card feel premium and personal
+- Bilingual caption option: "Hi, I'm [name] from [business]" / "Hola, soy [name] de [business]"
+
 ---
 
 ## Phase 3 — YardSync Community & Visibility Platform
