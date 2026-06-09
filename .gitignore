@@ -32,6 +32,11 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# Allowlist: these env files contain NO secrets and ARE committed:
+#   .env.test    — non-secret test/sandbox values for local dev
+#   .env.example — documentation of every env var the app needs
+!.env.test
+!.env.example
 
 # vercel
 .vercel
