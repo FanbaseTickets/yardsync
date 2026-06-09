@@ -2,7 +2,7 @@
 
 > **Purpose:** Complete institutional memory for the YardSync project.
 > Read this file once at the start of a session to be fully briefed.
-> Updated: 2026-06-07 (end of session — pre-live-keys flip).
+> Updated: 2026-06-07 (end of session — LIVE KEYS FLIPPED + dev/prod separation scaffolded).
 >
 > **For Claude:** When the user says "get up to speed" or "read the knowledge base",
 > read this file. Do NOT re-explore the codebase — this file IS the exploration.
@@ -321,7 +321,47 @@ Lives at `/admin/dashboard`. Dark mode UI. Only accessible to `admin@fanbasetick
 - **Admin Dashboard Overhaul PR 1** (layout only): top-line collapsed from 8 → 6 cards in 2x3 (My Cut + Collected show realized headline + committed subtitle, Active Contractors, Active Clients, Subscription Mix with MRR, Pro Setup Pending). Removed Quarterly Fee Breakdown, standalone MRR, and top-line Outstanding. Added Attention panel (renders only when populated: Connect disabled / past_due / canceled <30d / going dark). Per-row tier badge (Sub: Monthly/Annual/Inactive/Other). Expanded row gains Outstanding card.
 - **Admin Dashboard Overhaul PR 2** (Q11 Stripe net-out): webhook `payment_intent.succeeded` now captures `pi.latest_charge.balance_transaction.fee` and persists `stripeProcessingFee` + `netToPlatform` on the invoice doc. Dashboard `splitInvoice()` prefers `netToPlatform` when present, so new paid invoices report true YardSync net (app fee minus Stripe's ~2.9% + $0.30) instead of gross. Corrects ~50%+ revenue overstatement on dashboard headline as new invoices flow.
 
-### Phase 5 continued (June 7, 2026 — end of session) — Pre-live-keys flip: legal docs, signup race round 2, save-account-metadata auth fix, Stripe env-var standardization, live products + coupons created in Stripe
+### Phase 5 continued (June 7, 2026 — late session, post pre-live-keys shutdown) — LIVE KEYS FLIPPED + dev/prod environment separation scaffolded
+
+The flip happened. Production is on `sk_live_*` end to end. This session also planted the workflow change Jay wants going forward: feature branches → Vercel Preview deploys (test Stripe) → PR → merge to main → Production (live Stripe). Branch protection step on GitHub is the only piece still on Jay's plate.
+
+**Live-keys flip (mostly manual in Stripe + Vercel; minimal code):**
+- Live Stripe webhook endpoint created at `https://yardsyncapp.com/api/stripe/webhook` with the full event list mirrored from the test endpoint; live `whsec_…` captured and pasted into Vercel.
+- 6 env vars split Production-only live vs Preview+Dev test in Vercel: `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_MONTHLY/ANNUAL/SETUP`. The public price-id variants got the live IDs in Production too.
+- Production redeployed to load the new env scope.
+- Verified via a temporary unauthenticated diagnostic route at `/api/debug-stripe` that returned `keyPresent: true`, `keyMode: "live"`, `keyPrefix: "sk_live_51X…"`. The route was created (commit `3058acc`), the deploy stalled briefly so an empty-commit retrigger was pushed (`3829b64`), live mode was confirmed, then the route was deleted (`b9bfad4`). Total exposure window for the diagnostic endpoint: a few minutes. No secrets logged — the prefix exposes 4 chars of actual key body (the rest is fixed `sk_live_`), which is operationally low risk but should never become a permanent endpoint.
+
+**Dev/prod environment separation scaffolded (commit `fd216af`):**
+- `.env.test` — non-secret, committed. Holds `NODE_ENV`, `NEXT_PUBLIC_APP_URL=http://localhost:3000`, public test placeholders, the non-secret Firebase project ID, and the A2P-approved Messaging Service SID. Per spec Level 2 separation (separate Firebase project for dev) is explicitly listed as a post-launch improvement, not in scope yet.
+- `.env.example` — full template grouped by service (Firebase, Stripe, Twilio, Anthropic, Admin, SendGrid). All keys actually referenced by code, not just the literal spec — added `NEXT_PUBLIC_ADMIN_EMAIL`, `NEXT_PUBLIC_TWILIO_ENABLED`, `SENDGRID_FROM_EMAIL`, plus a comment about `FIREBASE_API_KEY` falling back to the `NEXT_PUBLIC_` variant. Square + FEE_* env vars intentionally omitted — Square is removed code slated for deletion; we don't want new devs thinking they need Square credentials.
+- `.gitignore` allowlist — `.env*` still ignores everything, plus explicit `!.env.test` and `!.env.example` exceptions so the safe ones can be committed. Verified with `git check-ignore -v`.
+- `docs/DEVELOPMENT.md` — env setup, branch strategy table, dev workflow (6 steps), test Stripe card table, cron trigger PowerShell snippets (health + sms), Firebase CLI deploy commands with `NODE_OPTIONS=--use-system-ca`, common-issues section. Added a Schannel/`git -c http.sslBackend=schannel push` entry because it's the most common Windows trip-wire this project has hit all month and wasn't documented anywhere else.
+- `docs/BRANCH_PROTECTION.md` — step-by-step ruleset config on GitHub. Jay still needs to enable this manually; the doc only tells him how.
+
+**Workflow direction Jay declared at session close:**
+> "Work directly with DEV/TEST but we can do the sync of changes into PROD for a seamless experience."
+
+Concretely:
+- Feature branches → Vercel auto-creates Preview deploy with TEST Stripe keys (because of the env scope split done this session)
+- Test changes on Preview URL with test cards
+- PR review → merge to `main` → Production auto-deploys with LIVE keys
+- Branch protection on `main` enforces this once Jay enables it on GitHub
+- This is now the formally documented workflow; ad-hoc `git push origin main` should stop after the next session
+
+**Discovered + documented this session — Google Owner-account reauth policy:**
+The cleanup task that was supposed to delete a batch of test-user Firestore docs was blocked by two consecutive auth issues:
+1. Local `FIREBASE_ADMIN_PASSWORD` in `.env.local` is stale (returns `INVALID_LOGIN_CREDENTIALS` against Firebase Auth REST). Not refreshed yet.
+2. `gcloud auth print-access-token` (which would have bypassed Firestore rules entirely via IAM) fails in non-interactive shells with "Reauthentication failed. cannot prompt during non-interactive execution." The `admin@fanbasetickets.net` account has an org-level policy that forces a fresh interactive auth challenge on every token fetch, presumably because it has IAM Owner on a billing-enabled project. The `gcloud auth login` Jay ran earlier worked, but the next non-interactive call still hit the reauth wall.
+- **Documented unblock options for next session:** either refresh `FIREBASE_ADMIN_PASSWORD` in `.env.local` from Vercel (10 sec, but the password keeps going stale), OR have Jay run `gcloud auth print-access-token` himself interactively and paste the resulting 1hr-valid token (better — IAM bypass means the password staleness stops mattering for admin scripts).
+- `scripts/cleanup-test-users.mjs` was written and tested locally end-to-end except for the auth step; deleted before commit to keep the working tree clean. Logic is preserved in conversation history; recreate in 1 prompt next session when auth works.
+
+**Commits shipped today, post-`c8d13c0` shutdown:**
+- `3058acc` debug: temp stripe key diagnostic route
+- `3829b64` chore: retrigger deploy — debug-stripe stuck initializing
+- `b9bfad4` chore: remove temp stripe debug route — live keys verified
+- `fd216af` chore: dev/prod environment separation — `.env.example`, `.gitignore` update, `DEVELOPMENT.md`, branch protection docs
+
+### Phase 5 continued (June 7, 2026 — earlier session) — Pre-live-keys flip: legal docs, signup race round 2, save-account-metadata auth fix, Stripe env-var standardization, live products + coupons created in Stripe
 
 Last session before the live-keys flip. Focus shifted from launch-blocker firefighting to legal/compliance polish + closing the last race conditions + setting up the Stripe live configuration. Jay completed the Stripe-side manual work (live products + coupons + price IDs captured) so the next session is mechanical: webhook + Vercel env split + redeploy + verify.
 
@@ -687,12 +727,17 @@ These are real errors that crashed production or blocked deployment. Documented 
 - [x] ~~Stripe price env var name standardized — `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_ANNUAL` across all routes (reactivate-subscription was the lone holdout)~~ done 2026-06-07, commit `73d3727`
 - [x] ~~Live Stripe products + price IDs + Volume Reward coupons created in Stripe (manual, no code change)~~ done 2026-06-07 (Jay) — Monthly `price_1TfjxS1qcLHs32s2RuiooKwH`, Annual `price_1TfjyH1qcLHs32s2VEiY2KP0`, Pro Setup `price_1TfjzC1qcLHs32s2eSsZqOAu`, coupons `YARDSYNC_FREE` (100% off) + `YARDSYNC_50OFF`
 
-### Next session — live-keys flip checklist (in this exact order)
-- [ ] **Create live Stripe webhook endpoint** at `https://yardsyncapp.com/api/stripe/webhook`, copy live `whsec_…`
-- [ ] **Split 6 Vercel env vars** Production-only live vs Preview+Dev test: `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_MONTHLY/ANNUAL/SETUP` + the public price-id variants
-- [ ] **Redeploy production** so the env split actually takes effect
-- [ ] **Hit `/api/cron/health`** with `Authorization: Bearer $CRON_SECRET` → confirm `"stripe": "ok (live mode)"`
-- [ ] **Final comprehensive Chrome Claude E2E test** against live (signup → Connect → invoice → SMS → live card payment → webhook → invoice-paid)
+### Live-keys flip — DONE (2026-06-07 late session)
+- [x] ~~Live Stripe webhook endpoint created at `https://yardsyncapp.com/api/stripe/webhook`, live `whsec_…` captured~~ done 2026-06-07 (Jay, manual)
+- [x] ~~6 Vercel env vars split Production-only live vs Preview+Dev test~~ done 2026-06-07 (Jay, manual)
+- [x] ~~Production redeployed~~ done 2026-06-07 (Jay, manual)
+- [x] ~~Live mode confirmed via temporary `/api/debug-stripe` diagnostic route — `keyMode: "live"`~~ done 2026-06-07, commits `3058acc` → `b9bfad4`
+- [x] ~~Dev/prod env separation scaffolded (`.env.test`, `.env.example`, `docs/DEVELOPMENT.md`, `docs/BRANCH_PROTECTION.md`, gitignore allowlist)~~ done 2026-06-07, commit `fd216af`
+
+### Next session — final pre-launch
+- [ ] **Enable GitHub branch protection on `main`** per `docs/BRANCH_PROTECTION.md` — require PR, require status checks, no bypassing
+- [ ] **Adopt feat/* branch workflow for the very next code change** so the muscle memory is set before launch traffic
+- [ ] **Final comprehensive Chrome Claude E2E test** against live deployment (signup → Connect → invoice → SMS → live card payment → webhook → invoice-paid)
 - [ ] **Begin outreach** — first San Antonio contractor cold-DM batch
 
 ### Backlog (pre-launch, not gating)

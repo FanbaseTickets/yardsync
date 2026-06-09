@@ -1,7 +1,7 @@
 # YardSync — Project Brief for Claude
 
 > This file is auto-loaded at the start of every Claude Code session.
-> Keep it current. Last updated: 2026-06-07 (end of session — pre-live-keys flip).
+> Keep it current. Last updated: 2026-06-07 (end of session — LIVE KEYS FLIPPED + dev/prod separation scaffolded).
 >
 > **Session startup:** When the user says "get up to speed", read `YARDSYNC_KNOWLEDGE_BASE.md`
 > in the project root. That single file contains the full project history, architecture,
@@ -157,13 +157,26 @@ If a page uses `useSearchParams()`, wrap it in a Suspense boundary or use `windo
 - [x] ~~Stripe price env var naming standardized — `reactivate-subscription/route.js` was the lone holdout using `STRIPE_ANNUAL_PRICE_ID` / `STRIPE_MONTHLY_PRICE_ID`. All routes now use `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_ANNUAL`~~ done 2026-06-07 (commit `73d3727`)
 - [x] ~~Live Stripe products + coupons created (manual in Stripe dashboard, Jay 2026-06-07)~~ — Monthly `price_1TfjxS1qcLHs32s2RuiooKwH`, Annual `price_1TfjyH1qcLHs32s2VEiY2KP0`, Pro Setup `price_1TfjzC1qcLHs32s2eSsZqOAu`; coupons `YARDSYNC_FREE` (100% forever) + `YARDSYNC_50OFF` (50% forever)
 
-### Next session — live-keys flip (in this exact order)
-- [ ] **Create live Stripe webhook endpoint:** Stripe dashboard → toggle Test off → Webhooks → Add endpoint → `https://yardsyncapp.com/api/stripe/webhook` → mirror event list from test endpoint → reveal + copy live `whsec_…`
-- [ ] **Split 6 Vercel env vars into Production vs Preview+Dev scopes:** `STRIPE_SECRET_KEY` (sk_live_), `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (pk_live_), `STRIPE_WEBHOOK_SECRET` (whsec_ from step above), `STRIPE_PRICE_MONTHLY` → `price_1TfjxS1qcLHs32s2RuiooKwH`, `STRIPE_PRICE_ANNUAL` → `price_1TfjyH1qcLHs32s2VEiY2KP0`, `STRIPE_PRICE_SETUP` → `price_1TfjzC1qcLHs32s2eSsZqOAu`. Don't forget the public price-id variants (`NEXT_PUBLIC_STRIPE_PRICE_MONTHLY/ANNUAL`) need the live price IDs in Production too.
-- [ ] **Redeploy production** (Vercel dashboard → latest prod deployment → ⋯ → Redeploy) so the new vars actually load
-- [ ] **Run `/api/cron/health`** with `Authorization: Bearer $CRON_SECRET`; confirm `"stripe": "ok (live mode)"`
-- [ ] **Final comprehensive Chrome Claude E2E test** against the live deployment (signup → Connect onboarding → invoice → SMS → real payment with live card → webhook → invoice-paid)
+### Live-keys flip — COMPLETE (2026-06-07 late session)
+- [x] ~~Live Stripe webhook endpoint created at `https://yardsyncapp.com/api/stripe/webhook`, live `whsec_…` captured~~ done 2026-06-07 (Jay, manual in Stripe dashboard)
+- [x] ~~6 Vercel env vars split Production-only live vs Preview+Dev test~~ done 2026-06-07 (Jay, manual in Vercel)
+- [x] ~~Production redeployed~~ done 2026-06-07 (Jay, manual via Vercel ⋯ menu)
+- [x] ~~Live-mode verified via temporary `/api/debug-stripe` diagnostic route — returned `keyMode: "live"`. Route deleted after verification~~ done 2026-06-07 (commits `3058acc` → `b9bfad4`)
+- [x] ~~Dev/prod environment separation scaffolded — `.env.test` (committed, safe), `.env.example` (committed, no secrets), `docs/DEVELOPMENT.md`, `docs/BRANCH_PROTECTION.md`, `.gitignore` allowlist for `.env.test` + `.env.example`~~ done 2026-06-07 (commit `fd216af`)
+
+### Workflow going forward — DEV/TEST first, sync to PROD seamlessly
+Jay's preferred development model from this point on:
+1. **All work happens on feature branches** — never push directly to `main`
+2. **Feature branch → Vercel Preview deploy** (auto, uses TEST Stripe keys + sandbox values)
+3. **Test the change on the Preview URL** with test Stripe cards
+4. **When ready → open PR → review → merge to `main`** — Production auto-deploys with LIVE keys
+5. **Branch protection on `main` enforces this** — steps in `docs/BRANCH_PROTECTION.md`
+
+### Next session — final pre-launch
+- [ ] **Enable GitHub branch protection on `main`** per `docs/BRANCH_PROTECTION.md` (require PR, require status checks pass, no bypassing)
+- [ ] **Final comprehensive Chrome Claude E2E test against the live deployment** (signup → Connect onboarding → invoice → SMS → real payment with live card → webhook → invoice-paid)
 - [ ] **Begin outreach** — first San Antonio contractor cold-DM batch
+- [ ] Adopt the feat/* branch workflow for the very next code change (set the muscle memory before launch traffic hits)
 
 ### Backlog (pre-launch, not gating)
 - [ ] Wire payment page (`/pay/[paymentIntentId]`) to display contractor's `logoUrl` (trust signal — client sees they're paying the right person) with YardSync as primary brand
@@ -177,6 +190,6 @@ If a page uses `useSearchParams()`, wrap it in a Suspense boundary or use `windo
 - [ ] Sweep remaining dead Square/quarterly inline walkers from admin dashboard
 - [ ] `firestoreRest.js` line 22: remove `admin@fanbasetickets.net` fallback, fail loudly instead
 - [ ] Email invoice delivery smoke test (Connect-complete account + email-only client)
-- [ ] Clean up 4 orphan user docs (UTSA, testuser, johnsonjarius19, johnsoncandace009)
-- [ ] Delete `jay+scenarioa3@fanbasetickets.net` from Firestore + Firebase Auth (blocked on stale local admin password; do via Firebase Console)
+- [ ] **Bulk test-user cleanup (deferred)** — Firestore docs matching `@yardsyncdemo.com`, `scenarioa`, `protest`, `testflash`, `yardsynctest`, `@test.com` (except `rub@test.com` + `scals@test.com`). Blocked on either (a) refreshing `FIREBASE_ADMIN_PASSWORD` in `.env.local` from Vercel, OR (b) running `gcloud auth print-access-token` interactively (Owner account has org-level reauth-on-every-call policy that blocks non-interactive token fetch).
+- [ ] Delete `jay+scenarioa3@fanbasetickets.net` from Firestore + Firebase Auth (same blocker as bulk cleanup — do via Firebase Console or unblock per above)
 - [ ] Lawyer review of ToS Section 6 (Early Adopter Pricing Lock) before any volume marketing
