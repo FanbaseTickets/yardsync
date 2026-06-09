@@ -1,4 +1,15 @@
-# YardSync Roadmap
+# YardSync Product Backlog
+
+**How this document works:**
+This is a living product backlog. All items are candidates for development, not commitments. Before each sprint or build session, items are rated on two dimensions:
+
+- **Profitability score (1-5):** How directly does this feature drive revenue or reduce churn?
+- **Sales score (1-5):** How compelling is this as a reason for a new contractor to sign up?
+
+Items with the highest combined scores get built first. The backlog is updated after every customer conversation, support request, or new market insight.
+
+**Current status:** MVP live on yardsyncapp.com
+**Next review:** After first 10 paying contractors
 
 > Living document. Last meaningful update: 2026-06-07.
 > Phase 2 sections marked `[TBD: market-research]` are placeholders to be filled by the `market-research` subagent. Persona-feedback sections are placeholders to be filled by `persona-marco`, `persona-established-skeptic`, and `persona-newbie-eager` dogfooding the live app.
@@ -56,6 +67,21 @@
 
 **Goal:** Take YardSync from "works for Marco" to "10+ paying contractors with healthy retention".
 
+### Prioritized Build Queue
+
+| Priority | Feature | Profitability | Sales | Total |
+|---|---|---|---|---|
+| 1 | Automated daily SMS reminders | 5 | 5 | 10 |
+| 2 | Smart Business Card + QR Intake | 4 | 5 | 9 |
+| 3 | Bulk SMS broadcast | 4 | 4 | 8 |
+| 4 | Admin dashboard Stripe visibility | 3 | 1 | 4 |
+| 5 | Stripe Terminal / card reader | 3 | 4 | 7 |
+| 6 | Device pay — Apple/Google Pay | 3 | 4 | 7 |
+| 7 | Expired card on reactivation | 2 | 1 | 3 |
+| 8 | QuickBooks integration | 3 | 4 | 7 |
+| 9 | Square footage / Maps quoting | 3 | 5 | 8 |
+| 10 | Volume reward manual override | 2 | 1 | 3 |
+
 ### From documented customer pain
 *[TBD: run `market-research` agent against Reddit r/lawncare + lawnsite.com + Facebook lawn care groups. Capture top pain points by frequency, with operator quotes and source URLs.]*
 
@@ -112,6 +138,44 @@ Each contractor gets a shareable public intake page at `yardsyncapp.com/join/[sl
 - A face + logo + business name on the intake page converts significantly better than a generic form
 - Same photo on the business card PDF makes the card feel premium and personal
 - Bilingual caption option: "Hi, I'm [name] from [business]" / "Hola, soy [name] de [business]"
+
+### Crew Tier — Team Photo Hierarchy
+
+For contractors on the Crew plan, the profile and business card system expands to a full team structure:
+
+**Visual hierarchy:**
+- Business logo (top level — the brand)
+- Owner headshot (second level — the face)
+- Crew member photos (nested — the team)
+
+**How it works:**
+- Owner uploads business logo + personal photo
+- Owner invites crew members via email or phone
+- Each crew member uploads their own headshot
+- The `/join/[slug]` intake page shows the full team: logo, owner photo, crew grid
+- Business card PDF shows owner photo + "and my team of X" with crew thumbnails
+- Each crew member gets their own sub-profile visible on the team page
+
+**Why this matters for sales:**
+- A solo operator looks professional
+- A crew operator looks like a business
+- Clients booking recurring service want to know exactly who will be at their home
+- Team visibility builds trust and reduces cancellations ("I know these people")
+- Differentiates YardSync from every other lawn care app — none show the team
+
+**Backlog scores:**
+- Profitability: 5 (unlocks Crew tier upgrades)
+- Sales: 5 (strongest visual differentiator)
+- Total: 10
+
+**Dependencies:**
+- Personal photo upload (Phase 2 base feature)
+- Crew member invitation system (new)
+- Sub-profile pages per crew member (new)
+- Crew tier subscription (already priced)
+- Nested photo storage in Firebase Storage:
+  - `users/{uid}/photo.jpg` (owner)
+  - `users/{uid}/crew/{memberId}/photo.jpg` (team)
 
 ---
 
