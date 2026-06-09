@@ -193,11 +193,80 @@ A YardSync-owned Facebook presence and contractor discovery platform that drives
    - Service-specific promotion (lawn care, landscaping, pressure washing, etc.)
    - Real verified reviews sourced from completed YardSync invoices
 
-2. **Verified Review System**
-   - Reviews auto-generated from completed + paid invoices (client opts in at payment)
-   - Tied to real transaction — not self-reported
-   - Displayed on contractor's YardSync profile and Facebook page
-   - Star rating + written review option for client at payment confirmation screen
+2. **Verified Review System + Reward Visibility**
+
+   **How reviews are collected:**
+
+   After a paid invoice is marked complete, the system automatically sends a follow-up SMS to the client after a set delay (default 24 hours — configurable by contractor):
+
+   - EN: "Hi [name]! How did [business] do? Tap here to leave a quick review: `yardsyncapp.com/review/[invoiceId]`"
+   - ES: "¡Hola [name]! ¿Cómo le fue con [business]? Deje una reseña rápida aquí: `yardsyncapp.com/review/[invoiceId]`"
+
+   **The review page (`/review/[invoiceId]`):**
+   - Public, no login required
+   - Shows contractor name, photo, business logo
+   - Star rating (1-5) — tap to select
+   - Optional written review (3-5 sentences max)
+   - Single submit — no account creation required
+   - Bilingual (EN/ES auto-detected from client's SMS language preference)
+   - Confirms: "Thank you! Your review helps [business] grow."
+
+   **Review storage:**
+   - Written to `reviews/{reviewId}` in Firestore
+   - Linked to: `contractorUid`, `clientId`, `invoiceId`
+   - Verified flag: `true` (tied to real paid invoice)
+   - Displayed on contractor's `/join/[slug]` page
+   - Aggregated into star rating average
+
+   **Review threshold reward system** (mirrors volume reward model):
+
+   | Reviews | Reward |
+   |---|---|
+   | 10+ verified reviews | "Top Rated" badge on profile |
+   | 25+ verified reviews | Featured in YardSync SA Newsletter |
+   | 50+ verified reviews | Monthly spotlight on YardSync Facebook page |
+   | 100+ verified reviews | Permanent "YardSync Elite" status + featured quarterly |
+
+   **Facebook visibility reward:**
+   - YardSync manages the Facebook page
+   - Contractors who hit the 50-review threshold earn a spotlight post featuring:
+     - Their photo + business logo
+     - Star rating and review count
+     - Service area and specialty
+     - Link to their `/join/[slug]` page
+     - Direct call to action for new clients
+   - Post is geo-targeted to their city/neighborhood
+   - Contractor is notified via SMS when their spotlight goes live
+   - This is earned visibility — not paid ads (differentiates from Yelp/Google model)
+
+   **Why this works:**
+   - Reviews tied to real invoices = unbeatable trust signal
+   - Automated follow-up = zero effort for the contractor
+   - Threshold reward = gamification that drives contractor loyalty and retention
+   - Facebook spotlight = YardSync becomes a growth engine, not just a tool
+   - Each spotlight post markets YardSync to new contractors who see it
+
+   **Backlog scores:**
+   - Profitability: 5 (retention + upsell driver)
+   - Sales: 5 (strongest growth mechanic)
+   - Total: 10
+
+   **Technical components:**
+   - Cron job: daily check for paid invoices where `reviewSent: false` and 24hrs elapsed
+   - SMS send via Twilio to client phone
+   - Public `/review/[invoiceId]` page (no auth)
+   - Firestore `reviews` collection
+   - Review count aggregation per contractor
+   - Badge display on `/join/[slug]` profile page
+   - Admin dashboard: Facebook spotlight queue showing contractors who hit 50 reviews
+   - Notification to contractor when spotlight is scheduled
+
+   **Dependencies:**
+   - Invoice paid webhook (exists)
+   - Twilio SMS (exists)
+   - `/join/[slug]` profile page (Phase 2)
+   - YardSync Facebook page (manual — Jay manages)
+   - Admin dashboard (Phase 2 cleanup item)
 
 3. **Location-Based Contractor Discovery**
    - Contractors searchable by ZIP code and service type
