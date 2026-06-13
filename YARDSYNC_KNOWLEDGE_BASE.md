@@ -377,7 +377,7 @@ Last session before the live-keys flip. Focus shifted from launch-blocker firefi
 
 **Stripe live setup completed manually by Jay (no code change):**
 - Live products created: Monthly ($39/mo), Annual ($390/yr), Pro Setup ($99 one-time)
-- Live price IDs captured: `STRIPE_PRICE_MONTHLY = price_1TfjxS1qcLHs32s2RuiooKwH`, `STRIPE_PRICE_ANNUAL = price_1TfjyH1qcLHs32s2VEiY2KP0`, `STRIPE_PRICE_SETUP = price_1TfjzC1qcLHs32s2eSsZqOAu`
+- Live price IDs captured: `STRIPE_PRICE_MONTHLY = price_1Tfjx51qcLHs32s2RuiooKwH`, `STRIPE_PRICE_ANNUAL = price_1TfjyH1qcLHs32s2VEIY2KP0`, `STRIPE_PRICE_SETUP = price_1TfjzC1qcLHs32s2eSsZqOAu`
 - Live coupons created: `YARDSYNC_FREE` (100% off forever, for $3000+/mo Volume Reward Tier 3) + `YARDSYNC_50OFF` (50% off forever, for $1500-2999/mo Volume Reward Tier 2)
 
 **Stripe live webhook NOT yet created** — first task next session. Live endpoint at `https://yardsyncapp.com/api/stripe/webhook` with same event list as the test endpoint emits its own `whsec_…` signing secret.
@@ -386,8 +386,8 @@ Last session before the live-keys flip. Focus shifted from launch-blocker firefi
 1. `STRIPE_SECRET_KEY` — test in Preview/Dev, sk_live in Production
 2. `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` — test in Preview/Dev, pk_live in Production
 3. `STRIPE_WEBHOOK_SECRET` — test whsec in Preview/Dev, live whsec (from step above) in Production
-4. `STRIPE_PRICE_MONTHLY` — test price in Preview/Dev, `price_1TfjxS1qcLHs32s2RuiooKwH` in Production
-5. `STRIPE_PRICE_ANNUAL` — test price in Preview/Dev, `price_1TfjyH1qcLHs32s2VEiY2KP0` in Production
+4. `STRIPE_PRICE_MONTHLY` — test price in Preview/Dev, `price_1Tfjx51qcLHs32s2RuiooKwH` in Production
+5. `STRIPE_PRICE_ANNUAL` — test price in Preview/Dev, `price_1TfjyH1qcLHs32s2VEIY2KP0` in Production
 6. `STRIPE_PRICE_SETUP` — test price in Preview/Dev, `price_1TfjzC1qcLHs32s2eSsZqOAu` in Production
 Plus the public price-id variants (`NEXT_PUBLIC_STRIPE_PRICE_MONTHLY/ANNUAL`) need the live IDs in Production too.
 
@@ -725,7 +725,7 @@ These are real errors that crashed production or blocked deployment. Documented 
 - [x] ~~Signup cold-start race round 2 (signingUpRef in AuthContext + guard in AppShell login-redirect + 4s subscription timeout)~~ done 2026-06-07, commit `cea72fb`
 - [x] ~~`/api/stripe/connect/save-account-metadata` 500 root-cause fix (unauthenticated Firestore REST → firestoreRest.getDocument + retry + 202 on missing fields)~~ done 2026-06-07, commit `8366b18`
 - [x] ~~Stripe price env var name standardized — `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_ANNUAL` across all routes (reactivate-subscription was the lone holdout)~~ done 2026-06-07, commit `73d3727`
-- [x] ~~Live Stripe products + price IDs + Volume Reward coupons created in Stripe (manual, no code change)~~ done 2026-06-07 (Jay) — Monthly `price_1TfjxS1qcLHs32s2RuiooKwH`, Annual `price_1TfjyH1qcLHs32s2VEiY2KP0`, Pro Setup `price_1TfjzC1qcLHs32s2eSsZqOAu`, coupons `YARDSYNC_FREE` (100% off) + `YARDSYNC_50OFF`
+- [x] ~~Live Stripe products + price IDs + Volume Reward coupons created in Stripe (manual, no code change)~~ done 2026-06-07 (Jay) — Monthly `price_1Tfjx51qcLHs32s2RuiooKwH`, Annual `price_1TfjyH1qcLHs32s2VEIY2KP0`, Pro Setup `price_1TfjzC1qcLHs32s2eSsZqOAu`, coupons `YARDSYNC_FREE` (100% off) + `YARDSYNC_50OFF`
 
 ### Live-keys flip — DONE (2026-06-07 late session)
 - [x] ~~Live Stripe webhook endpoint created at `https://yardsyncapp.com/api/stripe/webhook`, live `whsec_…` captured~~ done 2026-06-07 (Jay, manual)

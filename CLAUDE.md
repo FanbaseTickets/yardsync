@@ -155,7 +155,7 @@ If a page uses `useSearchParams()`, wrap it in a Suspense boundary or use `windo
 - [x] ~~Signup cold-start race round 2 — `signingUpRef` in AuthContext suppresses AppShell login-redirect during auth hydration window (defense-in-depth on top of `11cc3d1`)~~ done 2026-06-07 (commit `cea72fb`)
 - [x] ~~`/api/stripe/connect/save-account-metadata` — was making unauthenticated Firestore REST call → 403 → 500 on every Connect onboarding. Refactored to `firestoreRest.getDocument` + 5-attempt exponential-backoff retry + 202 'skipped' on missing-but-non-fatal fields~~ done 2026-06-07 (commit `8366b18`)
 - [x] ~~Stripe price env var naming standardized — `reactivate-subscription/route.js` was the lone holdout using `STRIPE_ANNUAL_PRICE_ID` / `STRIPE_MONTHLY_PRICE_ID`. All routes now use `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_ANNUAL`~~ done 2026-06-07 (commit `73d3727`)
-- [x] ~~Live Stripe products + coupons created (manual in Stripe dashboard, Jay 2026-06-07)~~ — Monthly `price_1TfjxS1qcLHs32s2RuiooKwH`, Annual `price_1TfjyH1qcLHs32s2VEiY2KP0`, Pro Setup `price_1TfjzC1qcLHs32s2eSsZqOAu`; coupons `YARDSYNC_FREE` (100% forever) + `YARDSYNC_50OFF` (50% forever)
+- [x] ~~Live Stripe products + coupons created (manual in Stripe dashboard, Jay 2026-06-07)~~ — Monthly `price_1Tfjx51qcLHs32s2RuiooKwH`, Annual `price_1TfjyH1qcLHs32s2VEIY2KP0`, Pro Setup `price_1TfjzC1qcLHs32s2eSsZqOAu`; coupons `YARDSYNC_FREE` (100% forever) + `YARDSYNC_50OFF` (50% forever)
 
 ### Live-keys flip — COMPLETE (2026-06-07 late session)
 - [x] ~~Live Stripe webhook endpoint created at `https://yardsyncapp.com/api/stripe/webhook`, live `whsec_…` captured~~ done 2026-06-07 (Jay, manual in Stripe dashboard)
