@@ -27,9 +27,21 @@ const PATTERNS = ['@yardsyncdemo.com', 'scenarioa', 'protest', 'testflash', 'yar
 const KEEP_EMAILS = new Set(['admin@fanbasetickets.net', 'rub@test.com', 'scals@test.com'])
 
 // Top-level collections that reference user UID via `gardenerUid`.
-// icalEvents + smsStatus omitted: icalEvents has no gardenerUid (keyed by
-// scheduleId), and smsStatus delivery records are harmless leftovers.
-const ORPHAN_COLLECTIONS = ['clients', 'schedules', 'invoices', 'subscriptions', 'feePayments']
+//
+// smsStatus included with an important nuance: the `where gardenerUid == uid`
+// Firestore query naturally EXCLUDES docs with a missing/null gardenerUid
+// field, so system SMS history (admin alerts, health alerts, Pro Setup
+// notifications that don't pass gardenerUid in the StatusCallback URL) is
+// preserved by design. Only smsStatus records whose gardenerUid actively
+// points to a deleted user get cleaned up. Hardened 2026-06-13 after a full
+// integrity audit found that the pre-hardening script missed services +
+// icalEvents on prior runs.
+//
+// icalEvents is handled SEPARATELY in the execute loop below — those docs
+// have no gardenerUid field (they're keyed by scheduleId). Cleanup happens
+// by deleting icalEvents/{scheduleId} for every schedule being deleted,
+// with 404 tolerated (most schedules never had an iCal generated).
+const ORPHAN_COLLECTIONS = ['clients', 'schedules', 'invoices', 'subscriptions', 'feePayments', 'services', 'smsStatus']
 
 const DRY_RUN = !process.argv.includes('--execute')
 
@@ -209,7 +221,12 @@ for (const c of candidates) {
       orphSum += r.docs.length
     }
   }
-  if (orphSum === 0) console.log('    (no orphan docs)')
+  // icalEvents are cleaned by scheduleId (not gardenerUid) and don't show
+  // up in findOrphans. The execute loop derives them from the schedules list.
+  if (c.orphans.schedules?.docs?.length) {
+    console.log(`    icalEvents: up to ${c.orphans.schedules.docs.length} (one per schedule, 404 tolerated)`)
+  }
+  if (orphSum === 0 && !c.orphans.schedules?.docs?.length) console.log('    (no orphan docs)')
   totalOrphanDocs += orphSum
 }
 
@@ -261,6 +278,29 @@ for (const c of candidates) {
         console.log(`  ✗ orphan ${coll}/${docId} — ${res.status}: ${err}`)
         results.orphans.fail.push({ uid: c.uid, coll, doc: docName, err })
       }
+    }
+  }
+
+  // icalEvents — keyed by scheduleId, not gardenerUid. Delete one per
+  // schedule we just removed; tolerate 404 (most schedules never had an
+  // iCal generated). Done AFTER the gardenerUid-keyed orphan sweep so the
+  // schedule IDs are still on c.orphans.schedules.docs.
+  const scheduleIds = (c.orphans.schedules?.docs || []).map(n => n.split('/').pop())
+  for (const sid of scheduleIds) {
+    const icalDocName = `projects/${PROJECT_ID}/databases/(default)/documents/icalEvents/${sid}`
+    const res = await fetch(`https://firestore.googleapis.com/v1/${icalDocName}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (res.ok) {
+      console.log(`  ✓ orphan icalEvents/${sid} (uid ${c.uid})`)
+      results.orphans.ok.push({ uid: c.uid, coll: 'icalEvents', doc: icalDocName })
+    } else if (res.status === 404) {
+      // No iCal was ever generated for this schedule — fine, nothing to clean
+    } else {
+      const err = (await res.text()).slice(0, 160)
+      console.log(`  ✗ orphan icalEvents/${sid} — ${res.status}: ${err}`)
+      results.orphans.fail.push({ uid: c.uid, coll: 'icalEvents', doc: icalDocName, err })
     }
   }
   if (c.fsDocName) {
