@@ -10,7 +10,7 @@
 | You're working on… | Lands on | URL | Firebase | Stripe |
 | --- | --- | --- | --- | --- |
 | `main` branch | **Production** | yardsyncapp.com | yardsync-41886 (LIVE) | LIVE keys |
-| any `feat/*` branch | **Preview** | yardsync-git-<branch>.vercel.app | yardsync-dev (TEST) | TEST keys |
+| any `feat/*` branch | **Preview** | yardsync-git-<branch>-fanbasetickets-projects.vercel.app | yardsync-dev (TEST) | TEST keys |
 | your laptop | **Local** | localhost:3000 | yardsync-dev (TEST) | TEST keys |
 
 **The one rule that makes all of this safe:** `main` = production = real money + real contractors. You never touch it directly. Everything else (branches, Preview, local) is the practice field on test data. Cron jobs (the daily SMS) run **only** on production, so Preview/local never auto-text anyone.
