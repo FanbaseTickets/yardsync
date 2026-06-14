@@ -1,13 +1,15 @@
 # YardSync — Project Brief for Claude
 
 > This file is auto-loaded at the start of every Claude Code session.
-> Keep it current. Last updated: 2026-06-07 (end of session — LIVE KEYS FLIPPED + dev/prod separation scaffolded).
+> Keep it current. Last updated: 2026-06-14 (end of session — dev/prod Firebase split LIVE, OAuth branding published, branch protection enabled).
 >
 > **Session startup:** When the user says "get up to speed", read `YARDSYNC_KNOWLEDGE_BASE.md`
 > in the project root. That single file contains the full project history, architecture,
 > every deployment breaker, business logic, and roadmap. One read = fully briefed.
 > Do NOT re-explore the codebase — the knowledge base IS the exploration.
 > At the end of significant sessions, update the knowledge base with what changed.
+>
+> **Day-to-day workflow:** See `docs/WORKING_GUIDE.md` for the build loop (feat branch → Preview → PR → merge), shutdown checklist, and operational conventions. Branch protection on `main` now enforces this — direct push to main is blocked.
 
 ## What is YardSync?
 
