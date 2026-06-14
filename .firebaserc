@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "yardsync-41886"
+    "default": "yardsync-41886",
+    "prod":    "yardsync-41886",
+    "dev":     "yardsync-dev"
   }
 }

@@ -40,6 +40,8 @@
 
 ## 3. Tech Stack
 
+> **Dev/Prod Firebase project split (2026-06-14):** Production (`main` → yardsyncapp.com) runs on `yardsync-41886`. Preview deploys and local dev run on `yardsync-dev`. Same code, switched by the `NEXT_PUBLIC_FIREBASE_*` env vars in Vercel scopes. The `firestoreRest` admin pattern works against both — same admin email, distinct passwords.
+
 | Layer | Technology |
 |---|---|
 | Framework | Next.js 15.3 (App Router), JavaScript only — no TypeScript |

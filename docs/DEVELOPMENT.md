@@ -5,19 +5,40 @@
 1. Copy `.env.example` to `.env.local`
 2. Fill in test/sandbox values from:
    - Stripe Dashboard (test mode)
-   - Firebase Console
+   - Firebase Console — **yardsync-dev project** (not yardsync-41886, which is production-only)
    - Twilio Console
    - Anthropic Console
-3. Never put live/production keys in `.env.local`
+3. Never put live/production keys in `.env.local`. The `yardsync-41886` Firebase values live in Vercel under the Production scope only.
 4. Production secrets live in Vercel only
 
 ## Branch Strategy
 
-| Branch     | Environment | URL                                    | Stripe Mode |
-|------------|-------------|----------------------------------------|-------------|
-| main       | Production  | yardsyncapp.com                        | LIVE        |
-| any other  | Preview     | yardsync-git-[branch].vercel.app       | TEST        |
-| local      | Development | localhost:3000                         | TEST        |
+| Branch     | Environment | URL                              | Stripe Mode | Firebase Project   |
+|------------|-------------|----------------------------------|-------------|--------------------|
+| main       | Production  | yardsyncapp.com                  | LIVE        | yardsync-41886     |
+| any other  | Preview     | yardsync-git-[branch].vercel.app | TEST        | yardsync-dev       |
+| local      | Development | localhost:3000                   | TEST        | yardsync-dev       |
+
+The Firebase project is selected by the `NEXT_PUBLIC_FIREBASE_*` env vars in Vercel:
+- **Production scope** → `yardsync-41886` (real contractor data, live keys)
+- **Preview + Development scope** → `yardsync-dev` (test data only, ephemeral)
+
+This isolation means a Preview deploy can never read or write production data.
+
+### Firebase CLI — switching project targets
+
+`.firebaserc` defines three aliases:
+- `default` → `yardsync-41886`
+- `prod` → `yardsync-41886`
+- `dev` → `yardsync-dev`
+
+Before deploying rules to a specific project, switch the alias:
+```bash
+firebase use dev    # target yardsync-dev
+firebase use prod   # target yardsync-41886
+```
+
+Then `firebase deploy --only firestore:rules` or `--only storage` runs against the active alias.
 
 ## Development Workflow
 

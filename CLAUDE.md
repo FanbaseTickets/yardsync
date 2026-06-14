@@ -101,6 +101,14 @@ If a page uses `useSearchParams()`, wrap it in a Suspense boundary or use `windo
 - Use `yardsync.vercel.app` for admin-facing URLs (dashboard links in SMS/email alerts)
 - Stripe webhook endpoint must point to the live deployment URL
 
+### Dev/Prod Firebase project split (2026-06-14)
+
+Two Firebase projects, scoped through Vercel env vars:
+- **`yardsync-41886`** — production. Real contractor data. Vercel Production scope.
+- **`yardsync-dev`** — dev/test. Ephemeral test data. Vercel Preview + Development scope, and `.env.local` on local machines.
+
+All 6 `NEXT_PUBLIC_FIREBASE_*` env vars plus `FIREBASE_ADMIN_PASSWORD` are split per environment in Vercel. The `firestoreRest.js` pattern works against both projects unchanged because the same admin email (`admin@fanbasetickets.net`) exists in both projects' Auth, with distinct passwords. See `.firebaserc` for CLI aliases (`firebase use dev` / `firebase use prod`) and `docs/DEVELOPMENT.md` for the full workflow.
+
 ## Known Bugs Fixed (don't reintroduce)
 
 1. **`new Date(undefined * 1000).toISOString()` crash** — `subscription.current_period_end` can be null on certain Stripe events. Always null-guard: `value ? new Date(value * 1000).toISOString() : null`
