@@ -10,7 +10,7 @@
 | You're working on… | Lands on | URL | Firebase | Stripe |
 | --- | --- | --- | --- | --- |
 | `main` branch | **Production** | yardsyncapp.com | yardsync-41886 (LIVE) | LIVE keys |
-| any `feat/*` branch | **Preview** | yardsync-git-<branch>-fanbasetickets-projects.vercel.app | yardsync-dev (TEST) | TEST keys |
+| any `feat/*` branch | **Preview** | auto Preview URL (see §2) | yardsync-dev (TEST) | TEST keys |
 | your laptop | **Local** | localhost:3000 | yardsync-dev (TEST) | TEST keys |
 
 **The one rule that makes all of this safe:** `main` = production = real money + real contractors. You never touch it directly. Everything else (branches, Preview, local) is the practice field on test data. Cron jobs (the daily SMS) run **only** on production, so Preview/local never auto-text anyone.
@@ -23,7 +23,7 @@ This is the cycle for every change, from a one-line fix to a new feature. Branch
 
 1. **Branch off main** — `git checkout -b feat/<short-name>` (e.g. `feat/payment-logo`)
 2. **Build + commit** on that branch
-3. **Push** — `git push origin feat/<short-name>` → Vercel automatically spins up a **Preview URL** on the dev/test environment
+3. **Push** — `git push origin feat/<short-name>` → Vercel automatically spins up a **Preview URL** on the dev/test environment. The pattern includes your team slug: `yardsync-git-<branch>-fanbasetickets-projects.vercel.app` (longer than you might expect — that's normal).
 4. **Test on the Preview URL** — sign up, click around, use test card `4242 4242 4242 4242`. This is all dev data; nothing touches production.
 5. **Open a Pull Request** (feat → main) on GitHub
 6. **Wait for the green Vercel check** on the PR — a broken build blocks the merge
@@ -75,7 +75,7 @@ Then give me a 3-line summary: Done / In progress / Next step.
 
 ## 4. Standing conventions & safety rules
 
-- **No Firebase Admin SDK / service-account keys** — the org blocks them. Server/admin operations authenticate via a **gcloud OAuth token** in `process.env.GCLOUD_TOKEN`, or the app's `firestoreRest` email/password pattern. On Windows PowerShell 5.1, use the `auth/disable_ssl_validation` toggle for token fetches and capture the token with `-Encoding ascii` (the PowerShell 5.1-compatible BOM-free option — `utf8NoBOM` is PowerShell 7+ only).
+- **No Firebase Admin SDK / service-account keys** — the org blocks them. Server/admin operations authenticate via a **gcloud OAuth token** in `process.env.GCLOUD_TOKEN`, or the app's `firestoreRest` email/password pattern. On Windows, use the `auth/disable_ssl_validation` toggle for token fetches and capture the token with `-Encoding ascii` — PowerShell 5.1 (the Windows default on this machine) rejects `utf8NoBOM`, and ASCII is BOM-free since Google tokens are pure ASCII. On PowerShell 7+, `utf8NoBOM` also works.
 - **Maintenance scripts are dry-run by default; `--execute` to actually change data.** The three tracked tools: `cleanup-test-users.mjs` (per-user hygiene), `firestore-integrity-audit.mjs` (full-store sweep), `polish-victor-demo.mjs` (demo refresh — re-run quarterly so the demo calendar stays current).
 - **Secrets live only in Vercel** (and the gitignored `.env.local`). Never commit a secret. Identifiers (price IDs, account IDs, Messaging Service SID) are fine.
 - **Production holds exactly 3 accounts:** `admin@fanbasetickets.net`, `rub@test.com`, `scals@test.com` (Victor Scales). Any *new* name that appears in production Auth that isn't one of these is a **real signup** — not test junk.
