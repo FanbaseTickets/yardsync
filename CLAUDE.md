@@ -13,17 +13,17 @@
 
 ## What is YardSync?
 
-Bilingual (EN/ES) PWA for lawn care contractors. Built by Jay Johnson / JNew Technologies, LLC.
+Bilingual (EN/ES) PWA for multi-vertical field service contractors — primary audience is lawn-care operators, but the live landing page lists 12 verticals (lawn care, landscaping, pressure washing, pool service, cleaning, pest control, handyman, tree service, irrigation, window washing, HVAC maintenance, recurring electrical). Built by Jay Johnson / JNew Technologies, LLC.
 Contractors manage clients, schedule jobs, send Stripe invoices, track materials, and get SMS reminders — all from their phone.
 
-**Revenue model (Stripe-only, Square fully removed April 2026):**
+**Revenue model (Stripe-only; Square removal in flight — see `chore/remove-square` PR. Active Square code in `app/api/square/**` + `lib/square.js` to be deleted in that PR.):**
 - $39/mo or $390/yr SaaS subscription
 - 5.5% application fee on every invoice (Stripe Connect destination charges)
 - $99 one-time Pro Setup add-on (we import the contractor's client list)
 - Volume rewards: $1,500+/mo invoices for 2 months → 50% off sub; $3,000+/mo → free sub. The 5.5% per-invoice fee always applies.
 - Early Adopter Pricing Lock: accounts created before April 15, 2028 lock in 5.5% for life (see terms page Section 5)
 
-**Target market:** Hispanic lawn care operators — San Antonio first, then Houston, Dallas, Miami, LA.
+**Target market:** multi-vertical field service operators, with lawn-care contractors as the primary audience (especially Hispanic / Spanish-speaking, which is YardSync's bilingual differentiator). Geographic rollout: San Antonio first, then Houston, Dallas, Miami, LA.
 **First customer:** none yet. Pre-launch. Marco is a TEST account used for dogfooding the contractor experience, NOT a paying customer.
 
 ## Tech Stack

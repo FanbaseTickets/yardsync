@@ -13,12 +13,12 @@ export default function TermsPage() {
 
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">2. Description of Service</h2>
-          <p>YardSync provides lawn care and field service management tools including client scheduling, invoicing via Stripe Connect, materials tracking, AI-assisted SMS drafting, logo storage, volume-based subscription rewards, and SMS appointment reminders via Twilio.</p>
+          <p>YardSync provides field service management tools including client scheduling, invoicing via Stripe Connect, materials tracking, AI-assisted SMS drafting, logo storage, volume-based subscription rewards, and SMS appointment reminders via Twilio.</p>
         </div>
 
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">3. SMS Messaging Program</h2>
-          <p>YardSync sends appointment reminder and invoice SMS messages to lawn care clients on behalf of service providers. By providing a phone number to a YardSync-powered service provider, clients consent to receive these messages.</p>
+          <p>YardSync sends appointment reminder and invoice SMS messages to clients on behalf of service providers. By providing a phone number to a YardSync-powered service provider, clients consent to receive these messages.</p>
           <ul className="list-disc pl-5 mt-2 space-y-1">
             <li>Message frequency varies based on scheduled appointments and invoices</li>
             <li>Message and data rates may apply</li>
@@ -77,7 +77,7 @@ export default function TermsPage() {
             <li>Violate any applicable law or regulation</li>
             <li>Impersonate another person or business</li>
             <li>Attempt to gain unauthorized access to any part of the platform</li>
-            <li>Use the platform for any purpose other than legitimate lawn care business management</li>
+            <li>Use the platform for any purpose other than legitimate business management</li>
           </ul>
           <p className="mt-2">Violations may result in immediate account termination without refund.</p>
         </div>

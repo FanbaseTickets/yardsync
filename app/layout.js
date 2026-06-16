@@ -19,7 +19,7 @@ const dmSerif = DM_Serif_Display({
 
 export const metadata = {
   title: 'YardSync',
-  description: 'Lawn care management for professionals',
+  description: 'Field service management for professionals',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,

@@ -8,7 +8,7 @@ export default function PrivacyPage() {
 
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">1. Who We Are</h2>
-          <p>YardSync is a lawn care management platform operated by JNew Technologies. We provide scheduling, invoicing, and SMS reminder tools to lawn care service providers and their clients.</p>
+          <p>YardSync is a field service management platform operated by JNew Technologies. We provide scheduling, invoicing, and SMS reminder tools to service providers and their clients.</p>
         </div>
 
         <div>
@@ -44,7 +44,7 @@ export default function PrivacyPage() {
 
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">5. SMS Messaging</h2>
-          <p>YardSync sends appointment reminder SMS messages to lawn care clients on behalf of service providers. Message frequency varies based on scheduled appointments. Message and data rates may apply. To opt out, reply STOP to any message. For help, reply HELP.</p>
+          <p>YardSync sends appointment reminder SMS messages to clients on behalf of service providers. Message frequency varies based on scheduled appointments. Message and data rates may apply. To opt out, reply STOP to any message. For help, reply HELP.</p>
         </div>
 
         <div>

@@ -45,7 +45,7 @@ function PayForm({ clientSecret, amount, description, clientName }) {
           ${(amount / 100).toFixed(2)}
         </p>
         <p className="text-sm text-gray-500 text-center">
-          Your lawn care provider has been notified.
+          Your service provider has been notified.
         </p>
       </div>
     )
@@ -140,7 +140,7 @@ export default function PayContent() {
         </div>
         {details?.metadata?.clientName && (
           <p className="text-white/70 text-sm text-center mt-2">
-            Invoice for lawn care service
+            Invoice for service
           </p>
         )}
       </div>
