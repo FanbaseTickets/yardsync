@@ -1,7 +1,7 @@
 # YardSync — Project Brief for Claude
 
 > This file is auto-loaded at the start of every Claude Code session.
-> Keep it current. Last updated: 2026-06-14 (end of session — dev/prod Firebase split LIVE, OAuth branding published, branch protection enabled).
+> Keep it current. Last updated: 2026-06-16 (Square fully removed: PR #4 deleted active code, cleanup-tail PR drops the npm dep and `SQUARE_*` Vercel env vars are retired).
 >
 > **Session startup:** When the user says "get up to speed", read `YARDSYNC_KNOWLEDGE_BASE.md`
 > in the project root. That single file contains the full project history, architecture,
@@ -16,7 +16,7 @@
 Bilingual (EN/ES) PWA for multi-vertical field service contractors — primary audience is lawn-care operators, but the live landing page lists 12 verticals (lawn care, landscaping, pressure washing, pool service, cleaning, pest control, handyman, tree service, irrigation, window washing, HVAC maintenance, recurring electrical). Built by Jay Johnson / JNew Technologies, LLC.
 Contractors manage clients, schedule jobs, send Stripe invoices, track materials, and get SMS reminders — all from their phone.
 
-**Revenue model (Stripe-only; Square removal in flight — see `chore/remove-square` PR. Active Square code in `app/api/square/**` + `lib/square.js` to be deleted in that PR.):**
+**Revenue model (Stripe-only — Square fully removed 2026-06-16; npm dep + `SQUARE_*` Vercel env vars retired in the cleanup-tail PR):**
 - $39/mo or $390/yr SaaS subscription
 - 5.5% application fee on every invoice (Stripe Connect destination charges)
 - $99 one-time Pro Setup add-on (we import the contractor's client list)
