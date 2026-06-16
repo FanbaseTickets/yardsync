@@ -12,8 +12,7 @@ import PhoneInput from '@/components/ui/PhoneInput'
 import LogoUpload from '@/components/ui/LogoUpload'
 import { saveGardenerProfile, getGardenerProfile, getFeePayments, saveFeePayment, markQuarterFeesCollected, getQuarterlyFeesOwed, getInvoices } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
-import { Bell, Globe, User, Clock, BarChart2, CreditCard, Link2, AlertTriangle, Wallet, CheckCircle2, ArrowUpCircle, TrendingUp, Lock, Zap, LogOut } from 'lucide-react'
-import { useSearchParams } from 'next/navigation'
+import { Bell, Globe, User, Clock, BarChart2, CreditCard, Link2, Wallet, CheckCircle2, ArrowUpCircle, TrendingUp, Lock, Zap, LogOut } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 function getReminderOptions(translate) {
@@ -34,13 +33,9 @@ const LANGUAGE_OPTIONS = [
 export default function SettingsPage() {
   const { user, profile, refreshProfile, signOut } = useAuth()
   const { translate, lang } = useLang()
-  const searchParams = useSearchParams()
-  const [disconnecting, setDisconnecting] = useState(false)
-  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
   const [cardLoading,    setCardLoading]    = useState(false)
   const [showCardModal,  setShowCardModal]  = useState(false)
   const [cardError,      setCardError]      = useState('')
-  const [squareRedirecting, setSquareRedirecting] = useState(false)
   const [payingQuarter, setPayingQuarter] = useState(null)
   const [quarterFees,   setQuarterFees]   = useState([])
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
@@ -48,33 +43,6 @@ export default function SettingsPage() {
   const [monthlyVolume,    setMonthlyVolume]    = useState(0)
   const [showCancelModal,  setShowCancelModal]  = useState(false)
   const [canceling,        setCanceling]        = useState(false)
-
-  // Handle Square OAuth callback redirect
-  useEffect(() => {
-    if (!user || !searchParams) return
-    if (searchParams.get('squareConnected') === 'true') {
-      const squareData = {
-        squareAccessToken:  searchParams.get('squareAccessToken')  || '',
-        squareRefreshToken: searchParams.get('squareRefreshToken') || '',
-        squareMerchantId:   searchParams.get('squareMerchantId')   || '',
-        squareMerchantName: searchParams.get('squareMerchantName') || '',
-        squareLocationId:   searchParams.get('squareLocationId')   || '',
-        squareLocationName: searchParams.get('squareLocationName') || '',
-        squareExpiresAt:    searchParams.get('squareExpiresAt')    || '',
-        squareConnected:    true,
-        squareConnectedAt:  new Date().toISOString(),
-      }
-      saveGardenerProfile(user.uid, squareData).then(() => {
-        refreshProfile()
-        toast.success(lang === 'es' ? 'Square conectado exitosamente!' : 'Square account connected!')
-        window.history.replaceState({}, '', '/settings')
-      })
-    }
-    if (searchParams.get('squareError')) {
-      toast.error(`Square connection failed: ${searchParams.get('squareError')}`)
-      window.history.replaceState({}, '', '/settings')
-    }
-  }, [user, searchParams])
 
   const [form,    setForm]    = useState({
     name:           '',
@@ -414,37 +382,6 @@ export default function SettingsPage() {
     } finally {
       console.log('upgrade FINALLY — resetting state')
       setUpgrading(false)
-    }
-  }
-
-  async function handleDisconnectSquare() {
-    setDisconnecting(true)
-    try {
-      await fetch('/api/square/disconnect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          accessToken: profile?.squareAccessToken || '',
-          merchantId:  profile?.squareMerchantId || '',
-        }),
-      })
-      await saveGardenerProfile(user.uid, {
-        squareAccessToken:  null,
-        squareRefreshToken: null,
-        squareMerchantId:   null,
-        squareMerchantName: null,
-        squareLocationId:   null,
-        squareLocationName: null,
-        squareExpiresAt:    null,
-        squareConnected:    false,
-      })
-      await refreshProfile()
-      toast.success(lang === 'es' ? 'Square desconectado' : 'Square disconnected')
-      setShowDisconnectConfirm(false)
-    } catch {
-      toast.error(lang === 'es' ? 'Error al desconectar' : 'Failed to disconnect')
-    } finally {
-      setDisconnecting(false)
     }
   }
 
@@ -860,110 +797,6 @@ export default function SettingsPage() {
               </Card>
             </section>
           )}
-
-          {/* Square Integration — only for non-Stripe users */}
-          {false && <section>
-            <div className="flex items-center gap-2 mb-3">
-              <CreditCard size={14} className="text-brand-600" />
-              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
-                {lang === 'es' ? 'Integración Square' : 'Square Integration'}
-              </p>
-            </div>
-            {process.env.NEXT_PUBLIC_SQUARE_ENVIRONMENT === 'sandbox' && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-3 flex items-center gap-2">
-                <AlertTriangle size={13} className="text-amber-600 flex-shrink-0" />
-                <p className="text-[11px] text-amber-700 font-medium">
-                  {lang === 'es'
-                    ? 'Square está en modo de prueba. Los pagos reales no se procesan.'
-                    : 'Square is in test mode. Real payments are not processed.'}
-                </p>
-              </div>
-            )}
-            {profile?.squareConnected ? (
-              <Card>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center flex-shrink-0">
-                      <span className="text-white text-[11px] font-bold">SQ</span>
-                    </div>
-                    <div>
-                      <p className="text-[13px] font-medium text-gray-800">
-                        {profile.squareMerchantName || 'Square'}
-                      </p>
-                      <p className="text-[11px] text-green-600 font-medium flex items-center gap-1">
-                        <Link2 size={10} /> {lang === 'es' ? 'Conectado' : 'Connected'}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setShowDisconnectConfirm(true)}
-                    className="text-[12px] text-red-400 hover:text-red-500 font-medium transition-colors"
-                  >
-                    {lang === 'es' ? 'Desconectar' : 'Disconnect'}
-                  </button>
-                </div>
-                {profile.squareLocationName && (
-                  <p className="text-[12px] text-gray-500 mb-2">
-                    {lang === 'es' ? 'Ubicación:' : 'Location:'} {profile.squareLocationName}
-                  </p>
-                )}
-                <p className="text-[12px] text-gray-500">
-                  {lang === 'es'
-                    ? 'Las facturas se envían a través de tu cuenta de Square. Los pagos van directamente a tu cuenta.'
-                    : 'Invoices are sent through your Square account. Payments go directly to you.'}
-                </p>
-                {showDisconnectConfirm && (
-                  <div className="mt-3 bg-red-50 border border-red-100 rounded-xl p-3">
-                    <p className="text-[13px] text-red-800 font-medium mb-2">
-                      {lang === 'es' ? '¿Desconectar Square?' : 'Disconnect Square?'}
-                    </p>
-                    <p className="text-[12px] text-red-600 mb-3">
-                      {lang === 'es'
-                        ? 'No podrás enviar facturas hasta que vuelvas a conectar.'
-                        : 'You won\'t be able to send invoices until you reconnect.'}
-                    </p>
-                    <div className="flex gap-2">
-                      <button onClick={() => setShowDisconnectConfirm(false)} className="flex-1 text-[13px] text-gray-600 bg-white border border-gray-200 rounded-xl py-2 font-medium">
-                        {translate('common', 'cancel')}
-                      </button>
-                      <button onClick={handleDisconnectSquare} disabled={disconnecting} className="flex-1 text-[13px] text-white bg-red-600 rounded-xl py-2 font-medium disabled:opacity-50">
-                        {disconnecting ? '...' : (lang === 'es' ? 'Sí, desconectar' : 'Yes, disconnect')}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </Card>
-            ) : (
-              <Card className="border-amber-100 bg-amber-50/50">
-                <div className="flex items-start gap-3 mb-3">
-                  <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-[13px] font-medium text-amber-800">
-                      {lang === 'es' ? 'Conecta Square para enviar facturas' : 'Connect Square to send invoices'}
-                    </p>
-                    <p className="text-[12px] text-amber-700 mt-1">
-                      {lang === 'es'
-                        ? 'Necesitas conectar tu cuenta de Square para poder enviar facturas a tus clientes. Los pagos van directamente a tu cuenta.'
-                        : 'Connect your Square account to send invoices to clients. Payments go directly to your account.'}
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  fullWidth
-                  loading={squareRedirecting}
-                  onClick={() => {
-                    setSquareRedirecting(true)
-                    window.location.href = `/api/square/oauth/connect?uid=${user.uid}`
-                  }}
-                >
-                  {squareRedirecting
-                    ? (lang === 'es' ? 'Redirigiendo a Square…' : 'Redirecting to Square…')
-                    : <><Link2 size={14} /> {lang === 'es' ? 'Conectar Square' : 'Connect Square'}</>
-                  }
-                </Button>
-              </Card>
-            )}
-          </section>}
 
           {/* Card on File — only for non-Stripe users */}
           {false && <section>
