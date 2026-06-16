@@ -220,7 +220,7 @@ export default function LandingPage() {
           </div>
           <div className="lp-vg">
             <div className="lp-vt"><div style={{fontSize:'18px',marginBottom:'8px'}}>🌱</div><div className="lp-vr">Under $1,500/mo invoiced</div><div className="lp-vd">Full Subscription</div><div className="lp-vp">$39/month</div><div className="lp-vn">+ 5.5% per invoice. Standard rate to start.</div></div>
-            <div className="lp-vt"><div style={{fontSize:'18px',marginBottom:'8px'}}>📈</div><div className="lp-vr">$1,500–$2,999/mo invoiced</div><div className="lp-vd">50% Off Subscription</div><div className="lp-vp">$19/month</div><div className="lp-vn">+ 5.5% per invoice. Hit 2 months to unlock.</div></div>
+            <div className="lp-vt"><div style={{fontSize:'18px',marginBottom:'8px'}}>📈</div><div className="lp-vr">$1,500–$2,999/mo invoiced</div><div className="lp-vd">50% Off Subscription</div><div className="lp-vp">$19.50/month</div><div className="lp-vn">+ 5.5% per invoice. Hit 2 months to unlock.</div></div>
             <div className="lp-vt top"><div style={{fontSize:'18px',marginBottom:'8px'}}>🏆</div><div className="lp-vr">$3,000+/mo invoiced</div><div className="lp-vd">$0 Subscription</div><div className="lp-vp">$0/month</div><div className="lp-vn">+ 5.5% per invoice. Your app pays for itself.</div></div>
           </div>
           <p className="lp-vfine">Drop below threshold for 2 consecutive months to return to the previous tier. No surprise charges — always 2 months notice. The 5.5% per-invoice fee applies at every tier.</p>
@@ -298,7 +298,7 @@ export default function LandingPage() {
           <div className="lp-cbox">
             <h3>📋 How clients consent to receive messages</h3>
             <p>Clients provide their phone number directly to their service provider when scheduling. The provider enters it into YardSync. Clients are informed they will receive appointment reminder SMS and can opt out at any time by replying STOP.</p>
-            <p><strong>Opt-in message:</strong> &quot;You have been added to receive appointment reminder SMS messages from [Business Name] via YardSync. Reply STOP to opt out. Msg &amp; data rates may apply.&quot;</p>
+            <p><strong>Reminder message example:</strong> &quot;Hi [Name]! Your service is scheduled for [date] at [time]. See you then! Reply STOP to opt out. – [Business Name]&quot;</p>
             <div className="lp-krow"><div className="lp-klbl">Opt-out:</div><span className="lp-kw">STOP</span><span className="lp-kw">CANCEL</span><span className="lp-kw">QUIT</span><span className="lp-kw">UNSUBSCRIBE</span></div>
             <div className="lp-krow" style={{marginTop:'8px'}}><div className="lp-klbl">Help:</div><span className="lp-kw">HELP</span></div>
             <p style={{marginTop:'14px',fontSize:'13px'}}>Full details: <a href="/privacy" style={{color:'var(--gp)'}}>Privacy Policy</a> &amp; <a href="/terms" style={{color:'var(--gp)'}}>Terms of Service</a>.</p>
@@ -328,7 +328,7 @@ export default function LandingPage() {
           <a href="#sms-consent">SMS Policy</a>
           <a href="/login">Sign In</a>
         </div>
-        <p className="lp-fcopy">YardSync by JNew Technologies, LLC · San Antonio, TX · <a href="mailto:support@yardsyncapp.com">support@yardsyncapp.com</a><br/>© 2025 JNew Technologies, LLC. All rights reserved.</p>
+        <p className="lp-fcopy">YardSync by JNew Technologies, LLC · San Antonio, TX · <a href="mailto:support@yardsyncapp.com">support@yardsyncapp.com</a><br/>© 2026 JNew Technologies, LLC. All rights reserved.</p>
       </footer>
     </div>
   )

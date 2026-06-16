@@ -2,7 +2,7 @@ import { CheckCircle2 } from 'lucide-react'
 
 export const metadata = {
   title: 'SMS Opt-In — YardSync',
-  description: 'Opt in to appointment reminder SMS messages from YardSync on behalf of your lawn care service provider.',
+  description: 'Opt in to appointment reminder SMS messages from YardSync on behalf of your service provider.',
 }
 
 export default async function SmsOptInPage({ searchParams }) {
@@ -38,7 +38,7 @@ function SuccessState() {
       </div>
       <h2 className="text-xl font-semibold text-gray-900">You&apos;re opted in!</h2>
       <p className="text-[14px] text-gray-700 leading-relaxed">
-        Your lawn care provider will be in touch with appointment reminders via YardSync.
+        Your service provider will be in touch with appointment reminders via YardSync.
       </p>
     </div>
   )
@@ -50,7 +50,7 @@ function ConsentForm() {
       <div className="space-y-2 mb-6">
         <h2 className="text-xl font-semibold text-gray-900">Opt In to Appointment Reminders</h2>
         <p className="text-[13px] text-gray-500 leading-relaxed">
-          Your lawn care provider uses YardSync to send appointment reminders. Complete this form to confirm you&apos;d like to receive them.
+          Your service provider uses YardSync to send appointment reminders. Complete this form to confirm you&apos;d like to receive them.
         </p>
       </div>
 
@@ -86,7 +86,7 @@ function ConsentForm() {
         </div>
 
         <p className="text-[12px] text-gray-400 leading-relaxed">
-          Your phone number is provided directly to your lawn care provider — not stored by this form.
+          Your phone number is provided directly to your service provider — not stored by this form.
         </p>
 
         {/* Consent checkbox — unchecked by default, not required */}
@@ -100,7 +100,7 @@ function ConsentForm() {
               className="mt-1 w-4 h-4 rounded accent-brand-600 flex-shrink-0"
             />
             <span className="text-[13px] text-gray-700 leading-relaxed">
-              I agree to receive recurring appointment reminder SMS messages from YardSync on behalf of my lawn care service provider. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe at any time. Reply HELP for help.
+              I agree to receive recurring appointment reminder SMS messages from YardSync on behalf of my service provider. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe at any time. Reply HELP for help.
             </span>
           </label>
         </div>
