@@ -103,7 +103,7 @@ function SubscribeInner() {
 
   const monthlyFeatures = [
     tr('subscribe', 'unlimited'),
-    tr('subscribe', 'square'),
+    tr('subscribe', 'invoice_integration'),
     tr('subscribe', 'auto_sms'),
     tr('subscribe', 'bilingual'),
   ]
