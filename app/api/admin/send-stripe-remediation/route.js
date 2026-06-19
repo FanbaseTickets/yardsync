@@ -94,10 +94,14 @@ export async function POST(request) {
     }
 
     // Generate the AccountLink
+    // type: 'account_onboarding' is the only valid AccountLink type for
+    // Express + Standard accounts. It's misleadingly named — Stripe uses
+    // this type for both initial setup AND ongoing requirement updates
+    // post-onboarding. 'account_update' only works for Custom accounts.
     const baseUrl = getBaseUrl(request)
     const accountLink = await stripe.accountLinks.create({
       account:     userDoc.data.stripeAccountId,
-      type:        'account_update',
+      type:        'account_onboarding',
       refresh_url: `${baseUrl}/settings?stripe_refresh=1`,
       return_url:  `${baseUrl}/settings?stripe_return=1`,
     })
