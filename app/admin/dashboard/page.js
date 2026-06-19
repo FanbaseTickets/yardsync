@@ -10,7 +10,7 @@ import {
   Shield, LogOut, Users, DollarSign,
   TrendingUp, AlertCircle, RefreshCw,
   ChevronDown, ChevronUp, CheckCircle, Plus, Calendar, Download, Clock,
-  CreditCard, AlertOctagon, History, Zap, Mail, FileSpreadsheet, Send
+  CreditCard, AlertOctagon, Zap, Mail, FileSpreadsheet, Send
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { fmt as format } from '@/lib/date'
@@ -57,7 +57,6 @@ export default function AdminDashboard() {
   const [gardeners,       setGardeners]       = useState([])
   const [gardenerFilter,  setGardenerFilter]  = useState('all')
   const [allInvoicesRaw,  setAllInvoicesRaw]  = useState([])
-  const [allFeePayments,  setAllFeePayments]  = useState([])
   const [dataLoading, setDataLoading] = useState(true)
   const [expanded,    setExpanded]    = useState(null)
   const [refreshing,  setRefreshing]  = useState(false)
@@ -84,15 +83,11 @@ export default function AdminDashboard() {
   async function loadData() {
     setDataLoading(true)
     try {
-      const [usersSnap, invoicesSnap, clientsSnap, feePaySnap] = await Promise.all([
+      const [usersSnap, invoicesSnap, clientsSnap] = await Promise.all([
         getDocs(collection(db, 'users')),
         getDocs(collection(db, 'invoices')),
         getDocs(collection(db, 'clients')),
-        getDocs(collection(db, 'feePayments')),
       ])
-
-      const allFeePaymentsData = feePaySnap.docs.map(d => ({ id: d.id, ...d.data() }))
-      setAllFeePayments(allFeePaymentsData)
 
       const allInvoices = invoicesSnap.docs.map(d => ({ id: d.id, ...d.data() }))
       const allClients  = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -100,9 +95,20 @@ export default function AdminDashboard() {
 
       setAllInvoicesRaw(allInvoices)
 
-      const gardenerMap = Object.fromEntries(usersSnap.docs.map(d => [d.id, { id: d.id, ...d.data() }]))
+      const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+      const gardenerMap = Object.fromEntries(
+        usersSnap.docs
+          .filter(d => d.data().email !== adminEmail)
+          .map(d => [d.id, { id: d.id, ...d.data() }])
+      )
 
-      const gardenerList = usersSnap.docs.map(d => {
+      const gardenerList = usersSnap.docs
+        // Exclude the admin's own user doc — they're not a gardener, just an
+        // operator who happens to have a Firebase Auth account. Including
+        // them inflated the "of N total" count and showed up as a row with
+        // "Sub: Inactive" in the gardener list.
+        .filter(d => d.data().email !== adminEmail)
+        .map(d => {
         const g         = { id: d.id, ...d.data() }
         const gInvoices = allInvoices.filter(inv => inv.gardenerUid === d.id)
         const gClients  = allClients.filter(c => c.gardenerUid === d.id)
@@ -127,20 +133,6 @@ export default function AdminDashboard() {
           return acc
         }, { fees: 0, gardener: 0, total: 0 })
 
-        const quarters = [0,1,2,3].map(q => {
-          const qStart = new Date(now.getFullYear(), q * 3, 1)
-          const qEnd   = new Date(now.getFullYear(), q * 3 + 3, 0)
-          const qInvs  = gInvoices.filter(inv => {
-            const d2 = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
-            return d2 >= qStart && d2 <= qEnd
-          })
-          const fees = qInvs.reduce((s, inv) => {
-            const feeLines = inv.lineItems?.filter(l => l.category === 'fee') || []
-            return s + feeLines.reduce((fs, l) => fs + (l.amountCents || 0), 0)
-          }, 0)
-          return { label: `Q${q+1} ${now.getFullYear()}`, fees, invoices: qInvs.length }
-        })
-
         const recentInvoices = [...gInvoices]
           .sort((a, b) => {
             const da  = a.createdAt?.toDate?.() || new Date(a.createdAt)
@@ -148,14 +140,6 @@ export default function AdminDashboard() {
             return db2 - da
           })
           .slice(0, 5)
-
-        const gFeePayments = allFeePaymentsData.filter(fp => fp.gardenerUid === d.id)
-        const uncollectedFees = gInvoices
-          .filter(inv => !inv.feeCollected)
-          .reduce((s, inv) => {
-            const fl = inv.lineItems?.filter(l => l.category === 'fee') || []
-            return s + fl.reduce((fs, l) => fs + (l.amountCents || 0), 0)
-          }, 0)
 
         const outstandingTotal = gInvoices
           .filter(inv => inv.status !== 'paid')
@@ -169,12 +153,8 @@ export default function AdminDashboard() {
           allInvoices:     gInvoices,
           allTime:         allTimeTotals,
           thisMonth:       thisMonthTotals,
-          quarters,
           recentInvoices,
-          feePayments:     gFeePayments,
-          uncollectedFees,
           outstandingTotal,
-          hasCard:         !!g.stripePaymentMethodId,
         }
       })
 
@@ -196,52 +176,6 @@ export default function AdminDashboard() {
       loadData()
     } catch (err) {
       toast.error('Failed to mark paid')
-    }
-  }
-
-  async function handleMarkCollected(gardener, quarter, year) {
-    try {
-      // Calculate fees for this quarter
-      const qIndex = parseInt(quarter.replace('Q', '')) - 1
-      const qStart = new Date(year, qIndex * 3, 1)
-      const qEnd   = new Date(year, qIndex * 3 + 3, 0, 23, 59, 59)
-      const qInvoices = gardener.allInvoices.filter(inv => {
-        if (inv.feeCollected) return false
-        const d = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
-        return d >= qStart && d <= qEnd
-      })
-      const totalFees = qInvoices.reduce((s, inv) => {
-        const fl = inv.lineItems?.filter(l => l.category === 'fee') || []
-        return s + fl.reduce((fs, l) => fs + (l.amountCents || 0), 0)
-      }, 0)
-
-      if (totalFees <= 0) { toast.error('No uncollected fees for this quarter'); return }
-
-      // Save fee payment record
-      await addDoc(collection(db, 'feePayments'), {
-        gardenerUid: gardener.id,
-        quarter, year,
-        amountCents: totalFees,
-        stripePaymentIntentId: 'manual',
-        status: 'paid',
-        chargeMethod: 'manual',
-        paidAt: new Date().toISOString(),
-        createdAt: serverTimestamp(),
-      })
-
-      // Mark invoices as collected
-      await Promise.all(qInvoices.map(inv =>
-        updateDoc(doc(db, 'invoices', inv.id), {
-          feeCollected: true,
-          feeCollectedAt: new Date().toISOString(),
-          feePaymentIntentId: 'manual',
-        })
-      ))
-
-      toast.success(`${quarter} ${year} marked collected for ${gardener.name} (${formatCents(totalFees)})`)
-      loadData()
-    } catch (err) {
-      toast.error('Failed to mark collected')
     }
   }
 
@@ -879,91 +813,6 @@ export default function AdminDashboard() {
                               <Calendar size={14} /> Add Schedule
                             </button>
                           </div>
-
-                          {/* Outstanding fees + card status */}
-                          <div className="mb-4">
-                            <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">Fee Collection Status</p>
-                            <div className="flex items-center gap-2 mb-2">
-                              {g.hasCard ? (
-                                <span className="inline-flex items-center gap-1 text-[11px] bg-green-900/40 text-green-400 px-2 py-1 rounded-full font-medium">
-                                  <CreditCard size={10} /> Card on file
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-[11px] bg-red-900/40 text-red-400 px-2 py-1 rounded-full font-medium">
-                                  <AlertOctagon size={10} /> No card on file
-                                </span>
-                              )}
-                              {g.uncollectedFees > 0 ? (
-                                <span className="text-[11px] bg-amber-900/40 text-amber-400 px-2 py-1 rounded-full font-medium">
-                                  {formatCents(g.uncollectedFees)} outstanding
-                                </span>
-                              ) : (
-                                <span className="text-[11px] bg-green-900/40 text-green-400 px-2 py-1 rounded-full font-medium">
-                                  All fees collected
-                                </span>
-                              )}
-                            </div>
-                            {g.uncollectedFees > 0 && (
-                              <div className="grid grid-cols-4 gap-2 mt-2">
-                                {g.quarters.map(q => {
-                                  const qPaid = g.feePayments?.find(fp =>
-                                    fp.quarter === q.label.split(' ')[0] &&
-                                    fp.year === parseInt(q.label.split(' ')[1]) &&
-                                    (fp.status === 'paid' || fp.status === 'auto_charged')
-                                  )
-                                  const qLabel  = q.label.split(' ')[0]
-                                  const qYear   = parseInt(q.label.split(' ')[1])
-                                  return (
-                                    <div key={q.label} className={`rounded-lg p-2 text-center ${qPaid ? 'bg-green-900/30' : q.fees > 0 ? 'bg-amber-900/30' : 'bg-gray-800'}`}>
-                                      <p className="text-[10px] text-gray-400">{qLabel}</p>
-                                      <p className="text-[12px] font-bold text-white">{formatCents(q.fees)}</p>
-                                      {qPaid ? (
-                                        <p className="text-[9px] text-green-400 mt-0.5">Collected</p>
-                                      ) : q.fees > 0 ? (
-                                        <button
-                                          onClick={() => handleMarkCollected(g, qLabel, qYear)}
-                                          className="text-[9px] text-amber-400 hover:text-amber-300 mt-0.5 underline"
-                                        >
-                                          Mark collected
-                                        </button>
-                                      ) : (
-                                        <p className="text-[9px] text-gray-600 mt-0.5">—</p>
-                                      )}
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Fee payment history */}
-                          {g.feePayments?.length > 0 && (
-                            <div className="mb-4">
-                              <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
-                                <History size={10} /> Fee Payment History
-                              </p>
-                              <div className="space-y-1.5">
-                                {g.feePayments
-                                  .sort((a, b) => (b.paidAt || '').localeCompare(a.paidAt || ''))
-                                  .map(fp => (
-                                    <div key={fp.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
-                                      <div className="flex items-center gap-2">
-                                        <CheckCircle size={12} className="text-green-400" />
-                                        <span className="text-[12px] text-white font-medium">{fp.quarter} {fp.year}</span>
-                                        <span className="text-[10px] bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded font-medium">
-                                          {fp.chargeMethod === 'auto' ? 'Auto' : 'Manual'}
-                                        </span>
-                                      </div>
-                                      <div className="text-right">
-                                        <p className="text-[12px] text-brand-400 font-medium">{formatCents(fp.amountCents)}</p>
-                                        {fp.paidAt && <p className="text-[10px] text-gray-500">{new Date(fp.paidAt).toLocaleDateString()}</p>}
-                                      </div>
-                                    </div>
-                                  ))
-                                }
-                              </div>
-                            </div>
-                          )}
 
                           {g.recentInvoices.length > 0 && (
                             <div>
