@@ -6,6 +6,41 @@ import { getSubscriptionPeriodEndISO } from '@/lib/stripeHelpers'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
+/**
+ * Verify a Stripe webhook signature against multiple possible secrets.
+ *
+ * Modern Stripe Workbench issues a separate signing secret per destination,
+ * so platform-account events and connected-account events come signed with
+ * different secrets even when both destinations point to the same URL.
+ * We try each configured secret in turn and return the first event that
+ * verifies — or throw if none do.
+ *
+ * Order: STRIPE_WEBHOOK_SECRET (platform events, present in every env)
+ *        STRIPE_WEBHOOK_SECRET_CONNECT (connected-account events, optional —
+ *        skipped if env var is unset, e.g. in environments that don't yet
+ *        have the connect destination configured in Stripe Dashboard).
+ */
+function verifyWebhookSignature(body, signature) {
+  const secrets = [
+    process.env.STRIPE_WEBHOOK_SECRET,
+    process.env.STRIPE_WEBHOOK_SECRET_CONNECT,
+  ].filter(Boolean)
+
+  if (secrets.length === 0) {
+    throw new Error('No STRIPE_WEBHOOK_SECRET configured')
+  }
+
+  let lastErr
+  for (const secret of secrets) {
+    try {
+      return stripe.webhooks.constructEvent(body, signature, secret)
+    } catch (err) {
+      lastErr = err
+    }
+  }
+  throw lastErr || new Error('Webhook signature did not verify against any configured secret')
+}
+
 export async function POST(request) {
   console.log('Webhook received:', request.headers.get('stripe-signature') ? 'has signature' : 'no signature')
   const body      = await request.text()
@@ -13,11 +48,7 @@ export async function POST(request) {
 
   let event
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET
-    )
+    event = verifyWebhookSignature(body, signature)
   } catch (err) {
     console.error('Webhook signature error:', err.message)
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
