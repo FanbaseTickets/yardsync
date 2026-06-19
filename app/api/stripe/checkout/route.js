@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { getBaseUrl } from '@/lib/baseUrl'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 export async function POST(request) {
   try {
     const { priceId, setupFee, gardenerUid, gardenerEmail } = await request.json()
+    const baseUrl = getBaseUrl(request)
 
     const lineItems = [
       {
@@ -26,8 +28,8 @@ export async function POST(request) {
       mode:                 'subscription',
       payment_method_types: ['card'],
       line_items:           lineItems,
-      success_url:          `${process.env.NEXT_PUBLIC_APP_URL}/subscribe?session_id={CHECKOUT_SESSION_ID}&plan=${priceId === process.env.STRIPE_PRICE_ANNUAL ? 'annual' : 'monthly'}`,
-      cancel_url:           `${process.env.NEXT_PUBLIC_APP_URL}/subscribe?cancelled=true`,
+      success_url:          `${baseUrl}/subscribe?session_id={CHECKOUT_SESSION_ID}&plan=${priceId === process.env.STRIPE_PRICE_ANNUAL ? 'annual' : 'monthly'}`,
+      cancel_url:           `${baseUrl}/subscribe?cancelled=true`,
       customer_email:       gardenerEmail || undefined,
       metadata: {
         gardenerUid,

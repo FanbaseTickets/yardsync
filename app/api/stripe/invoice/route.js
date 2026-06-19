@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createDocument } from '@/lib/firestoreRest'
 import { sendClientEmail } from '@/lib/email'
+import { getBaseUrl } from '@/lib/baseUrl'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -72,12 +73,21 @@ export async function POST(req) {
     const applicationFeeAmount = Math.round(totalCents * 0.055)
 
     // Step 1: Create Stripe PaymentIntent
+    //
+    // on_behalf_of makes the connected account the "merchant of record" for
+    // receipts, statement descriptors, and customer-facing branding — the
+    // client sees "Receipt from {contractor business name}" instead of the
+    // platform account name. The application fee still flows to the platform
+    // via application_fee_amount + transfer_data.destination. This is Stripe's
+    // standard pattern for Connect marketplaces where the contractor is the
+    // merchant the client is paying.
     const paymentIntent = await stripe.paymentIntents.create({
       amount: totalCents,
       currency: 'usd',
       application_fee_amount: applicationFeeAmount,
       transfer_data: { destination: stripeAccountId },
-      description: description || 'YardSync lawn service invoice',
+      on_behalf_of: stripeAccountId,
+      description: description || 'YardSync invoice',
       receipt_email: clientEmail || undefined,
       metadata: {
         gardenerUid,
@@ -87,7 +97,7 @@ export async function POST(req) {
       },
     })
 
-    const paymentUrl = `${process.env.NEXT_PUBLIC_APP_URL}/pay/${paymentIntent.id}`
+    const paymentUrl = `${getBaseUrl(req)}/pay/${paymentIntent.id}`
 
     // Step 2: Write invoice to Firestore server-side (authenticated as admin)
     try {

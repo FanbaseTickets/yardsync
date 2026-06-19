@@ -396,7 +396,7 @@ export default function ClientsPage() {
           </div>
           <Input
             label={translate('clients', 'address') + ' *'}
-            placeholder="4821 Maple Dr..."
+            placeholder={lang === 'es' ? 'Calle, Ciudad, Estado CP' : 'Street, City, State ZIP'}
             value={form.address}
             onChange={e => setField('address', e.target.value)}
             error={errors.address}
