@@ -141,14 +141,21 @@ Each contractor gets a shareable public intake page at `yardsyncapp.com/join/[sl
 
 ### Crew Tier — Team Photo Hierarchy
 
-For contractors on the Crew plan, the profile and business card system expands to a full team structure:
+> **STATUS — DEFERRED (wait for demand signal).** The Crew Tier subscription does
+> not exist today. YardSync's current pricing is a single $39/mo or $390/yr
+> tier per contractor; there is no team management, no member invitations, no
+> per-seat pricing. Build this feature only when 1-2 paying contractors
+> explicitly request team management for their crew. Until then, the Smart
+> Business Card MVP (Phases A + B above) targets solo operators exclusively.
+
+For contractors on a future Crew plan, the profile and business card system would expand to a full team structure:
 
 **Visual hierarchy:**
 - Business logo (top level — the brand)
 - Owner headshot (second level — the face)
 - Crew member photos (nested — the team)
 
-**How it works:**
+**How it would work:**
 - Owner uploads business logo + personal photo
 - Owner invites crew members via email or phone
 - Each crew member uploads their own headshot
@@ -156,26 +163,41 @@ For contractors on the Crew plan, the profile and business card system expands t
 - Business card PDF shows owner photo + "and my team of X" with crew thumbnails
 - Each crew member gets their own sub-profile visible on the team page
 
-**Why this matters for sales:**
+**Why this matters for sales (when it lands):**
 - A solo operator looks professional
 - A crew operator looks like a business
 - Clients booking recurring service want to know exactly who will be at their home
 - Team visibility builds trust and reduces cancellations ("I know these people")
 - Differentiates YardSync from every other lawn care app — none show the team
 
-**Backlog scores:**
+**Backlog scores (when demand signal arrives):**
 - Profitability: 5 (unlocks Crew tier upgrades)
 - Sales: 5 (strongest visual differentiator)
 - Total: 10
 
-**Dependencies:**
-- Personal photo upload (Phase 2 base feature)
-- Crew member invitation system (new)
-- Sub-profile pages per crew member (new)
-- Crew tier subscription (already priced)
+**Dependencies (none of which exist today — all greenfield when Crew ships):**
+- Crew tier Stripe product + price IDs (NEW — does not exist yet)
+- Crew member invitation system (NEW)
+- Sub-profile pages per crew member (NEW)
+- Personal photo upload on user doc (delivered as part of Smart Business Card Phase B, solo-scope)
 - Nested photo storage in Firebase Storage:
-  - `users/{uid}/photo.jpg` (owner)
-  - `users/{uid}/crew/{memberId}/photo.jpg` (team)
+  - `users/{uid}/photo.jpg` (owner) — delivered with Phase B
+  - `businesses/{businessId}/crew/{memberId}/photo.jpg` (team) — NEW
+
+**Data architecture forward-compat (already designed into Phase A+B):**
+
+So that Crew Tier doesn't require a destructive migration later, Phase A+B's data model follows these principles:
+- `publicSlug` is a query key, not a foreign key. The `/join/[slug]` route does `query users where publicSlug == :slug → resolve owner uid → render their profile`. When Crew ships, a `businesses/{id}` doc is added with its own `slug`; `/join/[slug]` queries businesses first, falls back to users. No client-data migration needed.
+- Clients/invoices/schedules continue to be keyed on `gardenerUid` (the owner's uid). When Crew ships, `gardenerUid` becomes the business owner's uid; new field `businessId` can be added with the same value as `gardenerUid` for legacy docs.
+- The user→business relationship is many-to-many in the future model: a user can own one business AND be a member of another. Their existing client data stays keyed to their own uid; they get access to additional businesses' data via membership.
+
+**Three future-scenario coverage (validates the design above):**
+
+| Scenario | How it works |
+|---|---|
+| Solo grows into crew | Owner's uid stays; they create a business doc, invite members. Existing clients/invoices unchanged (still keyed to owner's uid, which becomes the business's `ownerUid`). |
+| Contractor with existing business joins another crew | They keep their own user doc + existing clients (their own business). They also become a member of the joining business. User is a member of N businesses, but each business's data is keyed to that business's owner uid. |
+| Crew dissolves | Each member is still a valid user. Owner's data stays with owner. Members keep their own data (if they had any). |
 
 ---
 
