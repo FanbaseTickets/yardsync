@@ -425,9 +425,8 @@ export default function CalendarPage() {
           clientEmail,
           clientPhone,
           description: `YardSync invoice — ${clientName}`,
-          gardenerUid: user.uid,
-          clientId: schedule.clientId || null,
-          invoiceType: isWalkIn ? 'addon' : 'recurring',
+          gardenerUid: user.uid,          clientId: schedule.clientId || null,
+          // invoiceType is computed server-side from lineItem categories
           contractorName:  profile?.businessName || profile?.displayName || user?.displayName || '',
           contractorEmail: user?.email || '',
           lang,
@@ -602,7 +601,7 @@ export default function CalendarPage() {
           description: 'YardSync walk-in service invoice',
           gardenerUid: user.uid,
           clientId:    null,
-          invoiceType: 'addon',
+          // invoiceType is computed server-side from lineItem categories
           contractorName:  profile?.businessName || profile?.displayName || user?.displayName || '',
           contractorEmail: user?.email || '',
           lang,

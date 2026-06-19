@@ -3,6 +3,7 @@ import Stripe from 'stripe'
 import { createDocument } from '@/lib/firestoreRest'
 import { sendClientEmail } from '@/lib/email'
 import { getBaseUrl } from '@/lib/baseUrl'
+import { computeInvoiceType } from '@/lib/stripeHelpers'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -114,7 +115,13 @@ export async function POST(req) {
         contractorReceives:    totalCents - applicationFeeAmount,
         status:                'sent',
         paymentPath:           'stripe',
-        invoiceType:           invoiceType || 'recurring',
+        // Compute invoiceType from lineItem categories so a "recurring" client
+        // sending an addon-only invoice (e.g., base covered by the recurring
+        // plan, only extras/materials charged this visit) is correctly tagged
+        // 'addon' rather than inheriting 'recurring' from the client schedule.
+        // Caller can still override via the invoiceType param when needed
+        // (walk-in invoices explicitly pass 'addon').
+        invoiceType:           invoiceType || computeInvoiceType(lineItems),
         createdAt:             new Date().toISOString(),
         lineItems:             lineItems || [],
       })

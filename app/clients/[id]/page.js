@@ -299,7 +299,7 @@ async function handleSendInvoice(channels = 'both') {
         description: `YardSync invoice — ${client.name}`,
         gardenerUid: user.uid,
         clientId: id,
-        invoiceType: 'recurring',
+        // invoiceType is computed server-side from lineItem categories
         contractorName:  profile?.businessName || profile?.displayName || user?.displayName || '',
         contractorEmail: user?.email || '',
         lang,
