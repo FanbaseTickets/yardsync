@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createDocument } from '@/lib/firestoreRest'
 import { sendClientEmail } from '@/lib/email'
+import { getBaseUrl } from '@/lib/baseUrl'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -96,7 +97,7 @@ export async function POST(req) {
       },
     })
 
-    const paymentUrl = `${process.env.NEXT_PUBLIC_APP_URL}/pay/${paymentIntent.id}`
+    const paymentUrl = `${getBaseUrl(req)}/pay/${paymentIntent.id}`
 
     // Step 2: Write invoice to Firestore server-side (authenticated as admin)
     try {
