@@ -254,12 +254,21 @@ export async function POST(request) {
         if (userDoc) {
           const priceId = subscription.items.data[0]?.price?.id
           const plan    = priceId === process.env.STRIPE_PRICE_ANNUAL ? 'annual' : 'monthly'
+          // Persist cancel_at_period_end + cancel_at so the Settings UI can
+          // show a "Subscription ends {date}" banner with a Reactivate
+          // button. Without this, the in-app cancellation toast was the
+          // only feedback and the Cancel link kept showing as if nothing
+          // had happened — risk of confused contractors filing chargebacks.
           await setDocument('users', userDoc.id, {
-            subscriptionPlan:   plan,
-            subscriptionStatus: subscription.status,
-            updatedAt:          new Date().toISOString(),
+            subscriptionPlan:              plan,
+            subscriptionStatus:            subscription.status,
+            subscriptionCancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+            subscriptionCancelAt:          subscription.cancel_at
+              ? new Date(subscription.cancel_at * 1000).toISOString()
+              : null,
+            updatedAt:                     new Date().toISOString(),
           })
-          console.log(`Subscription updated for ${userDoc.id}`)
+          console.log(`Subscription updated for ${userDoc.id} (cancel_at_period_end=${subscription.cancel_at_period_end})`)
         }
         break
       }
@@ -279,9 +288,15 @@ export async function POST(request) {
           status:    'canceled',
           updatedAt: new Date().toISOString(),
         })
+        // Clear the cancel-pending fields — the subscription is fully
+        // canceled now, so the Settings UI should show the standard
+        // "subscription canceled" state rather than the "ends on {date}"
+        // pending banner.
         await setDocument('users', uid, {
-          subscriptionStatus: 'canceled',
-          updatedAt:          new Date().toISOString(),
+          subscriptionStatus:            'canceled',
+          subscriptionCancelAtPeriodEnd: false,
+          subscriptionCancelAt:          null,
+          updatedAt:                     new Date().toISOString(),
         })
 
         console.log(`Subscription canceled for ${uid}`)
