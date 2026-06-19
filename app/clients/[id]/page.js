@@ -40,7 +40,7 @@ export default function ClientDetailPage() {
   const { id }              = useParams()
   const router              = useRouter()
   const searchParams        = useSearchParams()
-  const { user, profile }   = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const { translate, lang } = useLang()
 
   const STATUS_OPTIONS = [
@@ -555,6 +555,7 @@ async function handleSendInvoice(channels = 'both') {
             contractorName={profile?.businessName || profile?.displayName || user?.displayName || 'Your contractor'}
             lang={lang}
             gardenerUid={user?.uid}
+            onSent={() => { if (refreshProfile) refreshProfile().catch(() => {}) }}
           />
 
           {/* Invoice history */}

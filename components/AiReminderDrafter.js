@@ -72,7 +72,7 @@ const T = {
   },
 }
 
-export default function AiReminderDrafter({ client, contractorName, lang = 'en', gardenerUid }) {
+export default function AiReminderDrafter({ client, contractorName, lang = 'en', gardenerUid, onSent }) {
   const t = T[lang] || T.en
 
   const [date,        setDate]        = useState(tomorrowYmd())
@@ -153,6 +153,9 @@ export default function AiReminderDrafter({ client, contractorName, lang = 'en',
       if (!res.ok) throw new Error(data?.error || 'SMS failed')
       toast.success(`${t.smsSent} ✓`)
       setDraft('')
+      // Tell the parent the send completed so it can refresh profile state
+      // (smsSentTotal counter on dashboard + /sms page reads from profile).
+      if (typeof onSent === 'function') onSent()
     } catch (err) {
       toast.error(err.message || 'SMS failed')
     } finally {

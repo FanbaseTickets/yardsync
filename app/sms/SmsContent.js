@@ -187,6 +187,10 @@ async function loadData() {
       }
       toast.success(translate('sms', 'sms_sent_check'))
       loadData()
+      // Refresh profile so the smsSentTotal counter (top of page) reflects
+      // the new value from Firestore. Without this, the counter would stay
+      // stale until the next page refresh or login.
+      if (refreshProfile) refreshProfile().catch(() => {})
     } catch (err) {
       const isConnectionError = !err.message || err.message === 'Failed to fetch'
       toast.error(isConnectionError ? translate('sms', 'not_connected') : err.message)
