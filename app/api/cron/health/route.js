@@ -132,6 +132,25 @@ export async function GET(request) {
     degradedReasons.push('ANTHROPIC_API_KEY not set — AI drafter will fail')
   }
 
+  // ── 6. Connect webhook secret — production only ─────────────────────────
+  // The connect destination (`yardsync-production-connect` in Stripe) signs
+  // `account.updated` events with a separate secret. Without it, the multi-
+  // secret signature verification in /api/stripe/webhook silently 400s every
+  // Stripe Connect event, breaking the Settings banner + admin remediation
+  // widget without surfacing anywhere. Test-mode connect setup is deferred,
+  // so we only enforce this in live mode.
+  const isLiveMode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_')
+  if (isLiveMode) {
+    if (process.env.STRIPE_WEBHOOK_SECRET_CONNECT) {
+      checks.connectWebhook = 'ok'
+    } else {
+      checks.connectWebhook = 'missing STRIPE_WEBHOOK_SECRET_CONNECT'
+      degradedReasons.push('STRIPE_WEBHOOK_SECRET_CONNECT not set — Stripe Connect account.updated events will silently 400')
+    }
+  } else {
+    checks.connectWebhook = 'skipped (not live mode)'
+  }
+
   // ── Determine overall status ───────────────────────────────────────────
   let status = 'healthy'
   if (criticalFailures.length > 0)      status = 'down'

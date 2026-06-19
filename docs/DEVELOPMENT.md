@@ -89,6 +89,80 @@ NODE_OPTIONS=--use-system-ca firebase deploy --only storage
 NODE_OPTIONS=--use-system-ca firebase deploy --only firestore:rules
 ```
 
+## Dev/Prod Environment Matrix
+
+This is the source of truth for which value goes where. Every env var that
+participates in the dev/prod split is listed here. Anything set to "All
+Environments" scope in Vercel overrides the per-environment values via
+JS fallback chains — that's how the 2026-06-18 silent-firestoreRest-failure
+bug happened (see "Known Traps" below).
+
+### Per-environment env vars (split between Production and Preview+Development scopes)
+
+| Variable | Production | Preview + Development |
+|---|---|---|
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | `yardsync-41886` | `yardsync-dev` |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | yardsync-41886 web app key | yardsync-dev web app key |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | `yardsync-41886.firebaseapp.com` | `yardsync-dev.firebaseapp.com` |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | yardsync-41886 bucket | yardsync-dev bucket |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | prod-specific | dev-specific |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | prod-specific | dev-specific |
+| `FIREBASE_ADMIN_PASSWORD` | password for admin@fanbasetickets.net in yardsync-41886 Auth | password for admin@fanbasetickets.net in yardsync-dev Auth |
+| `STRIPE_SECRET_KEY` | `sk_live_...` | `sk_test_...` |
+| `STRIPE_WEBHOOK_SECRET` | live `whsec_...` (platform events) | test `whsec_...` |
+| `STRIPE_WEBHOOK_SECRET_CONNECT` | live `whsec_...` (connect events) | **not set yet** — see "Deferred work" |
+| `STRIPE_PRICE_MONTHLY` | `price_1Tfjx51qcLHs32s2RuiooKwH` | test mode price ID |
+| `STRIPE_PRICE_ANNUAL` | `price_1TfjyH1qcLHs32s2VEIY2KP0` | test mode price ID |
+| `STRIPE_PRICE_SETUP` | `price_1TfjzC1qcLHs32s2eSsZqOAu` | test mode price ID |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `pk_live_...` | `pk_test_...` |
+| `NEXT_PUBLIC_STRIPE_PRICE_MONTHLY` / `_ANNUAL` | live price IDs | test mode price IDs |
+
+### Shared across all environments (single value)
+
+| Variable | Value |
+|---|---|
+| `NEXT_PUBLIC_APP_URL` | `https://yardsyncapp.com` (cron jobs + Twilio callbacks always go here) |
+| `ADMIN_EMAIL`, `NEXT_PUBLIC_ADMIN_EMAIL` | `admin@fanbasetickets.net` |
+| `ADMIN_PHONE_NUMBER` | Jay's mobile |
+| `CRON_SECRET` | shared random 32+ char string |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_MESSAGING_SERVICE_SID` | single Twilio account (no test sub-account split) |
+| `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL` | single SendGrid account |
+| `ANTHROPIC_API_KEY` | single Anthropic key |
+
+### Known Traps
+
+1. **Never set `FIREBASE_API_KEY` (no NEXT_PUBLIC_ prefix) at "All Environments" scope.** `lib/firestoreRest.js` reads
+   `process.env.FIREBASE_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY` — so an All-Environments `FIREBASE_API_KEY`
+   overrides the per-environment one. Result: Preview deploys auth against the prod Firebase project with dev's password
+   → `INVALID_LOGIN_CREDENTIALS` → every server-side Firestore write silently fails inside try/catch. Cron health check
+   catches this now via the `listCollection('users', { limit: 1 })` probe. If `FIREBASE_API_KEY` exists as an env var,
+   it must be scoped per-environment to match `NEXT_PUBLIC_FIREBASE_API_KEY`.
+2. **Stripe webhook destinations have separate signing secrets.** The platform destination (your-account events) and
+   the connect destination (account.updated for connected accounts) get different `whsec_...` from Stripe. The webhook
+   handler at `/api/stripe/webhook` calls `verifyWebhookSignature()` which tries each configured secret in turn — so
+   set BOTH `STRIPE_WEBHOOK_SECRET` and `STRIPE_WEBHOOK_SECRET_CONNECT` in any environment that has both destinations
+   configured.
+3. **`NEXT_PUBLIC_APP_URL` is shared across environments.** Server-initiated calls (cron jobs, webhook admin SMS) embed
+   this URL into messages. Production-scoped value is correct since those calls always fire from production. Avoid
+   making this per-environment — would break cron-embedded URLs.
+
+### Deferred work
+
+These setup items are deferred until Preview-side testing becomes a higher priority. The current Production setup
+works end-to-end; only Preview test-mode webhook side-effects are affected.
+
+- **Stable Preview URL alias** (e.g. `dev.yardsyncapp.com` via Vercel domain config). Stripe webhook destinations need
+  a deterministic URL to point at — they can't follow the per-deploy `yardsync-{hash}.vercel.app` pattern.
+- **Test-mode Stripe webhook destinations** (`yardsync-test` for your-account events, `yardsync-test-connect` for
+  account.updated). The old `dynamic-bliss` destination was auto-disabled by Stripe after delivery failures (pointed
+  at the prod URL, so test-mode signatures got 400'd by the live signing secret).
+- **`STRIPE_WEBHOOK_SECRET_CONNECT` in Preview/Development scope.** Set once the test-mode connect destination above
+  is created.
+- **`getBaseUrl` generalization across remaining sites.** Currently used by `/api/stripe/checkout` and
+  `/api/stripe/invoice` (Preview-aware redirects/payment URLs). The other ~5 sites (`lib/sms.js`,
+  `/api/twilio/send`, cron routes) still use `NEXT_PUBLIC_APP_URL` directly because those are server-initiated and
+  should embed the production URL. Only worth changing once Preview-side SMS testing is wired up.
+
 ## Common Issues
 
 ### Stripe "No such price" error
