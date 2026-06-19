@@ -12,7 +12,7 @@ import PhoneInput from '@/components/ui/PhoneInput'
 import LogoUpload from '@/components/ui/LogoUpload'
 import { saveGardenerProfile, getGardenerProfile, getFeePayments, saveFeePayment, markQuarterFeesCollected, getQuarterlyFeesOwed, getInvoices } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
-import { Bell, Globe, User, Clock, BarChart2, CreditCard, Link2, Wallet, CheckCircle2, ArrowUpCircle, TrendingUp, Lock, Zap, LogOut } from 'lucide-react'
+import { Bell, Globe, User, Clock, BarChart2, CreditCard, Link2, Wallet, CheckCircle2, ArrowUpCircle, TrendingUp, Lock, Zap, LogOut, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 function getReminderOptions(translate) {
@@ -43,6 +43,7 @@ export default function SettingsPage() {
   const [monthlyVolume,    setMonthlyVolume]    = useState(0)
   const [showCancelModal,  setShowCancelModal]  = useState(false)
   const [canceling,        setCanceling]        = useState(false)
+  const [reactivating,     setReactivating]     = useState(false)
 
   const [form,    setForm]    = useState({
     name:           '',
@@ -397,9 +398,12 @@ export default function SettingsPage() {
       if (!res.ok) throw new Error(data.error)
 
       const cancelDate = new Date((data.cancelAt || data.currentPeriodEnd) * 1000)
+      // Optimistic local write so the UI flips to the "pending cancellation"
+      // state immediately. The Stripe customer.subscription.updated webhook
+      // will then write the same fields server-side (canonical source).
       await saveGardenerProfile(user.uid, {
-        subscriptionStatus: 'canceling',
-        cancelAt: cancelDate.toISOString(),
+        subscriptionCancelAtPeriodEnd: true,
+        subscriptionCancelAt:          cancelDate.toISOString(),
       })
       await refreshProfile()
       const dateStr = cancelDate.toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -411,6 +415,37 @@ export default function SettingsPage() {
       toast.error(err.message || (lang === 'es' ? 'Error al cancelar' : 'Failed to cancel'))
     } finally {
       setCanceling(false)
+    }
+  }
+
+  async function handleReactivateSubscription() {
+    setReactivating(true)
+    try {
+      const res = await fetch('/api/stripe/reactivate-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stripeSubscriptionId: profile?.stripeSubscriptionId,
+          stripeCustomerId:     profile?.stripeCustomerId,
+          plan:                 profile?.subscriptionPlan || 'monthly',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+
+      // Optimistic local clear — webhook will confirm via subscription.updated
+      await saveGardenerProfile(user.uid, {
+        subscriptionCancelAtPeriodEnd: false,
+        subscriptionCancelAt:          null,
+      })
+      await refreshProfile()
+      toast.success(lang === 'es'
+        ? 'Suscripción reactivada'
+        : 'Subscription reactivated')
+    } catch (err) {
+      toast.error(err.message || (lang === 'es' ? 'Error al reactivar' : 'Failed to reactivate'))
+    } finally {
+      setReactivating(false)
     }
   }
 
@@ -921,8 +956,45 @@ export default function SettingsPage() {
             {translate('settings', 'save')}
           </Button>
 
-          {/* Cancel subscription */}
-          {profile?.subscriptionStatus === 'active' && profile?.stripeSubscriptionId && (
+          {/* Pending-cancellation banner — shows when subscription will end
+              at period end but hasn't been finalized yet. Replaces the
+              "Cancel subscription" link with a date + Reactivate CTA. */}
+          {profile?.subscriptionCancelAtPeriodEnd && profile?.subscriptionCancelAt && (
+            <div className="pt-4 border-t border-gray-100 mt-4">
+              <Card className="border-amber-200 bg-amber-50">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-[13px] font-medium text-amber-800">
+                      {lang === 'es' ? 'Cancelación pendiente' : 'Cancellation pending'}
+                    </p>
+                    <p className="text-[12px] text-amber-700 mt-1">
+                      {(() => {
+                        const d = new Date(profile.subscriptionCancelAt)
+                        const dateStr = d.toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                        return lang === 'es'
+                          ? `Tu acceso continúa hasta el ${dateStr}. Después de esa fecha, tu cuenta será de solo lectura.`
+                          : `Your access continues until ${dateStr}. After that date, your account will be read-only.`
+                      })()}
+                    </p>
+                    <Button
+                      fullWidth
+                      className="mt-3"
+                      loading={reactivating}
+                      onClick={handleReactivateSubscription}
+                    >
+                      {lang === 'es' ? 'Reactivar suscripción' : 'Reactivate subscription'}
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Cancel subscription link — hidden when cancellation already pending */}
+          {profile?.subscriptionStatus === 'active'
+            && profile?.stripeSubscriptionId
+            && !profile?.subscriptionCancelAtPeriodEnd && (
             <div className="pt-4 border-t border-gray-100 mt-4">
               <p className="text-[11px] text-gray-400 text-center mb-1">
                 {lang === 'es' ? '¿Necesitas irte?' : 'Need to leave?'}
