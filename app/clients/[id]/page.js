@@ -326,7 +326,7 @@ async function handleSendInvoice(channels = 'both') {
       fetch('/api/twilio/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientPhone: client.phone, message: smsBody }),
+        body: JSON.stringify({ clientPhone: client.phone, message: smsBody, gardenerUid: user?.uid }),
       }).catch(err => console.error('Invoice SMS failed (non-fatal):', err))
     }
 
@@ -528,6 +528,18 @@ async function handleSendInvoice(channels = 'both') {
                 : translate('client_detail', 'send_invoice')}
             </Button>
 
+            {!isOnetime && (
+              <Button
+                fullWidth
+                variant="secondary"
+                className="mt-2"
+                icon={CalendarDays}
+                onClick={() => router.push(`/calendar?client=${id}`)}
+              >
+                {lang === 'es' ? 'Programar visitas' : 'Schedule visits'}
+              </Button>
+            )}
+
             {isOnetime && (
               <p className="text-[11px] text-center text-gray-400 mt-2">
                 {lang === 'es'
@@ -542,6 +554,7 @@ async function handleSendInvoice(channels = 'both') {
             client={client}
             contractorName={profile?.businessName || profile?.displayName || user?.displayName || 'Your contractor'}
             lang={lang}
+            gardenerUid={user?.uid}
           />
 
           {/* Invoice history */}

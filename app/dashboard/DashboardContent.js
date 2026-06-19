@@ -158,7 +158,11 @@ export default function DashboardPage() {
       return d.getMonth() === new Date().getMonth()
     })
     .reduce((sum, inv) => sum + (inv.totalCents || 0), 0)
-  const smsSentTotal = todayJobs.filter(j => j.smsSent).length
+  // Lifetime SMS count — incremented by /api/twilio/send on every successful
+  // outbound message. Previously this counted only today's scheduled jobs
+  // with smsSent=true, which undercounted any send that didn't update a
+  // schedule (e.g. AI-drafted reminders, invoice payment links).
+  const smsSentTotal = profile?.smsSentTotal || 0
   const clientMap    = Object.fromEntries(clients.map(c => [c.id, c]))
   const unpaidCount  = invoices.filter(i => i.status === 'unpaid').length
   const recentInvoices = [...invoices]

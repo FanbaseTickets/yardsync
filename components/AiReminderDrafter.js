@@ -72,7 +72,7 @@ const T = {
   },
 }
 
-export default function AiReminderDrafter({ client, contractorName, lang = 'en' }) {
+export default function AiReminderDrafter({ client, contractorName, lang = 'en', gardenerUid }) {
   const t = T[lang] || T.en
 
   const [date,        setDate]        = useState(tomorrowYmd())
@@ -137,14 +137,16 @@ export default function AiReminderDrafter({ client, contractorName, lang = 'en' 
     setSending(true)
     try {
       // TODO(v2): when this drafter is reached from a scheduled appointment,
-      // pass scheduleId + clientId so /api/twilio/send appends the calendar link.
+      // pass scheduleId so /api/twilio/send appends the calendar link.
       const res = await fetch('/api/twilio/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          clientId:    client?.id || null,
           clientPhone: client.phone,
-          message: draft.trim(),
+          message:     draft.trim(),
           language,
+          gardenerUid,
         }),
       })
       const data = await res.json().catch(() => ({}))
