@@ -10,9 +10,9 @@ import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Input, Select } from '@/components/ui'
 import PhoneInput from '@/components/ui/PhoneInput'
 import LogoUpload from '@/components/ui/LogoUpload'
-import { saveGardenerProfile, getGardenerProfile, getFeePayments, saveFeePayment, markQuarterFeesCollected, getQuarterlyFeesOwed, getInvoices } from '@/lib/db'
+import { saveGardenerProfile, getGardenerProfile, getInvoices } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
-import { Bell, Globe, User, Clock, BarChart2, CreditCard, Link2, Wallet, CheckCircle2, ArrowUpCircle, TrendingUp, Lock, Zap, LogOut, AlertTriangle } from 'lucide-react'
+import { Bell, Globe, User, Clock, CreditCard, Link2, CheckCircle2, ArrowUpCircle, TrendingUp, Lock, Zap, LogOut, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 function getReminderOptions(translate) {
@@ -33,11 +33,6 @@ const LANGUAGE_OPTIONS = [
 export default function SettingsPage() {
   const { user, profile, refreshProfile, signOut } = useAuth()
   const { translate, lang } = useLang()
-  const [cardLoading,    setCardLoading]    = useState(false)
-  const [showCardModal,  setShowCardModal]  = useState(false)
-  const [cardError,      setCardError]      = useState('')
-  const [payingQuarter, setPayingQuarter] = useState(null)
-  const [quarterFees,   setQuarterFees]   = useState([])
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [upgrading,        setUpgrading]        = useState(false)
   const [monthlyVolume,    setMonthlyVolume]    = useState(0)
@@ -79,28 +74,9 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (user) {
-      loadFeeData()
       loadMonthlyVolume()
     }
   }, [user])
-
-  async function loadFeeData() {
-    try {
-      const payments = await getFeePayments(user.uid)
-      const now = new Date()
-      const year = now.getFullYear()
-      const fees = []
-      for (let q = 1; q <= 4; q++) {
-        const label = `Q${q}`
-        const { totalFees, invoiceCount } = await getQuarterlyFeesOwed(user.uid, label, year)
-        const paid = payments.find(p => p.quarter === label && p.year === year && (p.status === 'paid' || p.status === 'auto_charged'))
-        fees.push({ label, year, totalFees, invoiceCount, paid: !!paid, paidAt: paid?.paidAt })
-      }
-      setQuarterFees(fees)
-    } catch (err) {
-      console.error('Failed to load fee data:', err)
-    }
-  }
 
   async function loadMonthlyVolume() {
     try {
@@ -120,184 +96,6 @@ export default function SettingsPage() {
       setMonthlyVolume(total)
     } catch (err) {
       console.error('Failed to load monthly volume:', err)
-    }
-  }
-
-  async function handleSetupCard() {
-    setCardLoading(true)
-    setCardError('')
-    try {
-      // Step 1: Get SetupIntent from our API
-      const res = await fetch('/api/stripe/setup-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          gardenerUid: user.uid,
-          email: profile?.email || user.email,
-          name: profile?.name || '',
-          stripeCustomerId: profile?.stripeCustomerId || null,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to create setup intent')
-
-      // Save Stripe customer ID if new
-      if (!profile?.stripeCustomerId && data.stripeCustomerId) {
-        await saveGardenerProfile(user.uid, { stripeCustomerId: data.stripeCustomerId })
-        await refreshProfile()
-      }
-
-      // Step 2: Load Stripe.js and confirm with card details
-      const { loadStripe } = await import('@stripe/stripe-js')
-      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
-      if (!stripe) throw new Error('Stripe failed to load')
-
-      // Create a card element for secure collection
-      const elements = stripe.elements({ clientSecret: data.clientSecret })
-      const cardElement = elements.create('card', {
-        style: {
-          base: { fontSize: '14px', color: '#1f2937', '::placeholder': { color: '#9ca3af' } },
-        },
-      })
-
-      // Mount into the modal's card container
-      const container = document.getElementById('stripe-card-element')
-      if (!container) throw new Error('Card container not found')
-      cardElement.mount(container)
-
-      // Wait for user to submit via the modal's confirm button
-      setCardLoading(false)
-      window.__stripeCardElement = cardElement
-      window.__stripeInstance = stripe
-      window.__setupClientSecret = data.clientSecret
-      window.__stripeCustomerId = data.stripeCustomerId || profile?.stripeCustomerId
-    } catch (err) {
-      toast.error(err.message || 'Could not set up payment method. Please try again.')
-      setCardLoading(false)
-      setShowCardModal(false)
-    }
-  }
-
-  async function handleConfirmCard() {
-    setCardLoading(true)
-    setCardError('')
-    try {
-      const stripe = window.__stripeInstance
-      const cardElement = window.__stripeCardElement
-      const clientSecret = window.__setupClientSecret
-
-      if (!stripe || !cardElement || !clientSecret) throw new Error('Card session expired. Please try again.')
-
-      const { error, setupIntent } = await stripe.confirmCardSetup(clientSecret, {
-        payment_method: { card: cardElement },
-      })
-
-      if (error) throw new Error(error.message)
-
-      if (setupIntent.status === 'succeeded' && setupIntent.payment_method) {
-        // Step 3: Save the payment method via our API
-        const saveRes = await fetch('/api/stripe/payment-method', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            stripeCustomerId: window.__stripeCustomerId,
-            paymentMethodId: setupIntent.payment_method,
-          }),
-        })
-        const saveData = await saveRes.json()
-        if (!saveRes.ok) throw new Error(saveData.error || 'Failed to save card')
-
-        // Save card display info to Firestore (safe — not sensitive data)
-        await saveGardenerProfile(user.uid, {
-          stripePaymentMethodId: saveData.paymentMethodId,
-          cardLast4: saveData.last4,
-          cardBrand: saveData.brand,
-        })
-        await refreshProfile()
-        toast.success(lang === 'es' ? 'Tarjeta guardada!' : 'Card saved!')
-        setShowCardModal(false)
-      } else {
-        throw new Error('Card setup did not complete')
-      }
-    } catch (err) {
-      setCardError(err.message)
-      toast.error(err.message || 'Could not set up payment method. Please try again.')
-    } finally {
-      setCardLoading(false)
-      window.__stripeCardElement = null
-      window.__stripeInstance = null
-      window.__setupClientSecret = null
-      window.__stripeCustomerId = null
-    }
-  }
-
-  async function handleRemoveCard() {
-    if (!profile?.stripePaymentMethodId) return
-    setCardLoading(true)
-    try {
-      const res = await fetch('/api/stripe/payment-method', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentMethodId: profile.stripePaymentMethodId }),
-      })
-      if (!res.ok) throw new Error('Failed to remove card')
-      await saveGardenerProfile(user.uid, {
-        stripePaymentMethodId: null,
-        cardLast4: null,
-        cardBrand: null,
-      })
-      await refreshProfile()
-      toast.success(lang === 'es' ? 'Tarjeta eliminada' : 'Card removed')
-    } catch (err) {
-      toast.error(err.message)
-    } finally {
-      setCardLoading(false)
-    }
-  }
-
-  async function handlePayQuarter(qFee) {
-    if (!profile?.stripeCustomerId || !profile?.stripePaymentMethodId) {
-      toast.error(lang === 'es' ? 'Agrega una tarjeta primero' : 'Add a card first')
-      return
-    }
-    setPayingQuarter(qFee.label)
-    try {
-      const res = await fetch('/api/stripe/charge-fees', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          gardenerUid: user.uid,
-          quarter: qFee.label,
-          year: qFee.year,
-          amountCents: qFee.totalFees,
-          stripeCustomerId: profile.stripeCustomerId,
-          stripePaymentMethodId: profile.stripePaymentMethodId,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-
-      // Save fee payment + mark invoices collected (client-side)
-      await saveFeePayment({
-        gardenerUid: user.uid,
-        quarter: qFee.label,
-        year: qFee.year,
-        amountCents: qFee.totalFees,
-        stripePaymentIntentId: data.paymentIntentId,
-        status: 'paid',
-        chargeMethod: 'manual',
-        paidAt: new Date().toISOString(),
-      })
-      await markQuarterFeesCollected(user.uid, qFee.label, qFee.year, data.paymentIntentId)
-
-      toast.success(lang === 'es'
-        ? `Pago de ${formatCents(qFee.totalFees)} procesado para ${qFee.label}`
-        : `Payment of ${formatCents(qFee.totalFees)} processed for ${qFee.label}`)
-      loadFeeData()
-    } catch (err) {
-      toast.error(err.message || 'Payment failed')
-    } finally {
-      setPayingQuarter(null)
     }
   }
 
@@ -928,125 +726,6 @@ export default function SettingsPage() {
             </section>
           )}
 
-          {/* Card on File — only for non-Stripe users */}
-          {false && <section>
-            <div className="flex items-center gap-2 mb-3">
-              <Wallet size={14} className="text-brand-600" />
-              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
-                {lang === 'es' ? 'Método de Pago' : 'Payment Method'}
-              </p>
-            </div>
-            <Card>
-              {profile?.cardLast4 ? (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-7 rounded bg-gray-100 flex items-center justify-center text-[11px] font-bold text-gray-500">
-                      {profile.cardBrand?.toUpperCase() || 'CARD'}
-                    </div>
-                    <div>
-                      <p className="text-[13px] font-medium text-gray-800">
-                        •••• •••• •••• {profile.cardLast4}
-                      </p>
-                      <p className="text-[11px] text-green-600 font-medium">
-                        {lang === 'es' ? 'Tarjeta activa' : 'Card on file'}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleRemoveCard}
-                    disabled={cardLoading}
-                    className="text-[12px] text-red-400 hover:text-red-500 font-medium"
-                  >
-                    {lang === 'es' ? 'Eliminar' : 'Remove'}
-                  </button>
-                </div>
-              ) : (
-                <div>
-                  <p className="text-[13px] text-gray-600 mb-3">
-                    {lang === 'es'
-                      ? 'Agrega una tarjeta para pagar tus tarifas de plataforma automáticamente.'
-                      : 'Add a card to pay your platform fees automatically.'}
-                  </p>
-                  <Button
-                    fullWidth
-                    variant="secondary"
-                    loading={cardLoading}
-                    onClick={() => {
-                      setShowCardModal(true)
-                      setCardError('')
-                      // Delay to let modal render, then init Stripe
-                      setTimeout(() => handleSetupCard(), 300)
-                    }}
-                  >
-                    <CreditCard size={14} /> {lang === 'es' ? 'Agregar tarjeta' : 'Add Payment Card'}
-                  </Button>
-                  <p className="text-[10px] text-gray-400 mt-2 text-center">
-                    {lang === 'es'
-                      ? 'Procesado de forma segura por Stripe. YardSync nunca almacena datos de tarjeta.'
-                      : 'Securely processed by Stripe. YardSync never stores card data.'}
-                  </p>
-                </div>
-              )}
-            </Card>
-          </section>}
-
-          {/* Quarterly Platform Fees — only for non-Stripe users */}
-          {false && <section>
-            <div className="flex items-center gap-2 mb-3">
-              <BarChart2 size={14} className="text-brand-600" />
-              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
-                {lang === 'es' ? 'Tarifas Trimestrales' : 'Quarterly Platform Fees'}
-              </p>
-            </div>
-            <Card>
-              <p className="text-[12px] text-gray-500 mb-3">
-                {lang === 'es'
-                  ? 'Estas tarifas se incluyen automáticamente en cada factura. Paga al final de cada trimestre.'
-                  : 'These fees are automatically included in each invoice. Pay at the end of each quarter.'}
-              </p>
-              <div className="space-y-2">
-                {quarterFees.map(qf => (
-                  <div key={qf.label} className={`rounded-xl p-3 border ${qf.paid ? 'bg-green-50 border-green-100' : qf.totalFees > 0 ? 'bg-amber-50 border-amber-100' : 'bg-gray-50 border-gray-100'}`}>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-[13px] font-semibold text-gray-800">{qf.label} {qf.year}</p>
-                        {qf.paid ? (
-                          <p className="text-[11px] text-green-600 font-medium flex items-center gap-1">
-                            <CheckCircle2 size={10} /> {lang === 'es' ? 'Pagado' : 'Paid'}
-                            {qf.paidAt && ` · ${new Date(qf.paidAt).toLocaleDateString()}`}
-                          </p>
-                        ) : qf.totalFees > 0 ? (
-                          <p className="text-[11px] text-amber-700">
-                            {formatCents(qf.totalFees)} · {qf.invoiceCount} {lang === 'es' ? 'facturas' : 'invoices'}
-                          </p>
-                        ) : (
-                          <p className="text-[11px] text-gray-400">{lang === 'es' ? 'Sin tarifas' : 'No fees'}</p>
-                        )}
-                      </div>
-                      {!qf.paid && qf.totalFees > 0 && (
-                        <Button
-                          size="sm"
-                          loading={payingQuarter === qf.label}
-                          onClick={() => handlePayQuarter(qf)}
-                          disabled={!profile?.stripePaymentMethodId}
-                        >
-                          {profile?.stripePaymentMethodId
-                            ? (lang === 'es' ? 'Pagar' : 'Pay Now')
-                            : (lang === 'es' ? 'Agrega tarjeta' : 'Add Card')}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <p className="text-[11px] text-gray-400 mt-3">
-                {lang === 'es'
-                  ? '📲 Recibirás un recordatorio por SMS 30 días antes del cierre de cada trimestre.'
-                  : '📲 You\'ll receive an SMS reminder 30 days before each quarter ends.'}
-              </p>
-            </Card>
-          </section>}
-
           <Button fullWidth size="lg" loading={saving} onClick={handleSave}>
             {translate('settings', 'save')}
           </Button>
@@ -1120,48 +799,6 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Card Setup Modal */}
-      {showCardModal && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
-            <p className="text-[16px] font-semibold text-gray-900 mb-1">
-              {lang === 'es' ? 'Agregar tarjeta de pago' : 'Add Payment Card'}
-            </p>
-            <p className="text-[12px] text-gray-500 mb-4">
-              {lang === 'es'
-                ? 'Tu tarjeta se almacena de forma segura con Stripe.'
-                : 'Your card is securely stored with Stripe.'}
-            </p>
-            <div
-              id="stripe-card-element"
-              className="border border-gray-200 rounded-xl px-4 py-3.5 mb-3 min-h-[44px] bg-gray-50"
-            />
-            {cardError && (
-              <p className="text-[12px] text-red-600 mb-3">{cardError}</p>
-            )}
-            <p className="text-[10px] text-gray-400 mb-4">
-              {lang === 'es'
-                ? 'YardSync nunca almacena los datos completos de tu tarjeta.'
-                : 'YardSync never stores your full card details.'}
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => { setShowCardModal(false); setCardError('') }}
-                className="flex-1 text-[14px] text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl py-3 font-medium transition-colors"
-              >
-                {translate('common', 'cancel')}
-              </button>
-              <button
-                onClick={handleConfirmCard}
-                disabled={cardLoading}
-                className="flex-1 text-[14px] text-white bg-brand-600 hover:bg-brand-700 rounded-xl py-3 font-medium transition-colors disabled:opacity-50"
-              >
-                {cardLoading ? '...' : (lang === 'es' ? 'Guardar tarjeta' : 'Save Card')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Upgrade to Annual Modal */}
       {showUpgradeModal && (
