@@ -10,7 +10,7 @@ import {
   Shield, LogOut, Users, DollarSign,
   TrendingUp, AlertCircle, RefreshCw,
   ChevronDown, ChevronUp, CheckCircle, Plus, Calendar, Download, Clock,
-  CreditCard, AlertOctagon, History, Zap, Mail, FileSpreadsheet
+  CreditCard, AlertOctagon, History, Zap, Mail, FileSpreadsheet, Send
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { fmt as format } from '@/lib/date'
@@ -514,6 +514,12 @@ export default function AdminDashboard() {
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
+
+        {/* Stripe Requirements — contractors flagged by Stripe for KYC info.
+            Surfaces account.updated webhook data so Jay can proactively
+            send remediation links instead of contractors discovering
+            blocked payouts only when their money stops flowing. */}
+        <StripeRequirementsWidget gardeners={gardeners} user={user} />
 
         {/* Pending Pro Setups — alert widget */}
         {(() => {
@@ -1137,6 +1143,151 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Surfaces contractors flagged by Stripe with outstanding KYC requirements
+ * (currently_due or past_due — eventually_due is intentionally excluded
+ * since it's non-blocking). Renders nothing when no contractors are flagged.
+ *
+ * "Send remediation link" calls /api/admin/send-stripe-remediation, which
+ * generates a Stripe-hosted AccountLink for the contractor and notifies
+ * them via SMS + email. Until this widget shipped, the only way to surface
+ * KYC needs was to open the Stripe Dashboard manually and notice the
+ * orange badge on the connected account.
+ */
+function StripeRequirementsWidget({ gardeners, user }) {
+  const [sendingUid, setSendingUid] = useState(null)
+  const [sentMap,    setSentMap]    = useState({})
+
+  const flagged = gardeners.filter(g => {
+    const due  = Array.isArray(g.stripeRequirementsCurrentlyDue) ? g.stripeRequirementsCurrentlyDue : []
+    const past = Array.isArray(g.stripeRequirementsPastDue)      ? g.stripeRequirementsPastDue      : []
+    return (due.length + past.length) > 0
+  })
+
+  if (flagged.length === 0) return null
+
+  async function handleSendLink(gardener) {
+    if (!user) return
+    setSendingUid(gardener.id)
+    try {
+      const idToken = await user.getIdToken()
+      const res = await fetch('/api/admin/send-stripe-remediation', {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ contractorUid: gardener.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to send')
+      const parts = []
+      if (data.smsSent)   parts.push('SMS')
+      if (data.emailSent) parts.push('email')
+      const via = parts.length > 0 ? ` via ${parts.join(' + ')}` : ''
+      toast.success(`Sent${via}`)
+      setSentMap(m => ({ ...m, [gardener.id]: new Date().toISOString() }))
+    } catch (err) {
+      toast.error(err.message || 'Failed to send')
+    } finally {
+      setSendingUid(null)
+    }
+  }
+
+  // Compact display: collapse the technical Stripe field paths into a
+  // human-readable summary string (e.g. "Last 4 of SSN, Date of birth").
+  function summarize(paths, lang = 'en') {
+    if (!Array.isArray(paths) || paths.length === 0) return ''
+    const labels = []
+    const seen = new Set()
+    for (const p of paths) {
+      const groupKey =
+        p.startsWith('individual.dob.')      ? 'dob' :
+        p.startsWith('individual.address.')  ? 'address' :
+        p === 'individual.first_name' || p === 'individual.last_name' ? 'name' :
+        p === 'tos_acceptance.date' || p === 'tos_acceptance.ip' ? 'tos' :
+        p
+      if (seen.has(groupKey)) continue
+      seen.add(groupKey)
+      const labelMap = {
+        'individual.ssn_last_4': 'Last 4 of SSN',
+        'individual.id_number':  'SSN/Tax ID',
+        'individual.phone':      'Phone',
+        'individual.email':      'Email',
+        'external_account':      'Bank account',
+        dob:     'DOB',
+        address: 'Address',
+        name:    'Legal name',
+        tos:     'ToS',
+      }
+      labels.push(labelMap[groupKey] || labelMap[p] || p)
+    }
+    return labels.join(', ')
+  }
+
+  return (
+    <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-5">
+      <div className="flex items-start gap-4">
+        <div className="w-12 h-12 rounded-xl bg-red-500/20 flex items-center justify-center flex-shrink-0">
+          <AlertOctagon size={22} className="text-red-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-[16px] font-bold text-red-300">
+              {flagged.length} contractor{flagged.length === 1 ? '' : 's'} needs Stripe info
+            </p>
+            <span className="text-[10px] bg-red-500/30 text-red-200 px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">
+              Payouts at risk
+            </span>
+          </div>
+          <p className="text-[12px] text-red-200/80 mt-1">
+            Send a remediation link to keep their payouts flowing. Link is also delivered via SMS + email.
+          </p>
+          <div className="mt-3 space-y-1.5">
+            {flagged.slice(0, 10).map(g => {
+              const allPaths = [
+                ...(g.stripeRequirementsCurrentlyDue || []),
+                ...(g.stripeRequirementsPastDue || []),
+              ]
+              const summary = summarize(allPaths)
+              const sentAt = sentMap[g.id]
+              return (
+                <div
+                  key={g.id}
+                  className="flex items-center justify-between bg-red-500/5 border border-red-500/20 rounded-lg px-3 py-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-semibold text-white truncate">{g.name || 'Unknown'}</p>
+                    <p className="text-[11px] text-red-200/70 truncate">{summary || g.id}</p>
+                    {sentAt && (
+                      <p className="text-[10px] text-green-400/80 mt-0.5">
+                        Sent {new Date(sentAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleSendLink(g)}
+                    disabled={sendingUid === g.id}
+                    className="ml-3 flex items-center gap-1.5 text-[12px] bg-red-500/30 hover:bg-red-500/50 text-red-100 font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 flex-shrink-0"
+                  >
+                    <Send size={12} />
+                    {sendingUid === g.id ? 'Sending…' : (sentAt ? 'Resend' : 'Send link')}
+                  </button>
+                </div>
+              )
+            })}
+            {flagged.length > 10 && (
+              <p className="text-[11px] text-red-200/60 text-center pt-1">
+                +{flagged.length - 10} more — full list in the contractor table below
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

@@ -6,6 +6,41 @@ import { getSubscriptionPeriodEndISO } from '@/lib/stripeHelpers'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
+/**
+ * Verify a Stripe webhook signature against multiple possible secrets.
+ *
+ * Modern Stripe Workbench issues a separate signing secret per destination,
+ * so platform-account events and connected-account events come signed with
+ * different secrets even when both destinations point to the same URL.
+ * We try each configured secret in turn and return the first event that
+ * verifies — or throw if none do.
+ *
+ * Order: STRIPE_WEBHOOK_SECRET (platform events, present in every env)
+ *        STRIPE_WEBHOOK_SECRET_CONNECT (connected-account events, optional —
+ *        skipped if env var is unset, e.g. in environments that don't yet
+ *        have the connect destination configured in Stripe Dashboard).
+ */
+function verifyWebhookSignature(body, signature) {
+  const secrets = [
+    process.env.STRIPE_WEBHOOK_SECRET,
+    process.env.STRIPE_WEBHOOK_SECRET_CONNECT,
+  ].filter(Boolean)
+
+  if (secrets.length === 0) {
+    throw new Error('No STRIPE_WEBHOOK_SECRET configured')
+  }
+
+  let lastErr
+  for (const secret of secrets) {
+    try {
+      return stripe.webhooks.constructEvent(body, signature, secret)
+    } catch (err) {
+      lastErr = err
+    }
+  }
+  throw lastErr || new Error('Webhook signature did not verify against any configured secret')
+}
+
 export async function POST(request) {
   console.log('Webhook received:', request.headers.get('stripe-signature') ? 'has signature' : 'no signature')
   const body      = await request.text()
@@ -13,11 +48,7 @@ export async function POST(request) {
 
   let event
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET
-    )
+    event = verifyWebhookSignature(body, signature)
   } catch (err) {
     console.error('Webhook signature error:', err.message)
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
@@ -293,6 +324,46 @@ export async function POST(request) {
         })
 
         console.log(`Subscription canceled for ${uid}`)
+        break
+      }
+
+      /* ── account.updated ─────────────────────────
+         Fires whenever a Stripe Connect connected account changes —
+         most importantly when its `requirements.currently_due` /
+         `eventually_due` arrays change as Stripe asks for KYC info
+         (SSN last 4, DOB, bank account, etc.) or accepts what we sent.
+         Persisting these to the user doc lets:
+           - The contractor's Settings page show a "Stripe needs more
+             info" banner with a Complete-on-Stripe button.
+           - The admin dashboard surface a "Contractors needing Stripe
+             info" widget so Jay can proactively send remediation links.
+         Without this handler, contractors fly blind on KYC needs and
+         only discover them when payouts get blocked.
+      */
+      case 'account.updated': {
+        const account = event.data.object
+        if (account?.object !== 'account') break
+        const accountId = account.id
+        if (!accountId) break
+
+        const userDoc = await queryCollection('users', 'stripeAccountId', accountId)
+        if (!userDoc) {
+          console.warn(`[webhook] account.updated: no user with stripeAccountId=${accountId}`)
+          break
+        }
+
+        const reqs = account.requirements || {}
+        await setDocument('users', userDoc.id, {
+          stripeRequirementsCurrentlyDue:    Array.isArray(reqs.currently_due)    ? reqs.currently_due    : [],
+          stripeRequirementsEventuallyDue:   Array.isArray(reqs.eventually_due)   ? reqs.eventually_due   : [],
+          stripeRequirementsPastDue:         Array.isArray(reqs.past_due)         ? reqs.past_due         : [],
+          stripeRequirementsDisabledReason:  reqs.disabled_reason || null,
+          stripeChargesEnabled:              account.charges_enabled || false,
+          stripePayoutsEnabled:              account.payouts_enabled || false,
+          stripeRequirementsUpdatedAt:       new Date().toISOString(),
+          updatedAt:                         new Date().toISOString(),
+        })
+        console.log(`account.updated persisted for ${userDoc.id} — currently_due: ${reqs.currently_due?.length || 0}, past_due: ${reqs.past_due?.length || 0}`)
         break
       }
 
