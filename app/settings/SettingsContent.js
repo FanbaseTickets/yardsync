@@ -50,8 +50,24 @@ export default function SettingsPage() {
     smsTemplate:    '',
     smsTemplateEs:  '',
     logoUrl:        '',
+    // Smart Business Card fields (see docs/SMART_BUSINESS_CARD_SPEC.md §1.1):
+    bio:                  '',     // free-text description shown on /join/[slug]
+    tagline:              '',     // one-line selling line for the card
+    accentColor:          '',     // hex color for card branding ('' = use YardSync default)
+    serviceArea:          '',     // free-text "San Antonio & NE suburbs"
+    upfrontDeadlineHours: 24,     // global default for upfront billing (1-168, default 24)
   })
   const [saving, setSaving] = useState(false)
+
+  // Slug state lives outside `form` because slug changes need their own
+  // generate/check/save lifecycle (debounced availability check, reserved
+  // word validation, collision suffix) separate from the rest of the form.
+  const [slugGenerating, setSlugGenerating] = useState(false)
+  const [slugEditing,    setSlugEditing]    = useState(false)
+  const [slugDraft,      setSlugDraft]      = useState('')
+  const [slugCheckState, setSlugCheckState] = useState('idle') // 'idle' | 'checking' | 'available' | 'taken' | 'invalid'
+  const [slugCheckError, setSlugCheckError] = useState(null)   // error code from validateSlug or 'taken'
+  const [slugSaving,     setSlugSaving]     = useState(false)
 
   useEffect(() => {
     if (profile) {
@@ -64,7 +80,13 @@ export default function SettingsPage() {
         smsTemplate:    profile.smsTemplate    || 'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! Reply STOP to opt out. – {business}',
         smsTemplateEs:  profile.smsTemplateEs  || 'Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! Responda STOP para cancelar. – {business}',
         logoUrl:        profile.logoUrl        || '',
+        bio:                  profile.bio                  || '',
+        tagline:              profile.tagline              || '',
+        accentColor:          profile.accentColor          || '',
+        serviceArea:          profile.serviceArea          || '',
+        upfrontDeadlineHours: profile.upfrontDeadlineHours || 24,
       })
+      setSlugDraft(profile.publicSlug || '')
     }
   }, [profile])
 
@@ -271,6 +293,104 @@ export default function SettingsPage() {
     }
   }
 
+  // ── Slug lifecycle (Smart Business Card) ───────────────────────────────
+  // The slug owns the /join/[slug] public-intake URL. It lives in its own
+  // resolver collection (slugs/{slug}) so we get O(1) lookups + uniqueness
+  // enforcement. Lifecycle: generate-from-business-name on first run, then
+  // editable with debounced availability check. See docs/SMART_BUSINESS_CARD_SPEC.md §1.4.
+
+  async function handleGenerateSlug() {
+    if (!user || slugGenerating) return
+    setSlugGenerating(true)
+    try {
+      const idToken = await user.getIdToken()
+      const res = await fetch('/api/slug/generate', {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ uid: user.uid }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Could not generate slug')
+      await refreshProfile()
+      setSlugDraft(data.slug)
+      toast.success(lang === 'es' ? 'Tarjeta YardSync creada' : 'YardSync card created')
+    } catch (err) {
+      toast.error(err.message || (lang === 'es' ? 'No se pudo generar' : 'Could not generate'))
+    } finally {
+      setSlugGenerating(false)
+    }
+  }
+
+  // Debounced availability + format check while the contractor types in
+  // the slug editor. Sets slugCheckState so the UI can show a spinner,
+  // green check, or error inline.
+  useEffect(() => {
+    if (!slugEditing) return
+    const trimmed = (slugDraft || '').trim()
+    if (!trimmed || trimmed === profile?.publicSlug) {
+      setSlugCheckState('idle')
+      setSlugCheckError(null)
+      return
+    }
+    setSlugCheckState('checking')
+    const handle = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/slug/check?slug=${encodeURIComponent(trimmed)}`)
+        const data = await res.json()
+        if (data.valid && data.available) {
+          setSlugCheckState('available')
+          setSlugCheckError(null)
+        } else {
+          setSlugCheckState(data.valid ? 'taken' : 'invalid')
+          setSlugCheckError(data.error || (data.valid ? 'taken' : 'invalid'))
+        }
+      } catch {
+        setSlugCheckState('invalid')
+        setSlugCheckError('check_failed')
+      }
+    }, 400)
+    return () => clearTimeout(handle)
+  }, [slugDraft, slugEditing, profile?.publicSlug])
+
+  async function handleSaveSlug() {
+    if (!user || slugSaving) return
+    const trimmed = (slugDraft || '').trim()
+    if (!trimmed || trimmed === profile?.publicSlug) {
+      setSlugEditing(false)
+      return
+    }
+    if (slugCheckState !== 'available') {
+      toast.error(lang === 'es' ? 'Verifique el slug antes de guardar' : 'Check the slug before saving')
+      return
+    }
+    setSlugSaving(true)
+    try {
+      const idToken = await user.getIdToken()
+      const res = await fetch('/api/slug/generate', {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ uid: user.uid, slug: trimmed }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Could not save slug')
+      await refreshProfile()
+      setSlugDraft(data.slug)
+      setSlugEditing(false)
+      setSlugCheckState('idle')
+      toast.success(lang === 'es' ? 'URL actualizada' : 'URL updated')
+    } catch (err) {
+      toast.error(err.message || (lang === 'es' ? 'No se pudo guardar' : 'Could not save'))
+    } finally {
+      setSlugSaving(false)
+    }
+  }
+
   async function handleSave() {
     setSaving(true)
     try {
@@ -444,6 +564,192 @@ export default function SettingsPage() {
             </Card>
           </section>
 
+          {/* YardSync Card — public business card + intake URL */}
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <Link2 size={14} className="text-brand-600" />
+              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                {lang === 'es' ? 'Tarjeta YardSync' : 'YardSync Card'}
+              </p>
+            </div>
+            <Card>
+              {!profile?.publicSlug ? (
+                /* First-run: no slug yet — show the Generate CTA */
+                <div className="text-center py-2">
+                  <p className="text-[13px] text-gray-700 mb-3 leading-relaxed">
+                    {lang === 'es'
+                      ? 'Cree su tarjeta digital — los clientes potenciales pueden escanear su código QR o tocar su enlace para solicitar servicio. Se agregan automáticamente como prospectos.'
+                      : 'Create your shareable digital card — prospects can scan your QR code or tap your link to request service. They get added to your leads automatically.'}
+                  </p>
+                  <Button onClick={handleGenerateSlug} loading={slugGenerating} fullWidth>
+                    {lang === 'es' ? 'Generar tarjeta YardSync' : 'Generate YardSync card'}
+                  </Button>
+                  <p className="text-[11px] text-gray-400 mt-2">
+                    {lang === 'es'
+                      ? 'Se generará automáticamente desde el nombre de su negocio.'
+                      : 'Auto-generated from your business name.'}
+                  </p>
+                </div>
+              ) : (
+                /* Slug exists — show URL + editor + public-profile fields */
+                <div className="space-y-4">
+                  {/* URL display + copy + edit */}
+                  {!slugEditing ? (
+                    <div>
+                      <p className="text-[11px] text-gray-500 mb-1">
+                        {lang === 'es' ? 'URL de su tarjeta' : 'Your card URL'}
+                      </p>
+                      <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 mb-2">
+                        <code className="text-[12px] text-gray-700 flex-1 truncate">
+                          yardsyncapp.com/join/{profile.publicSlug}
+                        </code>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(`https://yardsyncapp.com/join/${profile.publicSlug}`)
+                            toast.success(lang === 'es' ? 'Copiado' : 'Copied')
+                          }}
+                          className="text-[12px] text-brand-600 font-medium hover:text-brand-700"
+                        >
+                          {lang === 'es' ? 'Copiar' : 'Copy'}
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => { setSlugEditing(true); setSlugDraft(profile.publicSlug) }}
+                        className="text-[12px] text-brand-600 font-medium hover:text-brand-700"
+                      >
+                        {lang === 'es' ? 'Editar URL' : 'Edit URL'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-[11px] text-gray-500">
+                        {lang === 'es' ? 'Editar URL' : 'Edit URL'}
+                      </p>
+                      <div className="flex items-center gap-1 bg-gray-50 rounded-lg pl-3 pr-1 py-1">
+                        <span className="text-[12px] text-gray-500 flex-shrink-0">yardsyncapp.com/join/</span>
+                        <input
+                          type="text"
+                          value={slugDraft}
+                          onChange={e => setSlugDraft(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                          className="flex-1 bg-white border border-gray-200 rounded-md px-2 py-1.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-brand-500"
+                          maxLength={50}
+                          autoFocus
+                        />
+                      </div>
+                      {/* Availability state */}
+                      <div className="text-[11px] min-h-[16px]">
+                        {slugCheckState === 'checking' && (
+                          <span className="text-gray-500">{lang === 'es' ? 'Verificando…' : 'Checking…'}</span>
+                        )}
+                        {slugCheckState === 'available' && (
+                          <span className="text-green-600">✓ {lang === 'es' ? 'Disponible' : 'Available'}</span>
+                        )}
+                        {slugCheckState === 'taken' && (
+                          <span className="text-red-600">{lang === 'es' ? 'Ya está en uso' : 'Already taken'}</span>
+                        )}
+                        {slugCheckState === 'invalid' && (
+                          <span className="text-red-600">
+                            {slugCheckError === 'tooShort' && (lang === 'es' ? 'Muy corto (mín. 3 caracteres)' : 'Too short (min 3 chars)')}
+                            {slugCheckError === 'tooLong'  && (lang === 'es' ? 'Muy largo (máx. 50 caracteres)' : 'Too long (max 50 chars)')}
+                            {slugCheckError === 'badChars' && (lang === 'es' ? 'Solo letras minúsculas, números y guiones' : 'Only lowercase letters, numbers, and hyphens')}
+                            {slugCheckError === 'reserved' && (lang === 'es' ? 'Esta URL está reservada' : 'That URL is reserved')}
+                            {slugCheckError === 'empty'    && (lang === 'es' ? 'URL requerida' : 'URL required')}
+                            {slugCheckError === 'check_failed' && (lang === 'es' ? 'No se pudo verificar' : 'Could not verify')}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="secondary"
+                          fullWidth
+                          onClick={() => { setSlugEditing(false); setSlugDraft(profile.publicSlug); setSlugCheckState('idle') }}
+                        >
+                          {translate('common', 'cancel')}
+                        </Button>
+                        <Button
+                          fullWidth
+                          loading={slugSaving}
+                          disabled={slugCheckState !== 'available'}
+                          onClick={handleSaveSlug}
+                        >
+                          {lang === 'es' ? 'Guardar URL' : 'Save URL'}
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-gray-400">
+                        {lang === 'es'
+                          ? 'La URL anterior redirigirá a la nueva durante 30 días para que las tarjetas impresas sigan funcionando.'
+                          : 'The old URL will redirect to the new one for 30 days so printed cards keep working.'}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Public-profile fields used by /join page + the card */}
+                  <div className="space-y-3 pt-3 border-t border-gray-100">
+                    <Input
+                      label={lang === 'es' ? 'Eslogan' : 'Tagline'}
+                      value={form.tagline}
+                      onChange={e => setField('tagline', e.target.value)}
+                      placeholder={lang === 'es' ? 'Servicios confiables y a tiempo' : 'Reliable, on-time service'}
+                      maxLength={100}
+                    />
+                    <div>
+                      <label className="text-[12px] font-medium text-gray-700 block mb-1">
+                        {lang === 'es' ? 'Biografía / descripción' : 'Bio / description'}
+                      </label>
+                      <textarea
+                        value={form.bio}
+                        onChange={e => setField('bio', e.target.value)}
+                        placeholder={lang === 'es'
+                          ? '3 líneas sobre su negocio que los clientes verán en su tarjeta.'
+                          : 'A few lines about your business that clients will see on your card.'}
+                        rows={3}
+                        maxLength={300}
+                        className="w-full rounded-xl border border-gray-200 bg-white text-[13px] px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+                      />
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        {(form.bio?.length || 0)}/300 · {lang === 'es' ? 'Escriba en su idioma.' : 'Write in your own language.'}
+                      </p>
+                    </div>
+                    <Input
+                      label={lang === 'es' ? 'Área de servicio' : 'Service area'}
+                      value={form.serviceArea}
+                      onChange={e => setField('serviceArea', e.target.value)}
+                      placeholder={lang === 'es' ? 'San Antonio y suburbios del NE' : 'San Antonio & NE suburbs'}
+                      maxLength={100}
+                    />
+                    <div>
+                      <label className="text-[12px] font-medium text-gray-700 block mb-1">
+                        {lang === 'es' ? 'Color de marca' : 'Brand accent color'}
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="color"
+                          value={form.accentColor || '#0F6E56'}
+                          onChange={e => setField('accentColor', e.target.value)}
+                          className="w-12 h-10 rounded-lg border border-gray-200 cursor-pointer bg-white"
+                        />
+                        <code className="text-[12px] text-gray-600 flex-1">
+                          {form.accentColor || '#0F6E56'} {!form.accentColor && (lang === 'es' ? '(predeterminado)' : '(default)')}
+                        </code>
+                        {form.accentColor && (
+                          <button
+                            onClick={() => setField('accentColor', '')}
+                            className="text-[11px] text-gray-500 hover:text-gray-700"
+                          >
+                            {lang === 'es' ? 'Restablecer' : 'Reset'}
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        {lang === 'es' ? 'Aparece en su tarjeta y publicaciones sociales.' : 'Shows on your card and social posts.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </section>
+
           {/* SMS Reminders */}
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -590,6 +896,47 @@ export default function SettingsPage() {
                 </div>
               </Card>
             )}
+          </section>
+
+          {/* Payment Reminders — global upfront-billing deadline default */}
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <Clock size={14} className="text-brand-600" />
+              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                {lang === 'es' ? 'Recordatorios de pago' : 'Payment reminders'}
+              </p>
+            </div>
+            <Card>
+              <label className="text-[12px] font-medium text-gray-700 block mb-1">
+                {lang === 'es'
+                  ? 'Plazo predeterminado de facturación anticipada'
+                  : 'Default upfront billing deadline'}
+              </label>
+              <div className="flex items-center gap-2">
+                <p className="text-[13px] text-gray-600">
+                  {lang === 'es' ? 'Pago debido' : 'Payment due'}
+                </p>
+                <input
+                  type="number"
+                  min={1}
+                  max={168}
+                  value={form.upfrontDeadlineHours}
+                  onChange={e => {
+                    const v = parseInt(e.target.value, 10)
+                    if (Number.isFinite(v)) setField('upfrontDeadlineHours', Math.max(1, Math.min(168, v)))
+                  }}
+                  className="w-20 rounded-lg border border-gray-200 bg-white text-[13px] px-3 py-2 text-center focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+                <p className="text-[13px] text-gray-600">
+                  {lang === 'es' ? 'horas antes del servicio' : 'hours before service'}
+                </p>
+              </div>
+              <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
+                {lang === 'es'
+                  ? 'Aplica a clientes nuevos en modo de facturación anticipada. Puede anular por cliente. Predeterminado: 24 horas. Máximo: 168 horas (7 días).'
+                  : 'Applies to new clients with upfront billing. You can override per-client. Default: 24 hours. Max: 168 hours (7 days).'}
+              </p>
+            </Card>
           </section>
 
           {/* Volume Reward Tracker — Stripe users only */}
