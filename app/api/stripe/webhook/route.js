@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { queryCollection, getDocument, setDocument, updateDocument } from '@/lib/firestoreRest'
 import { sendAdminEmail } from '@/lib/email'
+import { getSubscriptionPeriodEndISO } from '@/lib/stripeHelpers'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -50,9 +51,7 @@ export async function POST(request) {
           stripePriceId:        priceId,
           plan,
           status:               'active',
-          currentPeriodEnd:     subscription.current_period_end
-                                    ? new Date(subscription.current_period_end * 1000).toISOString()
-                                    : null,
+          currentPeriodEnd:     getSubscriptionPeriodEndISO(subscription),
           createdAt:            new Date().toISOString(),
           updatedAt:            new Date().toISOString(),
         })
@@ -62,9 +61,7 @@ export async function POST(request) {
           subscriptionPlan:     plan,
           stripeCustomerId:     customerId,
           stripeSubscriptionId: subscriptionId,
-          currentPeriodEnd:     subscription.current_period_end
-                                    ? new Date(subscription.current_period_end * 1000).toISOString()
-                                    : null,
+          currentPeriodEnd:     getSubscriptionPeriodEndISO(subscription),
           lastPaymentAt:        new Date().toISOString(),
           hasSeenRewardsIntro:  false,
           updatedAt:            new Date().toISOString(),
@@ -182,16 +179,12 @@ export async function POST(request) {
             const subscription = await stripe.subscriptions.retrieve(subscriptionId)
             await updateDocument('subscriptions', uid, {
               status:           'active',
-              currentPeriodEnd: subscription.current_period_end
-                                  ? new Date(subscription.current_period_end * 1000).toISOString()
-                                  : null,
+              currentPeriodEnd: getSubscriptionPeriodEndISO(subscription),
               updatedAt:        new Date().toISOString(),
             })
             await setDocument('users', uid, {
               subscriptionStatus: 'active',
-              currentPeriodEnd:   subscription.current_period_end
-                                      ? new Date(subscription.current_period_end * 1000).toISOString()
-                                      : null,
+              currentPeriodEnd:   getSubscriptionPeriodEndISO(subscription),
               lastPaymentAt:      new Date().toISOString(),
               updatedAt:          new Date().toISOString(),
             })

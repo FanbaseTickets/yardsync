@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { getSubscriptionPeriodEndEpoch } from '@/lib/stripeHelpers'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -20,7 +21,7 @@ export async function POST(req) {
 
     return NextResponse.json({
       cancelAt: subscription.cancel_at,
-      currentPeriodEnd: subscription.current_period_end,
+      currentPeriodEnd: getSubscriptionPeriodEndEpoch(subscription),
       status: subscription.status,
     })
   } catch (err) {
