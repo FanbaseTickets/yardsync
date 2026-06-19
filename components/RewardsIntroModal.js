@@ -106,7 +106,7 @@ export default function RewardsIntroModal() {
                 {es ? '50% desc' : '50% off'}
               </span>
               <span className="text-[14px] font-semibold text-gray-900">
-                $19/{es ? 'mes' : 'mo'}
+                $19.50/{es ? 'mes' : 'mo'}
               </span>
             </div>
           </div>

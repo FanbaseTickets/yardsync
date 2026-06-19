@@ -72,12 +72,21 @@ export async function POST(req) {
     const applicationFeeAmount = Math.round(totalCents * 0.055)
 
     // Step 1: Create Stripe PaymentIntent
+    //
+    // on_behalf_of makes the connected account the "merchant of record" for
+    // receipts, statement descriptors, and customer-facing branding — the
+    // client sees "Receipt from {contractor business name}" instead of the
+    // platform account name. The application fee still flows to the platform
+    // via application_fee_amount + transfer_data.destination. This is Stripe's
+    // standard pattern for Connect marketplaces where the contractor is the
+    // merchant the client is paying.
     const paymentIntent = await stripe.paymentIntents.create({
       amount: totalCents,
       currency: 'usd',
       application_fee_amount: applicationFeeAmount,
       transfer_data: { destination: stripeAccountId },
-      description: description || 'YardSync lawn service invoice',
+      on_behalf_of: stripeAccountId,
+      description: description || 'YardSync invoice',
       receipt_email: clientEmail || undefined,
       metadata: {
         gardenerUid,

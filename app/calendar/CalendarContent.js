@@ -1394,7 +1394,7 @@ export default function CalendarPage() {
                   <span className="font-bold text-gray-900">{formatCents(invoicePreview.totalCents)}</span>
                 </div>
                 <div className="flex justify-between px-3 py-1.5 text-[11px] text-gray-500">
-                  <span>{lang === 'es' ? 'Comisión Stripe (5.5%)' : 'Stripe fee (5.5%)'}</span>
+                  <span>{lang === 'es' ? 'Comisión YardSync (5.5%)' : 'YardSync fee (5.5%)'}</span>
                   <span>−{formatCents(fee)}</span>
                 </div>
                 <div className="flex justify-between px-3 py-2 text-[13px] bg-brand-50">
