@@ -1,7 +1,7 @@
 # YardSync — Project Brief for Claude
 
 > This file is auto-loaded at the start of every Claude Code session.
-> Keep it current. Last updated: 2026-06-16 (Square fully removed: PR #4 deleted active code, cleanup-tail PR drops the npm dep and `SQUARE_*` Vercel env vars are retired).
+> Keep it current. Last updated: 2026-06-18 (end of session — live E2E test + 5-PR cleanup sweep merged: receipt branding, SMS UX, cancellation persistence, Stripe API drift fix, Connect requirements remediation. Architecture-separation workstream queued next.).
 >
 > **Session startup:** When the user says "get up to speed", read `YARDSYNC_KNOWLEDGE_BASE.md`
 > in the project root. That single file contains the full project history, architecture,
@@ -182,13 +182,30 @@ Jay's preferred development model from this point on:
 4. **When ready → open PR → review → merge to `main`** — Production auto-deploys with LIVE keys
 5. **Branch protection on `main` enforces this** — steps in `docs/BRANCH_PROTECTION.md`
 
-### Next session — final pre-launch
-- [ ] **Enable GitHub branch protection on `main`** per `docs/BRANCH_PROTECTION.md` (require PR, require status checks pass, no bypassing)
-- [ ] **Final comprehensive Chrome Claude E2E test against the live deployment** (signup → Connect onboarding → invoice → SMS → real payment with live card → webhook → invoice-paid)
-- [ ] **Begin outreach** — first San Antonio contractor cold-DM batch
-- [ ] Adopt the feat/* branch workflow for the very next code change (set the muscle memory before launch traffic hits)
+### Live E2E test + 5-PR cleanup — DONE (2026-06-18)
+- [x] ~~Branch protection on `main` confirmed enforcing PRs~~ (all 5 PRs merged via the feat/* → PR → main cycle)
+- [x] ~~feat/* branch workflow muscle memory~~ — 5 PRs merged this session
+- [x] ~~Final live E2E test against yardsyncapp.com~~ (Jay walked the full 10-step script: signup → Connect → AI Draft SMS + STOP enforcement → $1 invoice → real card payment → webhook → cancel → reactivate)
+- [x] ~~PR #6 — receipt branding (`on_behalf_of`) + copy/label fixes + Preview URL helper~~ merged 2026-06-18
+- [x] ~~PR #7 — SMS UX (template save + accurate counters + Schedule CTA)~~ merged 2026-06-18
+- [x] ~~PR #8 — subscription cancellation persistence + Reactivate UI~~ merged 2026-06-18
+- [x] ~~PR #9 — Stripe API drift (`currentPeriodEnd` fallback on Acacia) + invoiceType compute~~ merged 2026-06-18
+- [x] ~~PR #10 — Stripe Connect requirements remediation (account.updated webhook + admin widget + contractor banner + multi-secret signing)~~ merged 2026-06-18
+- [x] ~~Diagnose + fix orphan `FIREBASE_API_KEY` env var that was silently failing every Preview firestoreRest write since the 2026-06-14 dev/prod split~~ — Jay deleted orphan from Vercel
+- [x] ~~Create live-mode `yardsync-production-connect` Stripe webhook destination + add `STRIPE_WEBHOOK_SECRET_CONNECT` to Vercel Production scope~~ — Jay manual config
+- [ ] **Begin outreach** — first San Antonio contractor cold-DM batch (the only remaining pre-launch action)
+
+### Architecture-separation workstream (next major work)
+Several silent-failure paths surfaced during the 2026-06-18 E2E test. Tackle as a cohesive workstream before scaling:
+- [ ] Stable Preview URL alias (e.g. `dev.yardsyncapp.com`) so test-mode Stripe webhooks have a deterministic target
+- [ ] Recreate test-mode Stripe webhook destinations (replace disabled `dynamic-bliss` + new `yardsync-test-connect` for account.updated)
+- [ ] Add `STRIPE_WEBHOOK_SECRET_CONNECT` to Vercel Preview/Dev scope
+- [ ] Generalize `lib/baseUrl.js` `getBaseUrl()` to all ~10 sites still using `NEXT_PUBLIC_APP_URL` (Twilio callbacks, cron routes)
+- [ ] `/api/admin/health-check` cron route that fails-loud on firestoreRest auth misconfiguration (catches Bug #14 class within minutes)
+- [ ] Document the dev/prod environment matrix in `docs/DEVELOPMENT.md`
 
 ### Backlog (pre-launch, not gating)
+- [ ] **Test account teardown before outreach** — delete Jarius Johnson + JTest1 + JTest2 + other test accounts from yardsync-41886 + yardsync-dev Firestore + Firebase Auth + Stripe customers. Refund the $39 sub + $1 invoice charges on Jay's real card. Do BEFORE real signups start landing.
 - [ ] Wire payment page (`/pay/[paymentIntentId]`) to display contractor's `logoUrl` (trust signal — client sees they're paying the right person) with YardSync as primary brand
 - [ ] Tighten Twilio status-callback signature verification from soft-mode to hard-reject (once a successful verification appears in Vercel logs)
 - [ ] Verify logo upload UX on Settings live (next signup test)
@@ -196,10 +213,10 @@ Jay's preferred development model from this point on:
 - [ ] Post-Twilio approval: add `Reply STOP to opt out. – YardSync` presence assertion to AI draft eval suite
 - [ ] LangContext → Firestore sync for `preferredLanguage` (ES notifications)
 - [ ] Admin dashboard overhaul PR 3: CSV rebuild + email digest queue + mobile handling
-- [ ] Smoke test PR 2: paid test invoice → verify `stripeProcessingFee` + `netToPlatform` persist (✅ webhook formula now writes both — needs live verification)
 - [ ] Sweep remaining dead Square/quarterly inline walkers from admin dashboard
 - [ ] `firestoreRest.js` line 22: remove `admin@fanbasetickets.net` fallback, fail loudly instead
 - [ ] Email invoice delivery smoke test (Connect-complete account + email-only client)
-- [ ] **Bulk test-user cleanup (deferred)** — Firestore docs matching `@yardsyncdemo.com`, `scenarioa`, `protest`, `testflash`, `yardsynctest`, `@test.com` (except `rub@test.com` + `scals@test.com`). Blocked on either (a) refreshing `FIREBASE_ADMIN_PASSWORD` in `.env.local` from Vercel, OR (b) running `gcloud auth print-access-token` interactively (Owner account has org-level reauth-on-every-call policy that blocks non-interactive token fetch).
+- [ ] **Bulk test-user cleanup (deferred)** — Firestore docs matching `@yardsyncdemo.com`, `scenarioa`, `protest`, `testflash`, `yardsynctest`, `@test.com` (except `rub@test.com` + `scals@test.com`). Blocked on either (a) refreshing `FIREBASE_ADMIN_PASSWORD` in `.env.local` from Vercel, OR (b) running `gcloud auth print-access-token` interactively.
 - [ ] Delete `jay+scenarioa3@fanbasetickets.net` from Firestore + Firebase Auth (same blocker as bulk cleanup — do via Firebase Console or unblock per above)
 - [ ] Lawyer review of ToS Section 6 (Early Adopter Pricing Lock) before any volume marketing
+- [ ] Fix AI drafter Spanish prompt to use Spanish STOP line (cosmetic, A2P compliant either way)
