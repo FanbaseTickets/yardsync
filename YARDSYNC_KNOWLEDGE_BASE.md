@@ -2,7 +2,7 @@
 
 > **Purpose:** Complete institutional memory for the YardSync project.
 > Read this file once at the start of a session to be fully briefed.
-> Updated: 2026-06-07 (end of session — LIVE KEYS FLIPPED + dev/prod separation scaffolded).
+> Updated: 2026-06-18 (end of session — LIVE E2E test + 5-PR cleanup sweep + Stripe Connect account.updated webhook live).
 >
 > **For Claude:** When the user says "get up to speed" or "read the knowledge base",
 > read this file. Do NOT re-explore the codebase — this file IS the exploration.
@@ -530,6 +530,17 @@ Pre-launch dogfooding via Chrome Claude. **YardSync has zero real customers; Mar
 - **Volume Rewards UX Section 1 — Onboarding Modal** (commit fa72de6): first-login bilingual modal explaining tier system; gate shows only when `hasSeenRewardsIntro === false` (explicit); webhook sets flag on new signups; dismissed via client Firestore write; existing/admin accounts never see it
 - **Volume Rewards UX Section 2 — Notifications** (commit d99969c): 5-event notification system fires from reward-check cron on tier transitions. `milestone_half`/`milestone_free` (streak 0→1) send email only; `activated_half`/`activated_free` (coupon newly applied) + `dropped` (discount removed) send email + SMS. Bilingual, idempotent via `lastNotifiedEvent` + `lastNotifiedAt` on user doc (same event + same calendar month = skip). New `lib/sms.js` Twilio helper. Each send wrapped in try/catch — notification failure never crashes cron. Next natural fire: May 1, 2026 at 6am UTC.
 
+### 2026-06-18 — Live E2E test + 5-PR cleanup sweep
+- **Live production E2E test (Jay)** — full signup → subscription ($39 monthly) → Stripe Connect onboarding → add client → schedule 6 recurring visits → AI Draft SMS → STOP enforcement → manual SMS → $1 invoice → real card payment → webhook → cancellation. All critical paths working. Verified the launch-blocker `stripeProcessingFee` + `netToPlatform` webhook persistence on a live paid invoice (was the last unverified item from the June 3 launch-blocker batch).
+- **11-item punch list** surfaced during the E2E test, broken into 5 small PRs:
+- **PR #6 (merged) — Copy + label + receipt branding (`fix/copy-label-receipt-branding`):** RewardsIntroModal `$19/mo` → `$19.50/mo`; service-address placeholder format hint EN+ES; "Stripe fee (5.5%)" → "YardSync fee (5.5%)" EN+ES; **Stripe PaymentIntent `on_behalf_of: stripeAccountId`** so receipts say "Receipt from {contractor business name}" instead of the platform account name (JNew Technologies — shared with FanBase Tickets, can't be globally renamed). Generalized `'YardSync lawn service invoice'` → `'YardSync invoice'`. Also added `lib/baseUrl.js` so `/api/stripe/checkout` success_url and `/api/stripe/invoice` paymentUrl read the request's actual host instead of `NEXT_PUBLIC_APP_URL` — fixes Preview signups bouncing to production after Stripe Checkout.
+- **PR #7 (merged) — SMS UX (`fix/sms-ux-and-schedule`):** /sms template edit now persists via `saveGardenerProfile({ smsTemplate, smsTemplateEs })` on Done + exposes ES textarea (previously the textarea was cosmetic — Done toggled it away without saving). Added `users/{uid}.smsSentTotal` field incremented by `/api/twilio/send` on every successful send; dashboard + /sms page now read from it (previously both counters undercounted because the AI-drafter send path doesn't update a schedule doc). Added `Schedule visits` CTA on client detail page that navigates to `/calendar?client={id}` and auto-opens the Add Job modal pre-filled.
+- **PR #8 (merged) — Subscription cancellation persistence (`fix/subscription-cancellation-ux`):** Webhook `customer.subscription.updated` now writes `subscriptionCancelAtPeriodEnd` + `subscriptionCancelAt` to the user doc (canonical state). Settings shows a "Cancellation pending · ends {date}" banner with a Reactivate button when set. Cancel link auto-hides while pending. `customer.subscription.deleted` clears both fields. Verified: cancel → Stripe shows `cancels Jul 18` + Firestore reflects → reactivate → both clear. Closes a real chargeback risk (cancel, forget, get billed once more, dispute).
+- **PR #9 (merged) — Stripe API drift + invoiceType (`fix/stripe-period-end-and-invoice-type`):** Root-cause for CLAUDE.md Known Bug #1 found: Stripe API 2025-06-30 (Acacia) moved `current_period_end` from the Subscription object onto its items, so `subscription.current_period_end` returned undefined on newer versions → null-guard wrote null. New `lib/stripeHelpers.js` `getSubscriptionPeriodEndISO()` checks both locations; applied to 4 webhook sites + cancel-subscription return. Also added `computeInvoiceType(lineItems)` so `/api/stripe/invoice` derives type from lineItem categories (`base only → recurring`, `addons/materials only → addon`, `base+extras → combined`) instead of callers hardcoding `'recurring'`. Removed hardcoded values from all 3 callers.
+- **PR #10 (merged) — Stripe Connect requirements remediation (`feat/connect-requirements-remediation`):** End-to-end remediation for blocked-payout KYC requirements. New webhook handler for `account.updated` persists `stripeRequirementsCurrentlyDue` + `eventuallyDue` + `pastDue` + `disabledReason` + `chargesEnabled` + `payoutsEnabled` to user doc. New `lib/stripeRequirementLabels.js` translates technical Stripe paths (`individual.ssn_last_4`, `individual.dob.day`, etc.) to EN/ES human-readable labels with dedup. New API routes: `/api/stripe/connect/remediation-link` (contractor self-service, returns AccountLink URL) and `/api/admin/send-stripe-remediation` (admin sends link + SMS + email to contractor). Settings page banner with "Complete on Stripe" button for contractors. Admin dashboard widget "N contractors needs Stripe info" with per-row Send/Resend buttons. **Follow-up commit** added multi-secret webhook signature verification — modern Stripe Workbench issues a separate signing secret per destination, so connected-account events need a second `STRIPE_WEBHOOK_SECRET_CONNECT` env var (Production scope live, Preview/Dev deferred — see Section 13).
+- **🔴 Critical infrastructure bug surfaced + fixed during E2E test:** Orphan `FIREBASE_API_KEY` env var in Vercel (set "All Environments" with the **production** API key value) was overriding the per-environment `NEXT_PUBLIC_FIREBASE_API_KEY` in `lib/firestoreRest.js`'s fallback chain. Result: every server-side firestoreRest write from Preview deployments had been silently failing with `INVALID_LOGIN_CREDENTIALS` since the dev/prod Firebase project split (2026-06-14). Symptoms hidden by try/catch around every write. Discovered when PR 7's SMS counter wouldn't increment in Preview. Fixed by deleting the orphan; firestoreRest now falls back to the correctly-scoped `NEXT_PUBLIC_FIREBASE_API_KEY`. After fix: all firestoreRest writes verified working in Preview.
+- **Manual Stripe Dashboard config (Jay):** Created live-mode `yardsync-production-connect` webhook destination — scope "Connected accounts", listening to `account.updated`, points to `https://yardsyncapp.com/api/stripe/webhook`. Stripe issued a new signing secret (different from the platform destination's), added to Vercel as `STRIPE_WEBHOOK_SECRET_CONNECT` (Production scope). Webhook code's multi-secret verification now accepts events signed by either secret. Test-mode connect destination deferred to the architecture-separation workstream.
+
 ---
 
 ## 10. Deployment Breakers (Historical)
@@ -601,6 +612,16 @@ These are real errors that crashed production or blocked deployment. Documented 
 **Error:** Contractors see "65" as a grey placeholder, submit without touching field, `walkInPrice === ''` → `basePrice = 0`.
 **Cause:** Placeholder is not a value — `useState('')` initializes empty.
 **Fix:** Initialize `walkInPrice` to `'65'` in both `openWalkInForClient` and `openWalkInModal`. (Commit: 79c7472)
+
+### 14. Orphan `FIREBASE_API_KEY` env var silently breaking all firestoreRest writes from Preview
+**Error:** Every server-side firestoreRest write from Preview deployments was returning `INVALID_LOGIN_CREDENTIALS` then `403 PERMISSION_DENIED`, but the symptom was hidden by try/catch around every call site. Surfaced when the new SMS counter in PR 7 wouldn't increment in Preview.
+**Cause:** Vercel env had a non-NEXT_PUBLIC `FIREBASE_API_KEY` set to "All Environments" with the **production** (`yardsync-41886`) API key value. `lib/firestoreRest.js:10` reads `FIREBASE_API_KEY || NEXT_PUBLIC_FIREBASE_API_KEY` — preferring the (mis-scoped) unprefixed one. So Preview deployments authenticated against yardsync-41886 instead of yardsync-dev, using yardsync-dev's password → mismatch.
+**Fix (manual, 2026-06-18):** Deleted the orphan `FIREBASE_API_KEY` row in Vercel. The fallback to `NEXT_PUBLIC_FIREBASE_API_KEY` (which IS correctly per-environment) now takes effect. Diagnosed by adding step-by-step console logs to `/api/twilio/send`'s counter increment.
+
+### 15. Modern Stripe Workbench separates platform vs connected destinations with different signing secrets
+**Error:** Subscribing to `account.updated` events from connected accounts required a second Stripe webhook destination ("Connected accounts" scope). The new destination gets its own signing secret — `stripe.webhooks.constructEvent` against the platform destination's secret would 400-reject every connect event.
+**Cause:** Stripe Workbench architectural change — destinations no longer share a signing secret across event scopes.
+**Fix (2026-06-18, commit `02bbb5b`):** New `verifyWebhookSignature()` in `/api/stripe/webhook` tries each configured secret in turn (`STRIPE_WEBHOOK_SECRET`, `STRIPE_WEBHOOK_SECRET_CONNECT`), returns the first event that verifies, throws if none do. Connect secret is optional — if env var unset, the fallback simply isn't tried (no environment regresses).
 
 ---
 
@@ -675,7 +696,17 @@ These are real errors that crashed production or blocked deployment. Documented 
 16. **`PhoneInput.js` formatter mangles country-code phones** — entering `+1 (910) 723-0609` becomes `(191) 072-3060` with false-green validation. Real contractors pasting from email signatures / CRMs will silently save broken numbers. Discovered Phase A of SMS sweep.
 17. **Status-callback signature verification in soft-mode** — Vercel proxy URL reconstruction doesn't match Twilio's signing URL. Currently logs mismatch but writes anyway. Tighten back to hard-reject once a successful verification is captured in production logs.
 18. **`CRON_SECRET` is guessable** (`yardsync-cron-2026`) — rotate to a random 32+ char string (`openssl rand -hex 32`) before launch.
-19. **Webhook NOT writing `stripeProcessingFee` + `netToPlatform`** on paid invoice — Q11 fields missing despite the rest of the invoice doc being correct. CLAUDE.md "Smoke test PR 2" item — now confirmed via Phase G of SMS sweep. Investigate `payment_intent.succeeded` handler's expand call for `latest_charge.balance_transaction`.
+19. ~~**Webhook NOT writing `stripeProcessingFee` + `netToPlatform`**~~ on paid invoice — RESOLVED 2026-06-03 in commit `ae1407e`; verified live 2026-06-18 via E2E test $1 paid invoice (`stripeProcessingFee: 33`, `netToPlatform: -27` — math correct; -27 is the expected loss for sub-$5.45 invoices where Stripe's flat $0.30 exceeds the 5.5% app fee).
+20. ~~**`currentPeriodEnd: null` on user docs**~~ — RESOLVED 2026-06-18 in PR #9. Stripe API 2025-06-30 (Acacia) moved the field onto subscription items; `lib/stripeHelpers.js` `getSubscriptionPeriodEndISO()` checks both locations.
+21. ~~**Receipt branding shows JNew Technologies instead of contractor name**~~ — RESOLVED 2026-06-18 in PR #6 via `on_behalf_of: stripeAccountId` on the invoice PaymentIntent. Receipt now reads "Receipt from {contractor business name}".
+22. ~~**Subscription cancellation has no persistent UI feedback**~~ — RESOLVED 2026-06-18 in PR #8. Webhook persists `subscriptionCancelAtPeriodEnd` + `subscriptionCancelAt`; Settings banner with Reactivate button.
+23. ~~**SMS counters undercounting (AI-drafter sends not tracked)**~~ — RESOLVED 2026-06-18 in PR #7 via `users/{uid}.smsSentTotal` server-side increment.
+24. ~~**/sms template edit doesn't persist**~~ — RESOLVED 2026-06-18 in PR #7.
+25. **`dynamic-bliss` Stripe Test-mode webhook destination disabled.** The old auto-named test-mode destination got disabled by Stripe (delivery failures — was pointing at `yardsyncapp.com` but production runs LIVE secrets so signature verification failed). This means TEST-mode webhooks currently don't fire to anywhere YardSync-related. Webhook side-effects on Preview test transactions silently don't happen (e.g., invoice doc isn't created in yardsync-dev Firestore after a Preview test payment). Architecture-separation workstream fixes this with a stable Preview URL.
+26. **`STRIPE_WEBHOOK_SECRET_CONNECT` only set for Production scope.** Preview/Dev scope still missing — blocks Preview testing of the new PR #10 account.updated webhook handler. Test-mode connect destination + Preview secret added in the architecture-separation workstream.
+27. **`getBaseUrl` helper only applied to `/api/stripe/checkout` and `/api/stripe/invoice`.** Other paths still use `NEXT_PUBLIC_APP_URL` directly (Twilio status-callbacks in `lib/sms.js`, `/api/twilio/send`, 3× cron sites, webhook Pro Setup admin SMS). Means SMS callback URLs embedded in Preview-sent messages still point at production. Architecture-separation workstream generalizes the helper.
+28. **No `/api/admin/health-check` route.** Would catch silent firestoreRest misconfiguration (like #14 above) on cold-boot instead of relying on user noticing a feature doesn't work. ~1hr to implement.
+29. **AI drafter Spanish prompt emits English STOP line.** Cosmetically inconsistent (A2P compliant either way). Low priority — fix during a future bilingual-reviewer pass.
 
 ---
 
@@ -736,11 +767,36 @@ These are real errors that crashed production or blocked deployment. Documented 
 - [x] ~~Live mode confirmed via temporary `/api/debug-stripe` diagnostic route — `keyMode: "live"`~~ done 2026-06-07, commits `3058acc` → `b9bfad4`
 - [x] ~~Dev/prod env separation scaffolded (`.env.test`, `.env.example`, `docs/DEVELOPMENT.md`, `docs/BRANCH_PROTECTION.md`, gitignore allowlist)~~ done 2026-06-07, commit `fd216af`
 
-### Next session — final pre-launch
-- [ ] **Enable GitHub branch protection on `main`** per `docs/BRANCH_PROTECTION.md` — require PR, require status checks, no bypassing
-- [ ] **Adopt feat/* branch workflow for the very next code change** so the muscle memory is set before launch traffic
-- [ ] **Final comprehensive Chrome Claude E2E test** against live deployment (signup → Connect → invoice → SMS → live card payment → webhook → invoice-paid)
+### Live E2E test + 5-PR cleanup — DONE (2026-06-18)
+- [x] ~~Branch protection on `main` enforced~~ (confirmed active during this session — required PRs to merge)
+- [x] ~~feat/* branch workflow muscle memory set~~ — 5 PRs (#6, #7, #8, #9, #10) shipped via the branch/PR cycle in one session
+- [x] ~~Final live E2E test against yardsyncapp.com~~ — signup → Connect (Restricted → Enabled after first transaction) → AI Draft SMS + STOP enforcement → $1 invoice → real card payment → webhook → cancel → reactivate via Stripe dashboard. All paths working.
+- [x] ~~PR #6 (copy + label + receipt branding `on_behalf_of` + Preview URL helper)~~ merged 2026-06-18
+- [x] ~~PR #7 (SMS UX — template save + accurate counters + Schedule CTA)~~ merged 2026-06-18
+- [x] ~~PR #8 (subscription cancellation persistence + Reactivate UI)~~ merged 2026-06-18
+- [x] ~~PR #9 (Stripe API drift `currentPeriodEnd` fallback + invoiceType compute)~~ merged 2026-06-18
+- [x] ~~PR #10 (Stripe Connect requirements remediation — account.updated webhook + admin widget + contractor banner + remediation link generator + multi-secret verification)~~ merged 2026-06-18
+- [x] ~~Diagnose + fix orphan `FIREBASE_API_KEY` env var that was silently breaking all firestoreRest writes from Preview since 2026-06-14 dev/prod split~~ — Jay deleted the orphan in Vercel
+- [x] ~~Create live-mode Stripe `yardsync-production-connect` webhook destination + add `STRIPE_WEBHOOK_SECRET_CONNECT` to Vercel Production scope~~ — Jay manual config
 - [ ] **Begin outreach** — first San Antonio contractor cold-DM batch
+
+### Architecture-separation workstream (next major piece of work)
+The dev/prod Firebase split shipped 2026-06-14 but the surrounding infrastructure isn't fully separated yet. Multiple silent-failure paths surfaced during the 2026-06-18 E2E test. Tackle as a cohesive workstream:
+- [ ] **Stable Preview URL alias** (e.g. `dev.yardsyncapp.com`) so Stripe test-mode webhooks have something deterministic to point at. Vercel domain alias on the latest Preview branch.
+- [ ] **Re-create test-mode Stripe webhook destinations** pointing at the stable Preview URL — both `yardsync-test` (Your account scope) replacing the disabled `dynamic-bliss`, AND `yardsync-test-connect` (Connected accounts scope for `account.updated`).
+- [ ] **Add `STRIPE_WEBHOOK_SECRET_CONNECT` to Vercel Preview/Dev scope** with the test-mode connect destination's signing secret.
+- [ ] **Generalize `lib/baseUrl.js` `getBaseUrl()`** to all ~10 sites still using `NEXT_PUBLIC_APP_URL` directly: `lib/sms.js:38`, `app/api/twilio/send/route.js:36+68`, `app/api/cron/sms/route.js:108+206+283`, `app/api/cron/health/route.js:182`, `app/api/stripe/webhook/route.js:119`.
+- [ ] **`/api/admin/health-check` route** — on each call, attempts a no-op `firestoreRest.getDocument('users', ADMIN_EMAIL)` and reports auth failure with diagnostic detail. Fail-loud on Vercel cron schedule (e.g. every 5 min) so silent misconfigurations like the 2026-06-18 `FIREBASE_API_KEY` orphan get caught within minutes instead of days.
+- [ ] **Document the dev/prod environment matrix** in `docs/DEVELOPMENT.md` — which env vars are split per environment, which webhook destinations exist for which mode, the stable Preview URL pattern, the firestoreRest auth precondition.
+
+### Post-launch
+- [ ] `/invoices` index page (currently "coming soon" toast)
+- [ ] Server-side duplicate invoice enforcement
+- [ ] Reactivation path full testing (cancel → reactivate cycle) — partial verified 2026-06-18 (cancel + reactivate UI works; the "subscription fully ended → create new" branch of `/api/stripe/reactivate-subscription` not yet exercised)
+- [x] ~~Remove dead Square routes + `square` package~~ done 2026-06-16 (PRs #4, #5)
+- [ ] Remove `firebase-admin` from package.json (still listed though unused per org policy)
+- [ ] Consider server-side auth on Stripe API routes
+- [ ] **Test account teardown** — delete Jarius Johnson + JTest1 + JTest2 + other test accounts from Firestore (both yardsync-41886 + yardsync-dev) + Firebase Auth + Stripe customers. Refund the $39 subscription + $1 test invoice charges on Jay's real card. Blocks: should be done before serious outreach so real signups don't land in a Firebase project full of test data.
 
 ### Backlog (pre-launch, not gating)
 - [ ] Wire payment page (`/pay/[paymentIntentId]`) to display contractor's `logoUrl` (trust signal showing client they're paying the right person) with YardSync as primary brand
