@@ -107,16 +107,20 @@ export async function POST(request) {
     // has no functional dependency, it's just a display number on the
     // dashboard and /sms page. Don't fail the send if the counter write
     // fails — the SMS already went out.
+    console.log('[smsSentTotal] gardenerUid present:', !!gardenerUid, 'value:', gardenerUid ? gardenerUid.slice(0, 8) + '…' : 'MISSING')
     if (gardenerUid) {
       try {
         const userDoc = await getDocument('users', gardenerUid)
+        console.log('[smsSentTotal] userDoc lookup:', userDoc ? 'found' : 'NULL — auth or rules issue')
         const current = userDoc?.data?.smsSentTotal || 0
+        console.log('[smsSentTotal] incrementing from', current, '→', current + 1)
         await setDocument('users', gardenerUid, {
           smsSentTotal: current + 1,
           lastSmsAt:    new Date().toISOString(),
         })
+        console.log('[smsSentTotal] write succeeded')
       } catch (counterErr) {
-        console.error('smsSentTotal increment failed (non-fatal):', counterErr.message)
+        console.error('[smsSentTotal] increment FAILED (non-fatal):', counterErr.message, counterErr.stack)
       }
     }
 
