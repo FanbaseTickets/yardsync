@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getDocument, setDocument } from '@/lib/firestoreRest'
+import { getBaseUrl } from '@/lib/baseUrl'
 
 const TWILIO_SID     = process.env.TWILIO_ACCOUNT_SID
 const TWILIO_TOKEN   = process.env.TWILIO_AUTH_TOKEN
@@ -30,12 +31,18 @@ export async function POST(request) {
     }
     const to = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
 
+    // Resolve the deployment's actual base URL from the inbound request so
+    // SMS sent from Preview embed Preview URLs (calendar link + status
+    // callback) instead of always hard-pointing at production. Crons that
+    // call lib/sms.js continue to fall back to NEXT_PUBLIC_APP_URL because
+    // they have no request context.
+    const baseUrl = getBaseUrl(request)
+
     // ── STEP 2: Append calendar link if this is a scheduled visit ──────────
     let finalMessage = message
     console.log('SMS route — scheduleId:', scheduleId, 'clientId:', clientId, 'language:', language)
     if (scheduleId && clientId) {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://yardsync.vercel.app'
-      const calUrl = `${appUrl}/api/ical/${clientId}?scheduleId=${scheduleId}`
+      const calUrl = `${baseUrl}/api/ical/${clientId}?scheduleId=${scheduleId}`
       const calLabel = language === 'es' ? 'Agregar al calendario' : 'Add to calendar'
       finalMessage += `\n📅 ${calLabel}: ${calUrl}`
       console.log('SMS route — calendar link appended:', calUrl)
@@ -65,12 +72,12 @@ export async function POST(request) {
     //
     // StatusCallback URL tells Twilio to POST delivery updates to our status-callback
     // route so we can record real delivery status (queued/sent/delivered/undelivered/failed)
-    // in Firestore — instead of the toast lying based on Twilio API 2xx.
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://yardsync.vercel.app'
+    // in Firestore — instead of the toast lying based on Twilio API 2xx. Uses baseUrl
+    // resolved above so Preview-side sends get Preview-side delivery updates.
     const cbParams = new URLSearchParams({ ctx: 'twilio_send' })
     if (scheduleId) cbParams.set('scheduleId', scheduleId)
     if (clientId)   cbParams.set('clientId', clientId)
-    const statusCallback = `${appUrl}/api/twilio/status-callback?${cbParams.toString()}`
+    const statusCallback = `${baseUrl}/api/twilio/status-callback?${cbParams.toString()}`
 
     const body = new URLSearchParams({
       To:                   to,

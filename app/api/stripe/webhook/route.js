@@ -3,6 +3,7 @@ import Stripe from 'stripe'
 import { queryCollection, getDocument, setDocument, updateDocument } from '@/lib/firestoreRest'
 import { sendAdminEmail } from '@/lib/email'
 import { getSubscriptionPeriodEndISO } from '@/lib/stripeHelpers'
+import { getBaseUrl } from '@/lib/baseUrl'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -144,8 +145,13 @@ export async function POST(request) {
               const twilioMsgSvc = process.env.TWILIO_MESSAGING_SERVICE_SID
               const digits       = adminPhone.replace(/\D/g, '')
               const to           = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
-              const cbAppUrl     = process.env.NEXT_PUBLIC_APP_URL || 'https://yardsync.vercel.app'
-              const cbUrl        = `${cbAppUrl}/api/twilio/status-callback?ctx=pro_setup_admin&gardenerUid=${gardenerUid}`
+              // Twilio status callback for the admin SMS — uses the
+              // request's base URL so Preview-side test webhooks route
+              // delivery updates back to Preview Firestore. The admin
+              // dashboard link inside the SMS body itself stays hardcoded
+              // to https://yardsync.vercel.app/admin/dashboard since the
+              // admin dashboard only exists on Production.
+              const cbUrl        = `${getBaseUrl(request)}/api/twilio/status-callback?ctx=pro_setup_admin&gardenerUid=${gardenerUid}`
               const smsBody      = new URLSearchParams({
                 To:                  to,
                 MessagingServiceSid: twilioMsgSvc,
