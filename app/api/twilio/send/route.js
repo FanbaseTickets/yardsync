@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getDocument, setDocument } from '@/lib/firestoreRest'
 
 const TWILIO_SID     = process.env.TWILIO_ACCOUNT_SID
 const TWILIO_TOKEN   = process.env.TWILIO_AUTH_TOKEN
@@ -6,7 +7,7 @@ const TWILIO_MSG_SVC = process.env.TWILIO_MESSAGING_SERVICE_SID
 
 export async function POST(request) {
   try {
-    const { scheduleId, clientId, clientPhone, message, language } = await request.json()
+    const { scheduleId, clientId, clientPhone, message, language, gardenerUid } = await request.json()
 
     if (!TWILIO_SID || !TWILIO_TOKEN || !TWILIO_MSG_SVC) {
       return NextResponse.json(
@@ -99,6 +100,25 @@ export async function POST(request) {
 
     const messageSid = twilioData.sid || twilioData.message_sid || null
     console.log('SMS sent — SID:', messageSid, 'status:', twilioData.status)
+
+    // ── STEP 4: Increment the contractor's lifetime SMS-sent counter ─────────
+    // Non-atomic read-modify-write — race risk is negligible for SMS sends
+    // because (a) sends are user-initiated one at a time and (b) the counter
+    // has no functional dependency, it's just a display number on the
+    // dashboard and /sms page. Don't fail the send if the counter write
+    // fails — the SMS already went out.
+    if (gardenerUid) {
+      try {
+        const userDoc = await getDocument('users', gardenerUid)
+        const current = userDoc?.data?.smsSentTotal || 0
+        await setDocument('users', gardenerUid, {
+          smsSentTotal: current + 1,
+          lastSmsAt:    new Date().toISOString(),
+        })
+      } catch (counterErr) {
+        console.error('smsSentTotal increment failed (non-fatal):', counterErr.message)
+      }
+    }
 
     return NextResponse.json({
       success: true,

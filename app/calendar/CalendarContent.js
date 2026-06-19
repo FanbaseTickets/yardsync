@@ -3,7 +3,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
@@ -146,6 +146,7 @@ function AddonSelector({ addonServices, lang, fixedAddons, setFixedAddons, varia
 
 export default function CalendarPage() {
   const router              = useRouter()
+  const searchParams        = useSearchParams()
   const { user, profile }   = useAuth()
   const { translate, lang } = useLang()
   const [mounted, setMounted] = useState(false)
@@ -227,6 +228,22 @@ export default function CalendarPage() {
     if (!user) return
     loadData()
   }, [user, currentDate])
+
+  // Deep-link: /calendar?client=<id> opens the Add Job modal pre-filled with
+  // that client and today's date. Used by the "Schedule visits" CTA on the
+  // client detail page so contractors can schedule a visit without manually
+  // navigating to Calendar → tapping today → reselecting the client.
+  useEffect(() => {
+    const clientParam = searchParams?.get('client')
+    if (!clientParam || clients.length === 0) return
+    if (!clients.find(c => c.id === clientParam)) return
+    handleClientSelect(clientParam)
+    setSelectedDay(new Date())
+    setShowAddModal(true)
+    // Strip the query param so a refresh doesn't reopen the modal
+    router.replace('/calendar', { scroll: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients, searchParams])
 
   async function loadData() {
     setLoading(true)
@@ -434,7 +451,7 @@ export default function CalendarPage() {
           : `Hi ${clientName}! Your invoice for $${(totalCents / 100).toFixed(2)} is ready. Pay here: ${data.paymentUrl}`
         fetch('/api/twilio/send', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clientPhone, message: smsBody }),
+          body: JSON.stringify({ clientPhone, message: smsBody, gardenerUid: user?.uid }),
         }).catch(err => console.error('Invoice SMS failed (non-fatal):', err))
       }
       const parts = []
@@ -610,7 +627,7 @@ export default function CalendarPage() {
         fetch('/api/twilio/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clientPhone: walkInInvoiceTarget.clientPhone, message: smsBody }),
+          body: JSON.stringify({ clientPhone: walkInInvoiceTarget.clientPhone, message: smsBody, gardenerUid: user?.uid }),
         }).catch(err => console.error('Walk-in SMS failed (non-fatal):', err))
       }
       const parts = []

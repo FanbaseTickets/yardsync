@@ -8,7 +8,7 @@ import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Skeleton, EmptyState, Modal } from '@/components/ui'
-import { getClients, updateSchedule, saveICalEvent } from '@/lib/db'
+import { getClients, updateSchedule, saveICalEvent, saveGardenerProfile } from '@/lib/db'
 import { getSchedulesFromToday } from '@/lib/db'
 import { MessageSquare, CheckCircle2, Clock, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -21,14 +21,16 @@ function parseISO(str) {
 }
 
 export default function SMSPage() {
-  const { user, profile } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const { translate, lang } = useLang()
 
   const [schedules,  setSchedules]  = useState([])
   const [clients,    setClients]    = useState([])
   const [loading,    setLoading]    = useState(true)
-  const [template,   setTemplate]   = useState('')
-  const [editingTpl, setEditingTpl] = useState(false)
+  const [template,    setTemplate]    = useState('')
+  const [templateEs,  setTemplateEs]  = useState('')
+  const [editingTpl,  setEditingTpl]  = useState(false)
+  const [savingTpl,   setSavingTpl]   = useState(false)
   const [sending,    setSending]    = useState(null)
   const [confirmTarget, setConfirmTarget] = useState(null)
 
@@ -38,12 +40,28 @@ export default function SMSPage() {
   }, [user])
 
   useEffect(() => {
-    if (profile?.smsTemplate) {
-      setTemplate(profile.smsTemplate)
-    } else {
-      setTemplate('Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! Reply STOP to opt out. – {business}')
-    }
+    setTemplate(profile?.smsTemplate || 'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! Reply STOP to opt out. – {business}')
+    setTemplateEs(profile?.smsTemplateEs || 'Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! Responda STOP para cancelar. – {business}')
   }, [profile])
+
+  async function handleSaveTemplate() {
+    if (!user) return
+    setSavingTpl(true)
+    try {
+      await saveGardenerProfile(user.uid, {
+        smsTemplate:   template,
+        smsTemplateEs: templateEs,
+      })
+      if (refreshProfile) await refreshProfile()
+      toast.success(lang === 'es' ? 'Plantilla guardada' : 'Template saved')
+      setEditingTpl(false)
+    } catch (err) {
+      toast.error(lang === 'es' ? 'No se pudo guardar' : 'Could not save')
+      console.error('Template save failed:', err)
+    } finally {
+      setSavingTpl(false)
+    }
+  }
 
 async function loadData() {
   setLoading(true)
@@ -141,6 +159,7 @@ async function loadData() {
         clientPhone: phone,
         message:     buildPreview(schedule),
         language:    resolveClientLanguage(schedule),
+        gardenerUid: user.uid,
       }
       console.log('SmsContent — sending SMS with:', { scheduleId: smsPayload.scheduleId, clientId: smsPayload.clientId })
 
@@ -168,6 +187,10 @@ async function loadData() {
       }
       toast.success(translate('sms', 'sms_sent_check'))
       loadData()
+      // Refresh profile so the smsSentTotal counter (top of page) reflects
+      // the new value from Firestore. Without this, the counter would stay
+      // stale until the next page refresh or login.
+      if (refreshProfile) refreshProfile().catch(() => {})
     } catch (err) {
       const isConnectionError = !err.message || err.message === 'Failed to fetch'
       toast.error(isConnectionError ? translate('sms', 'not_connected') : err.message)
@@ -176,7 +199,11 @@ async function loadData() {
     }
   }
 
-  const smsSentCount  = schedules.filter(s => s.smsSent).length
+  // Lifetime SMS count — incremented by /api/twilio/send on every successful
+  // outbound message, regardless of which send path triggered it (manual,
+  // AI draft, invoice notification). Replaces the previous per-schedule
+  // calculation which undercounted any send that didn't update a schedule.
+  const smsSentCount  = profile?.smsSentTotal || 0
   const upcomingCount = schedules.filter(s => !s.smsSent && s.status !== 'completed').length
   const upcoming      = schedules.filter(s => s.status !== 'completed').slice(0, 30)
 
@@ -225,19 +252,42 @@ async function loadData() {
                 {translate('sms', 'message_template')}
               </p>
               <button
-                onClick={() => setEditingTpl(!editingTpl)}
-                className="text-[12px] text-brand-600 font-medium"
+                onClick={() => {
+                  if (editingTpl) {
+                    handleSaveTemplate()
+                  } else {
+                    setEditingTpl(true)
+                  }
+                }}
+                disabled={savingTpl}
+                className="text-[12px] text-brand-600 font-medium disabled:opacity-50"
               >
-                {editingTpl ? translate('sms', 'done') : translate('sms', 'edit')}
+                {editingTpl
+                  ? (savingTpl ? (lang === 'es' ? 'Guardando…' : 'Saving…') : translate('sms', 'done'))
+                  : translate('sms', 'edit')}
               </button>
             </div>
             {editingTpl ? (
-              <textarea
-                value={template}
-                onChange={e => setTemplate(e.target.value)}
-                rows={4}
-                className="w-full rounded-xl border border-gray-200 bg-white text-[13px] px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
-              />
+              <div className="space-y-3">
+                <div>
+                  <p className="text-[10px] text-gray-400 font-medium uppercase mb-1">English</p>
+                  <textarea
+                    value={template}
+                    onChange={e => setTemplate(e.target.value)}
+                    rows={4}
+                    className="w-full rounded-xl border border-gray-200 bg-white text-[13px] px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+                  />
+                </div>
+                <div>
+                  <p className="text-[10px] text-gray-400 font-medium uppercase mb-1">Español</p>
+                  <textarea
+                    value={templateEs}
+                    onChange={e => setTemplateEs(e.target.value)}
+                    rows={4}
+                    className="w-full rounded-xl border border-gray-200 bg-white text-[13px] px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+                  />
+                </div>
+              </div>
             ) : (
               <div className="space-y-2">
                 <div>
