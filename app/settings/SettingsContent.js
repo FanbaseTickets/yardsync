@@ -44,6 +44,7 @@ export default function SettingsPage() {
   const [showCancelModal,  setShowCancelModal]  = useState(false)
   const [canceling,        setCanceling]        = useState(false)
   const [reactivating,     setReactivating]     = useState(false)
+  const [stripeRemediating, setStripeRemediating] = useState(false)
 
   const [form,    setForm]    = useState({
     name:           '',
@@ -418,6 +419,29 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleCompleteOnStripe() {
+    if (!user) return
+    setStripeRemediating(true)
+    try {
+      const idToken = await user.getIdToken()
+      const res = await fetch('/api/stripe/connect/remediation-link', {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ contractorUid: user.uid }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Could not generate link')
+      // Stripe AccountLink is single-use and expires in ~5 min — redirect now.
+      window.location.href = data.url
+    } catch (err) {
+      toast.error(err.message || (lang === 'es' ? 'No se pudo abrir Stripe' : 'Could not open Stripe'))
+      setStripeRemediating(false)
+    }
+  }
+
   async function handleReactivateSubscription() {
     setReactivating(true)
     try {
@@ -477,6 +501,77 @@ export default function SettingsPage() {
         />
 
         <div className="px-4 py-4 max-w-lg mx-auto space-y-5">
+
+          {/* Stripe requirements banner — shown when Stripe has flagged
+              outstanding KYC requirements (SSN, DOB, bank account, etc.).
+              currently_due + past_due block payouts; eventually_due is
+              non-urgent and doesn't trigger this banner. Tapping the
+              button generates a Stripe-hosted AccountLink and redirects
+              the contractor to fill in the missing info. */}
+          {profile?.stripeAccountId
+            && ((profile?.stripeRequirementsCurrentlyDue?.length || 0) > 0
+                || (profile?.stripeRequirementsPastDue?.length || 0) > 0) && (
+            <Card className="border-amber-200 bg-amber-50">
+              <div className="flex items-start gap-3">
+                <AlertTriangle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-[13px] font-semibold text-amber-900">
+                    {lang === 'es' ? 'Stripe necesita más información' : 'Stripe needs more info'}
+                  </p>
+                  <p className="text-[12px] text-amber-800 mt-1">
+                    {lang === 'es'
+                      ? 'Completa los siguientes datos para mantener tus pagos activos:'
+                      : 'Complete the following to keep your payouts flowing:'}
+                  </p>
+                  {(() => {
+                    const paths = [
+                      ...(profile.stripeRequirementsCurrentlyDue || []),
+                      ...(profile.stripeRequirementsPastDue || []),
+                    ]
+                    const labels = []
+                    const seen = new Set()
+                    for (const p of paths) {
+                      // Inline minimal label-grouping so the banner shows
+                      // "Date of birth" once instead of dob.day + dob.month + dob.year.
+                      const groupKey =
+                        p.startsWith('individual.dob.')      ? 'dob' :
+                        p.startsWith('individual.address.')  ? 'address' :
+                        p === 'individual.first_name' || p === 'individual.last_name' ? 'name' :
+                        p === 'tos_acceptance.date' || p === 'tos_acceptance.ip' ? 'tos' :
+                        p
+                      if (seen.has(groupKey)) continue
+                      seen.add(groupKey)
+                      const labelMap = {
+                        'individual.ssn_last_4': lang === 'es' ? 'Últimos 4 del SSN' : 'Last 4 of SSN',
+                        'individual.id_number':  lang === 'es' ? 'SSN completo o ID fiscal' : 'Full SSN or Tax ID',
+                        'individual.phone':      lang === 'es' ? 'Número de teléfono' : 'Phone number',
+                        'individual.email':      lang === 'es' ? 'Correo electrónico' : 'Email',
+                        'external_account':      lang === 'es' ? 'Cuenta bancaria para pagos' : 'Bank account for payouts',
+                        dob:      lang === 'es' ? 'Fecha de nacimiento' : 'Date of birth',
+                        address:  lang === 'es' ? 'Dirección de residencia' : 'Home address',
+                        name:     lang === 'es' ? 'Nombre legal' : 'Legal name',
+                        tos:      lang === 'es' ? 'Aceptación de Términos' : 'Terms of Service',
+                      }
+                      labels.push(labelMap[groupKey] || labelMap[p] || p)
+                    }
+                    return (
+                      <ul className="mt-2 text-[12px] text-amber-800 list-disc list-inside space-y-0.5">
+                        {labels.map((l, i) => <li key={i}>{l}</li>)}
+                      </ul>
+                    )
+                  })()}
+                  <Button
+                    fullWidth
+                    className="mt-3"
+                    loading={stripeRemediating}
+                    onClick={handleCompleteOnStripe}
+                  >
+                    {lang === 'es' ? 'Completar en Stripe' : 'Complete on Stripe'}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
 
           {/* Profile */}
           <section>

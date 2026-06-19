@@ -296,6 +296,46 @@ export async function POST(request) {
         break
       }
 
+      /* ── account.updated ─────────────────────────
+         Fires whenever a Stripe Connect connected account changes —
+         most importantly when its `requirements.currently_due` /
+         `eventually_due` arrays change as Stripe asks for KYC info
+         (SSN last 4, DOB, bank account, etc.) or accepts what we sent.
+         Persisting these to the user doc lets:
+           - The contractor's Settings page show a "Stripe needs more
+             info" banner with a Complete-on-Stripe button.
+           - The admin dashboard surface a "Contractors needing Stripe
+             info" widget so Jay can proactively send remediation links.
+         Without this handler, contractors fly blind on KYC needs and
+         only discover them when payouts get blocked.
+      */
+      case 'account.updated': {
+        const account = event.data.object
+        if (account?.object !== 'account') break
+        const accountId = account.id
+        if (!accountId) break
+
+        const userDoc = await queryCollection('users', 'stripeAccountId', accountId)
+        if (!userDoc) {
+          console.warn(`[webhook] account.updated: no user with stripeAccountId=${accountId}`)
+          break
+        }
+
+        const reqs = account.requirements || {}
+        await setDocument('users', userDoc.id, {
+          stripeRequirementsCurrentlyDue:    Array.isArray(reqs.currently_due)    ? reqs.currently_due    : [],
+          stripeRequirementsEventuallyDue:   Array.isArray(reqs.eventually_due)   ? reqs.eventually_due   : [],
+          stripeRequirementsPastDue:         Array.isArray(reqs.past_due)         ? reqs.past_due         : [],
+          stripeRequirementsDisabledReason:  reqs.disabled_reason || null,
+          stripeChargesEnabled:              account.charges_enabled || false,
+          stripePayoutsEnabled:              account.payouts_enabled || false,
+          stripeRequirementsUpdatedAt:       new Date().toISOString(),
+          updatedAt:                         new Date().toISOString(),
+        })
+        console.log(`account.updated persisted for ${userDoc.id} — currently_due: ${reqs.currently_due?.length || 0}, past_due: ${reqs.past_due?.length || 0}`)
+        break
+      }
+
       /* ── payment_intent.succeeded ───────────────── */
       case 'payment_intent.succeeded': {
         const pi = event.data.object
