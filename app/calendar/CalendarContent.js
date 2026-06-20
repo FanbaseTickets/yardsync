@@ -548,13 +548,23 @@ export default function CalendarPage() {
     const datesToAdd  = repeatMode === 'none' ? [selectedDay] : generateOccurrences(selectedDay, repeatMode, occurrences)
 
     // Double-booking guard — warn (but allow) if any target date already has a
-    // job at the same time. Catches the common case of two new jobs both
-    // defaulting to 9:00 AM on the same day. Checks loaded (current-month)
-    // schedules; recurring dates that fall in not-yet-loaded months aren't
-    // pre-checked here.
-    const conflictDates = datesToAdd.filter(date =>
-      getSchedulesForDay(date).some(s => s.time === selectedTime)
-    )
+    // job at the same time. A recurring series spans months beyond the loaded
+    // calendar, so query Firestore across the FULL date range of the series
+    // rather than only the in-memory (current-month) schedules — otherwise
+    // future-month collisions slip through silently.
+    const sortedDates = [...datesToAdd].sort((a, b) => a - b)
+    let existingInRange = schedules
+    try {
+      existingInRange = await getSchedules(
+        user.uid,
+        toDateStr(sortedDates[0]),
+        toDateStr(sortedDates[sortedDates.length - 1])
+      )
+    } catch {
+      existingInRange = schedules   // fall back to the loaded month on query failure
+    }
+    const existingKeys = new Set(existingInRange.map(s => `${s.serviceDate}|${s.time}`))
+    const conflictDates = datesToAdd.filter(date => existingKeys.has(`${toDateStr(date)}|${selectedTime}`))
     if (conflictDates.length > 0) {
       const list = conflictDates.map(d => fmt(d, 'MMM d')).join(', ')
       const msg = lang === 'es'
