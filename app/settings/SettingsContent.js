@@ -74,6 +74,18 @@ export default function SettingsPage() {
   const [slugCheckError, setSlugCheckError] = useState(null)   // error code from validateSlug or 'taken'
   const [slugSaving,     setSlugSaving]     = useState(false)
 
+  // Origin used for the displayed card URL + Copy button. On Production this
+  // resolves to yardsyncapp.com (the canonical share URL). On Preview it
+  // resolves to the Vercel preview host so the displayed link actually works
+  // when clicked. Falls back to yardsyncapp.com during SSR.
+  const [currentOrigin, setCurrentOrigin] = useState('https://yardsyncapp.com')
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      setCurrentOrigin(window.location.origin)
+    }
+  }, [])
+  const displayHost = currentOrigin.replace(/^https?:\/\//, '')
+
   useEffect(() => {
     if (profile) {
       setForm({
@@ -622,12 +634,17 @@ export default function SettingsPage() {
                         {lang === 'es' ? 'URL de su tarjeta' : 'Your card URL'}
                       </p>
                       <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 mb-2">
-                        <code className="text-[12px] text-gray-700 flex-1 truncate">
-                          yardsyncapp.com/join/{profile.publicSlug}
-                        </code>
+                        <a
+                          href={`/join/${profile.publicSlug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[12px] text-gray-700 flex-1 truncate hover:text-brand-600 transition-colors"
+                        >
+                          {displayHost}/join/{profile.publicSlug}
+                        </a>
                         <button
                           onClick={() => {
-                            navigator.clipboard.writeText(`https://yardsyncapp.com/join/${profile.publicSlug}`)
+                            navigator.clipboard.writeText(`${currentOrigin}/join/${profile.publicSlug}`)
                             toast.success(lang === 'es' ? 'Copiado' : 'Copied')
                           }}
                           className="text-[12px] text-brand-600 font-medium hover:text-brand-700"
@@ -648,7 +665,7 @@ export default function SettingsPage() {
                         {lang === 'es' ? 'Editar URL' : 'Edit URL'}
                       </p>
                       <div className="flex items-center gap-1 bg-gray-50 rounded-lg pl-3 pr-1 py-1">
-                        <span className="text-[12px] text-gray-500 flex-shrink-0">yardsyncapp.com/join/</span>
+                        <span className="text-[12px] text-gray-500 flex-shrink-0">{displayHost}/join/</span>
                         <input
                           type="text"
                           value={slugDraft}
@@ -839,6 +856,15 @@ export default function SettingsPage() {
                       </label>
                     </div>
                   </div>
+                </div>
+              )}
+              {/* Contextual save so the contractor doesn't have to scroll all
+                  the way down after editing card fields. */}
+              {profile?.publicSlug && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <Button fullWidth loading={saving} onClick={handleSave}>
+                    {lang === 'es' ? 'Guardar cambios de la tarjeta' : 'Save card changes'}
+                  </Button>
                 </div>
               )}
             </Card>
