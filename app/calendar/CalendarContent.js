@@ -239,7 +239,10 @@ export default function CalendarPage() {
     if (!clientParam || clients.length === 0) return
     if (!clients.find(c => c.id === clientParam)) return
     handleClientSelect(clientParam)
-    setSelectedDay(new Date())
+    // Default a deep-linked "Schedule visits" to tomorrow, not today — a
+    // freshly-accepted client's first visit is rarely same-day, and the old
+    // `new Date()` default silently booked the current day.
+    setSelectedDay(addDays(new Date(), 1))
     setShowAddModal(true)
     // Strip the query param so a refresh doesn't reopen the modal
     router.replace('/calendar', { scroll: false })
@@ -527,10 +530,27 @@ export default function CalendarPage() {
 
   async function handleAddSchedule() {
     if (!selectedClient || !selectedDay) return
+    const client      = clients.find(c => c.id === selectedClient)
+    const datesToAdd  = repeatMode === 'none' ? [selectedDay] : generateOccurrences(selectedDay, repeatMode, occurrences)
+
+    // Double-booking guard — warn (but allow) if any target date already has a
+    // job at the same time. Catches the common case of two new jobs both
+    // defaulting to 9:00 AM on the same day. Checks loaded (current-month)
+    // schedules; recurring dates that fall in not-yet-loaded months aren't
+    // pre-checked here.
+    const conflictDates = datesToAdd.filter(date =>
+      getSchedulesForDay(date).some(s => s.time === selectedTime)
+    )
+    if (conflictDates.length > 0) {
+      const list = conflictDates.map(d => fmt(d, 'MMM d')).join(', ')
+      const msg = lang === 'es'
+        ? `Ya tienes un trabajo a las ${selectedTime} en ${list}. ¿Reservar de todos modos?`
+        : `You already have a job at ${selectedTime} on ${list}. Book anyway?`
+      if (!window.confirm(msg)) return
+    }
+
     setSaving(true)
     try {
-      const client      = clients.find(c => c.id === selectedClient)
-      const datesToAdd  = repeatMode === 'none' ? [selectedDay] : generateOccurrences(selectedDay, repeatMode, occurrences)
       const finalAddons = buildFinalAddons(selectedAddons, variableInputs)
       await Promise.all(datesToAdd.map(date => addSchedule(user.uid, {
         clientId: selectedClient, clientName: client?.name || '',
@@ -559,6 +579,16 @@ export default function CalendarPage() {
       setWalkInPhoneError(lang === 'es' ? 'Ingresa un número válido (10 dígitos)' : 'Enter a valid phone number (10 digits)')
       return
     }
+
+    // Double-booking guard — warn (but allow) if this day already has a job
+    // at the same time.
+    if (getSchedulesForDay(selectedDay).some(s => s.time === walkInTime)) {
+      const msg = lang === 'es'
+        ? `Ya tienes un trabajo a las ${walkInTime} el ${fmt(selectedDay, 'MMM d')}. ¿Reservar de todos modos?`
+        : `You already have a job at ${walkInTime} on ${fmt(selectedDay, 'MMM d')}. Book anyway?`
+      if (!window.confirm(msg)) return
+    }
+
     setWalkInPhoneError('')
     setSavingWalkIn(true)
     try {

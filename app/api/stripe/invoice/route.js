@@ -73,21 +73,25 @@ export async function POST(req) {
 
     const applicationFeeAmount = Math.round(totalCents * 0.055)
 
-    // Step 1: Create Stripe PaymentIntent
+    // Step 1: Create Stripe PaymentIntent (destination charge).
     //
-    // on_behalf_of makes the connected account the "merchant of record" for
-    // receipts, statement descriptors, and customer-facing branding — the
-    // client sees "Receipt from {contractor business name}" instead of the
-    // platform account name. The application fee still flows to the platform
-    // via application_fee_amount + transfer_data.destination. This is Stripe's
-    // standard pattern for Connect marketplaces where the contractor is the
-    // merchant the client is paying.
+    // The platform (YardSync) is the merchant of record; funds settle to the
+    // platform and the contractor's share is routed via transfer_data.destination
+    // while the 5.5% application fee stays with the platform.
+    //
+    // NOTE: we intentionally do NOT set on_behalf_of. on_behalf_of makes the
+    // connected account the merchant of record, which Stripe only permits when
+    // that account has the `card_payments` capability. Our Connect accounts are
+    // onboarded with `transfers` only (see connect/create-account), so setting
+    // on_behalf_of fails every charge with "...connected account with `transfers`
+    // but without the `card_payments` capability enabled." Contractor-branded
+    // receipts would require requesting card_payments at onboarding + additional
+    // KYC on every account — tracked as a deliberate follow-up, not done here.
     const paymentIntent = await stripe.paymentIntents.create({
       amount: totalCents,
       currency: 'usd',
       application_fee_amount: applicationFeeAmount,
       transfer_data: { destination: stripeAccountId },
-      on_behalf_of: stripeAccountId,
       description: description || 'YardSync invoice',
       receipt_email: clientEmail || undefined,
       metadata: {
