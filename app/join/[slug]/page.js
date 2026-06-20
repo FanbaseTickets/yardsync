@@ -1,35 +1,65 @@
 /**
- * GET /join/[slug] — public business card + intake form
+ * GET /join/[slug] — public digital business card (rev 3, card-first).
  *
- * Server component. **No Firebase client SDK in this file's component
- * tree** (constraint #2 in docs/SMART_BUSINESS_CARD_SPEC.md): all
- * Firestore reads happen via lib/firestoreRest.js; the IntakeForm
- * client component below only fetch()es /api/join/submit and never
- * touches Firebase directly.
+ * Server component. **No Firebase client SDK** in this tree (constraint
+ * #2 in docs/SMART_BUSINESS_CARD_SPEC.md). All Firestore reads happen
+ * via lib/firestoreRest.js; the CardActions client component imports
+ * no Firebase — it only renders the card view and fetches the vCard
+ * route as a plain anchor.
+ *
+ * The intake form lives at /join/[slug]/request — both the primary
+ * "Request service" CTA and the on-card QR code point there.
  *
  * Flow:
- *  1. Resolve slugs/{slug} → ownerUid (or render branded "not active" page)
+ *  1. Resolve slugs/{slug} → ownerUid (or render "card not active" page)
  *  2. If old slug with live redirect window → 301 to current slug
- *  3. Fetch owner profile (users/{uid}) for the public-facing fields
- *  4. Fetch owner's service packages for the "Service interest" dropdown
- *  5. Detect language from Accept-Language; render with EN/ES toggle
- *  6. Render the bilingual landing page + IntakeForm
+ *  3. Fetch owner profile + service packages
+ *  4. Detect language from Accept-Language; pass as initialLang
+ *  5. Server-render a QR SVG encoding /join/{slug}/request (works no-JS)
+ *  6. Render CardActions with all of the above
  *
- * No payment/Connect gating — the page is live the moment a slug exists.
+ * No payment/Connect gating — the card is live the moment a slug exists.
  */
 
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
+import QRCode from 'qrcode'
 import { getDocument, listCollection } from '@/lib/firestoreRest'
-import IntakeForm from './IntakeForm'
+import CardActions from './CardActions'
 
 export const dynamic = 'force-dynamic'
 
-const DEFAULT_ACCENT = '#0F6E56' // YardSync primary (matches Tailwind brand-600)
+const DEFAULT_ACCENT = '#0F6E56'
+
+async function generateQrSvg(text, color) {
+  try {
+    return await QRCode.toString(text, {
+      type:                  'svg',
+      margin:                1,
+      width:                 200,
+      color:                 { dark: color, light: '#ffffff' },
+      errorCorrectionLevel:  'M',
+    })
+  } catch (err) {
+    console.error('[join/page] QR generation failed:', err.message)
+    return null
+  }
+}
+
+function resolveBaseUrl(headersList) {
+  // Use the inbound request's host so a QR rendered on a Preview deploy
+  // encodes the Preview URL — otherwise the QR would lead to production
+  // where the slug/route doesn't exist yet.
+  const host = headersList?.get?.('host')
+  if (host) {
+    const proto = host.includes('localhost') ? 'http' : 'https'
+    return `${proto}://${host}`
+  }
+  return (process.env.NEXT_PUBLIC_APP_URL || 'https://yardsyncapp.com').replace(/\/$/, '')
+}
 
 export async function generateMetadata({ params }) {
   const { slug } = await params
-  // Best-effort: skip the lookup if the slug is malformed.
   if (!slug || typeof slug !== 'string') return { title: 'YardSync' }
 
   try {
@@ -38,7 +68,7 @@ export async function generateMetadata({ params }) {
     const ownerDoc = await getDocument('users', slugDoc.data.ownerUid)
     if (!ownerDoc?.data?.businessName) return { title: 'YardSync' }
     return {
-      title: `${ownerDoc.data.businessName} · YardSync`,
+      title:       `${ownerDoc.data.businessName} · YardSync`,
       description: ownerDoc.data.tagline || ownerDoc.data.bio || 'Request service from this provider.',
     }
   } catch {
@@ -46,17 +76,12 @@ export async function generateMetadata({ params }) {
   }
 }
 
-export default async function JoinPage({ params }) {
+export default async function CardPage({ params }) {
   const { slug } = await params
 
-  // ── 1. Resolve the slug ───────────────────────────────────────────────
   const slugDoc = await getDocument('slugs', slug)
+  if (!slugDoc) return <CardNotActive />
 
-  if (!slugDoc) {
-    return <CardNotActive />
-  }
-
-  // ── 2. Handle old-slug redirect (30-day window after a slug change) ──
   if (slugDoc.data.active === false) {
     const redirectTo = slugDoc.data.redirectTo
     const expiresAt  = slugDoc.data.expiresAt
@@ -66,15 +91,14 @@ export default async function JoinPage({ params }) {
     return <CardNotActive />
   }
 
-  // ── 3. Fetch owner profile ────────────────────────────────────────────
   const ownerUid = slugDoc.data.ownerUid
   if (!ownerUid) return <CardNotActive />
+
   const ownerDoc = await getDocument('users', ownerUid)
   if (!ownerDoc?.data) return <CardNotActive />
 
   const owner = ownerDoc.data
 
-  // ── 4. Fetch service packages (for the dropdown — optional) ───────────
   let services = []
   try {
     const res = await listCollection('services', {
@@ -85,42 +109,42 @@ export default async function JoinPage({ params }) {
       .map(d => d.data)
       .filter(s => s.label || s.name)
   } catch (err) {
-    // Non-fatal — the dropdown just won't render
-    console.error('join page: services fetch failed:', err.message)
+    console.error('[join/page] services fetch failed:', err.message)
   }
 
-  // ── 5. Detect language from Accept-Language header ────────────────────
   const headersList = await headers()
-  const acceptLang = (headersList.get('accept-language') || '').toLowerCase()
+  const acceptLang  = (headersList.get('accept-language') || '').toLowerCase()
   const initialLang = acceptLang.startsWith('es') ? 'es' : 'en'
 
-  // ── 6. Render ─────────────────────────────────────────────────────────
   const accentColor = owner.accentColor || DEFAULT_ACCENT
+  const baseUrl     = resolveBaseUrl(headersList)
+  const requestUrl  = `${baseUrl}/join/${slug}/request`
+  const qrSvg       = await generateQrSvg(requestUrl, accentColor)
 
   return (
-    <IntakeForm
+    <CardActions
       slug={slug}
       owner={{
-        businessName:  owner.businessName  || 'Service Provider',
-        tagline:       owner.tagline       || '',
-        bio:           owner.bio           || '',
-        serviceArea:   owner.serviceArea   || '',
-        logoURL:       owner.logoURL       || '',
-        headshotURL:   owner.headshotURL   || '',
-        phone:         owner.phone         || '',
+        businessName:      owner.businessName     || 'Service Provider',
+        tagline:           owner.tagline          || '',
+        bio:               owner.bio              || '',
+        serviceArea:       owner.serviceArea      || '',
+        logoURL:           owner.logoURL          || '',
+        headshotURL:       owner.headshotURL      || '',
+        phone:             owner.phone            || '',
+        email:             owner.email            || '',
         accentColor,
+        showContactPhone:  owner.showContactPhone !== false,
+        showContactEmail:  owner.showContactEmail === true,
+        cardStatusBadge:   owner.cardStatusBadge  || 'booking',
       }}
       services={services}
+      qrSvg={qrSvg}
       initialLang={initialLang}
     />
   )
 }
 
-/**
- * Branded "card not active" page. Replaces the raw Next.js 404 so a
- * scanned-but-not-yet-generated QR code shows something explanatory
- * rather than a generic browser error.
- */
 function CardNotActive() {
   return (
     <main className="min-h-screen flex items-center justify-center bg-gray-50 px-6 py-12">
