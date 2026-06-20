@@ -184,6 +184,12 @@ export default function ClientsPage() {
   // in their own "New leads" section at the top, NOT mixed into the
   // regular client list (which would also bleed them into the daily
   // SMS reminder cron and Volume Rewards math).
+  //
+  // Dismissed leads (leadStatus === 'dismissed') are kept in Firestore
+  // for audit + future duplicate-detection but are invisible to the
+  // contractor — they should NOT appear in the regular client list as
+  // "inactive" (the prior bug: a dismissed lead with status=undefined
+  // got counted as inactive and showed up in the list).
   const pendingLeads = clients
     .filter(c => c.leadStatus === 'new')
     .sort((a, b) => {
@@ -191,7 +197,9 @@ export default function ClientsPage() {
       const db = new Date(b.leadSubmittedAt || b.createdAt || 0).getTime()
       return db - da
     })
-  const nonLeadClients = clients.filter(c => c.leadStatus !== 'new')
+  const nonLeadClients = clients.filter(
+    c => c.leadStatus !== 'new' && c.leadStatus !== 'dismissed'
+  )
 
   const filtered = (() => {
     let list = nonLeadClients.filter(c =>
@@ -375,7 +383,7 @@ export default function ClientsPage() {
                           className="flex items-center gap-1.5 hover:text-brand-700"
                         >
                           <Phone size={12} className="text-gray-400" />
-                          {lead.phone}
+                          {formatPhone(lead.phone)}
                         </a>
                       )}
                       {lead.email && (
