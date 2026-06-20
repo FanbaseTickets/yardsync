@@ -447,7 +447,7 @@ export default function DashboardPage() {
                           <p className={`text-[14px] font-medium transition-all ${
                             done ? 'text-gray-400 line-through decoration-gray-300' : 'text-gray-900'
                           }`}>
-                            {client?.name || 'Unknown client'}
+                            {client?.name || job.clientName || 'Unknown client'}
                           </p>
                           <p className="text-[12px] text-gray-400 truncate">
                             {client?.address || ''} · {job.time || '—'}
