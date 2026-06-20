@@ -9,12 +9,12 @@ import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, EmptyState, Skeleton, Modal, Input, Select } from '@/components/ui'
-import { getClients, addClient, getServices } from '@/lib/db'
+import { getClients, addClient, getServices, updateClient } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { validatePhone, formatPhone } from '@/lib/phone'
 import { isValidEmail, suggestEmailCorrection } from '@/lib/emailHelpers'
 import PhoneInput from '@/components/ui/PhoneInput'
-import { Users, Plus, Search, MapPin, AlertCircle } from 'lucide-react'
+import { Users, Plus, Search, MapPin, AlertCircle, Sparkles, Phone, Mail, MessageSquare, Check, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 
@@ -178,8 +178,23 @@ export default function ClientsPage() {
     }
   }
 
+  // ── Lead isolation ─────────────────────────────────────────────────
+  // Per docs/SMART_BUSINESS_CARD_SPEC.md §1.2, any client with
+  // leadStatus === 'new' is a pending intake submission — they appear
+  // in their own "New leads" section at the top, NOT mixed into the
+  // regular client list (which would also bleed them into the daily
+  // SMS reminder cron and Volume Rewards math).
+  const pendingLeads = clients
+    .filter(c => c.leadStatus === 'new')
+    .sort((a, b) => {
+      const da = new Date(a.leadSubmittedAt || a.createdAt || 0).getTime()
+      const db = new Date(b.leadSubmittedAt || b.createdAt || 0).getTime()
+      return db - da
+    })
+  const nonLeadClients = clients.filter(c => c.leadStatus !== 'new')
+
   const filtered = (() => {
-    let list = clients.filter(c =>
+    let list = nonLeadClients.filter(c =>
       c.name?.toLowerCase().includes(search.toLowerCase()) ||
       c.address?.toLowerCase().includes(search.toLowerCase())
     )
@@ -199,8 +214,61 @@ export default function ClientsPage() {
     }
     return list
   })()
-  const activeCount   = clients.filter(c => c.status === 'active').length
-  const inactiveCount = clients.filter(c => c.status !== 'active').length
+  const activeCount   = nonLeadClients.filter(c => c.status === 'active').length
+  const inactiveCount = nonLeadClients.filter(c => c.status !== 'active').length
+
+  // ── Lead actions ───────────────────────────────────────────────────
+  // Accept: graduate the lead to an active client with upfront billing
+  // (trust state — see spec §6). Dismiss: soft-delete (we keep the
+  // record for audit and possible-duplicate detection later).
+  async function handleAcceptLead(lead) {
+    try {
+      await updateClient(lead.id, {
+        leadStatus:          'accepted',
+        leadAcceptedAt:      new Date().toISOString(),
+        status:              'active',
+        billingMode:         'upfront',
+        completedJobsCount:  0,
+        billingModePrompted: false,
+      })
+      toast.success(lang === 'es' ? `${lead.name} aceptado` : `${lead.name} accepted ✓`)
+      loadData()
+    } catch (err) {
+      console.error('Failed to accept lead:', err)
+      toast.error(translate('common', 'error'))
+    }
+  }
+
+  async function handleDismissLead(lead) {
+    if (!window.confirm(
+      lang === 'es'
+        ? `¿Descartar la solicitud de ${lead.name}?`
+        : `Dismiss ${lead.name}'s request?`
+    )) return
+    try {
+      await updateClient(lead.id, {
+        leadStatus:      'dismissed',
+        leadDismissedAt: new Date().toISOString(),
+      })
+      toast.success(lang === 'es' ? 'Descartado' : 'Dismissed')
+      loadData()
+    } catch (err) {
+      console.error('Failed to dismiss lead:', err)
+      toast.error(translate('common', 'error'))
+    }
+  }
+
+  function formatLeadAge(iso) {
+    if (!iso) return ''
+    const ms = Date.now() - new Date(iso).getTime()
+    const mins = Math.floor(ms / 60000)
+    if (mins < 1)    return lang === 'es' ? 'ahora' : 'just now'
+    if (mins < 60)   return lang === 'es' ? `hace ${mins} min` : `${mins}m ago`
+    const hours = Math.floor(mins / 60)
+    if (hours < 24)  return lang === 'es' ? `hace ${hours} h` : `${hours}h ago`
+    const days = Math.floor(hours / 24)
+    return lang === 'es' ? `hace ${days} d` : `${days}d ago`
+  }
 
   function getInitials(name) {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -260,6 +328,118 @@ export default function ClientsPage() {
               </button>
             ))}
           </div>
+
+          {/* ── New Leads section (above the regular client list) ──── */}
+          {!loading && pendingLeads.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 px-1">
+                <Sparkles size={14} className="text-brand-600" />
+                <h2 className="text-[13px] font-semibold text-gray-800">
+                  {lang === 'es' ? 'Nuevas solicitudes' : 'New leads'}
+                </h2>
+                <span className="text-[11px] font-medium text-brand-700 bg-brand-50 px-2 py-0.5 rounded-full">
+                  {pendingLeads.length}
+                </span>
+              </div>
+
+              {pendingLeads.map(lead => (
+                <Card key={lead.id} padding={false} className="border-brand-200 bg-brand-50/30">
+                  <div className="p-4 space-y-3">
+                    {/* Header row */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[14px] font-semibold text-gray-900 truncate">
+                          {lead.name}
+                        </p>
+                        <p className="text-[11px] text-gray-500">
+                          {formatLeadAge(lead.leadSubmittedAt || lead.createdAt)}
+                          {lead.language === 'es' && (
+                            <span className="ml-2 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">
+                              ES
+                            </span>
+                          )}
+                          {lead.intakeSmsConsent && (
+                            <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">
+                              {lang === 'es' ? 'SMS OK' : 'SMS OK'}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Contact + details */}
+                    <div className="space-y-1.5 text-[12px] text-gray-700">
+                      {lead.phone && (
+                        <a
+                          href={`tel:${lead.phone.replace(/\D/g, '')}`}
+                          className="flex items-center gap-1.5 hover:text-brand-700"
+                        >
+                          <Phone size={12} className="text-gray-400" />
+                          {lead.phone}
+                        </a>
+                      )}
+                      {lead.email && (
+                        <a
+                          href={`mailto:${lead.email}`}
+                          className="flex items-center gap-1.5 hover:text-brand-700"
+                        >
+                          <Mail size={12} className="text-gray-400" />
+                          {lead.email}
+                        </a>
+                      )}
+                      {lead.address && (
+                        <div className="flex items-start gap-1.5">
+                          <MapPin size={12} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                          <span>{lead.address}</span>
+                        </div>
+                      )}
+                      {lead.serviceInterest && (
+                        <div className="text-[11px] text-gray-600 bg-white border border-gray-200 rounded px-2 py-1 inline-block">
+                          {lead.serviceInterest}
+                        </div>
+                      )}
+                      {lead.note && (
+                        <div className="flex items-start gap-1.5 text-[11px] text-gray-600 italic">
+                          <MessageSquare size={12} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                          <span>"{lead.note}"</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Possible-duplicate hint */}
+                    {lead.possibleDuplicateOf && (
+                      <div className="flex items-start gap-1.5 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                        <AlertCircle size={12} className="mt-0.5 flex-shrink-0" />
+                        <span>
+                          {lang === 'es'
+                            ? `Posible duplicado de ${lead.possibleDuplicateOf}`
+                            : `Possible duplicate of ${lead.possibleDuplicateOf}`}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Action buttons */}
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => handleAcceptLead(lead)}
+                        className="flex-1 flex items-center justify-center gap-1.5 bg-brand-600 text-white text-[13px] font-semibold py-2 rounded-lg hover:bg-brand-700 transition-colors"
+                      >
+                        <Check size={14} />
+                        {lang === 'es' ? 'Aceptar' : 'Accept'}
+                      </button>
+                      <button
+                        onClick={() => handleDismissLead(lead)}
+                        className="flex items-center justify-center gap-1.5 bg-white text-gray-600 text-[13px] font-medium py-2 px-4 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+                      >
+                        <X size={14} />
+                        {lang === 'es' ? 'Descartar' : 'Dismiss'}
+                      </button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
 
           {loading ? (
             <div className="space-y-2">
