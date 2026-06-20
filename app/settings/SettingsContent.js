@@ -45,17 +45,21 @@ export default function SettingsPage() {
     name:           '',
     businessName:   '',
     phone:          '',
+    email:          '',
     reminderTiming: '48',
     language:       'en',
     smsTemplate:    '',
     smsTemplateEs:  '',
     logoUrl:        '',
     // Smart Business Card fields (see docs/SMART_BUSINESS_CARD_SPEC.md §1.1):
-    bio:                  '',     // free-text description shown on /join/[slug]
-    tagline:              '',     // one-line selling line for the card
-    accentColor:          '',     // hex color for card branding ('' = use YardSync default)
-    serviceArea:          '',     // free-text "San Antonio & NE suburbs"
-    upfrontDeadlineHours: 24,     // global default for upfront billing (1-168, default 24)
+    bio:                  '',          // free-text description shown on /join/[slug]
+    tagline:              '',          // one-line selling line for the card
+    accentColor:          '',          // hex color for card branding ('' = use YardSync default)
+    serviceArea:          '',          // free-text "San Antonio & NE suburbs"
+    showContactPhone:     true,        // show phone + Call/Text on card (default ON)
+    showContactEmail:     false,       // show email on card (default OFF — opt-in)
+    cardStatusBadge:      'booking',   // 'booking' | 'none' — Now booking pill
+    upfrontDeadlineHours: 24,          // global default for upfront billing (1-168, default 24)
   })
   const [saving, setSaving] = useState(false)
 
@@ -75,6 +79,7 @@ export default function SettingsPage() {
         name:           profile.name           || '',
         businessName:   profile.businessName   || '',
         phone:          profile.phone          || '',
+        email:          profile.email          || '',
         reminderTiming: profile.reminderTiming || '48',
         language:       profile.language       || 'en',
         smsTemplate:    profile.smsTemplate    || 'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! Reply STOP to opt out. – {business}',
@@ -84,6 +89,9 @@ export default function SettingsPage() {
         tagline:              profile.tagline              || '',
         accentColor:          profile.accentColor          || '',
         serviceArea:          profile.serviceArea          || '',
+        showContactPhone:     profile.showContactPhone !== false,        // default ON
+        showContactEmail:     profile.showContactEmail === true,         // default OFF
+        cardStatusBadge:      profile.cardStatusBadge      || 'booking', // 'booking' | 'none'
         upfrontDeadlineHours: profile.upfrontDeadlineHours || 24,
       })
       setSlugDraft(profile.publicSlug || '')
@@ -531,6 +539,19 @@ export default function SettingsPage() {
                     ? '📲 Agrega tu número para recibir un resumen de tus trabajos cada mañana por SMS'
                     : '📲 Add your number to receive a daily morning SMS summary of your jobs'}
                 </p>
+                <Input
+                  label={lang === 'es' ? 'Correo electrónico (opcional)' : 'Email (optional)'}
+                  type="email"
+                  value={form.email}
+                  onChange={e => setField('email', e.target.value)}
+                  placeholder={lang === 'es' ? 'usted@ejemplo.com' : 'you@example.com'}
+                  autoComplete="email"
+                />
+                <p className="text-[11px] text-gray-400 -mt-2">
+                  {lang === 'es'
+                    ? 'Solo se muestra en su tarjeta si activa "Mostrar correo en la tarjeta" abajo.'
+                    : 'Only shown on your card if you turn on "Show email on card" below.'}
+                </p>
               </div>
             </Card>
           </section>
@@ -743,6 +764,61 @@ export default function SettingsPage() {
                       <p className="text-[10px] text-gray-400 mt-1">
                         {lang === 'es' ? 'Aparece en su tarjeta y publicaciones sociales.' : 'Shows on your card and social posts.'}
                       </p>
+                    </div>
+
+                    {/* Contact visibility on the public card */}
+                    <div className="pt-2 border-t border-gray-100 space-y-3">
+                      <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
+                        {lang === 'es' ? 'Visibilidad de contacto' : 'Contact visibility'}
+                      </p>
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!form.showContactPhone}
+                          onChange={e => setField('showContactPhone', e.target.checked)}
+                          className="mt-0.5 w-4 h-4 accent-brand-600"
+                        />
+                        <span className="text-[13px] text-gray-700 flex-1">
+                          {lang === 'es' ? 'Mostrar teléfono en la tarjeta' : 'Show phone on card'}
+                          <span className="block text-[11px] text-gray-400 mt-0.5">
+                            {lang === 'es'
+                              ? 'Incluye los botones Llamar y Mensaje.'
+                              : 'Includes the Call and Text buttons.'}
+                          </span>
+                        </span>
+                      </label>
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!form.showContactEmail}
+                          onChange={e => setField('showContactEmail', e.target.checked)}
+                          className="mt-0.5 w-4 h-4 accent-brand-600"
+                        />
+                        <span className="text-[13px] text-gray-700 flex-1">
+                          {lang === 'es' ? 'Mostrar correo en la tarjeta' : 'Show email on card'}
+                          <span className="block text-[11px] text-gray-400 mt-0.5">
+                            {lang === 'es'
+                              ? 'Opcional. Aparece junto a la acción Guardar contacto.'
+                              : 'Optional. Appears alongside the Save-contact action.'}
+                          </span>
+                        </span>
+                      </label>
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={form.cardStatusBadge !== 'none'}
+                          onChange={e => setField('cardStatusBadge', e.target.checked ? 'booking' : 'none')}
+                          className="mt-0.5 w-4 h-4 accent-brand-600"
+                        />
+                        <span className="text-[13px] text-gray-700 flex-1">
+                          {lang === 'es' ? 'Mostrar pastilla "Reservando ahora"' : 'Show "Now booking" badge'}
+                          <span className="block text-[11px] text-gray-400 mt-0.5">
+                            {lang === 'es'
+                              ? 'Apague cuando esté lleno o de vacaciones.'
+                              : 'Turn off when you\'re full or on vacation.'}
+                          </span>
+                        </span>
+                      </label>
                     </div>
                   </div>
                 </div>
