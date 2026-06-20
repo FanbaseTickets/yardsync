@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { useLang } from '@/context/LangContext'
@@ -72,6 +72,7 @@ export default function ClientDetailPage() {
   const [saving,        setSaving]        = useState(false)
   const [deleting,      setDeleting]      = useState(false)
   const [invoicing,     setInvoicing]     = useState(false)
+  const invoiceInFlight = useRef(false)   // synchronous double-send guard
 
   // Add-on state for invoice modal
   const [selectedAddons,  setSelectedAddons]  = useState([]) // fixed addons
@@ -318,6 +319,11 @@ export default function ClientDetailPage() {
   }
 
 async function handleSendInvoice(channels = 'both') {
+  // Synchronous in-flight guard — a fast double-tap (or tapping two channel
+  // buttons) would otherwise fire two POSTs and create two PaymentIntents
+  // before the `invoicing` state disables the buttons.
+  if (invoiceInFlight.current) return
+  invoiceInFlight.current = true
   setInvoicing(true)
   try {
     const finalAddons = buildFinalAddons()
@@ -331,9 +337,10 @@ async function handleSendInvoice(channels = 'both') {
     const allLineItems = [...lineItems, ...materialLineItems]
     const grandTotal = invoiceTotal
 
+    const idToken = await user.getIdToken()
     const res = await fetch('/api/stripe/invoice', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
       body: JSON.stringify({
         stripeAccountId: profile?.stripeAccountId,
         totalCents: grandTotal,
@@ -393,6 +400,7 @@ async function handleSendInvoice(channels = 'both') {
     toast.error(err.message || translate('common', 'error'))
   } finally {
     setInvoicing(false)
+    invoiceInFlight.current = false
   }
 }
   if (loading) {

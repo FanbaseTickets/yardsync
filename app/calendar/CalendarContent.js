@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { useLang } from '@/context/LangContext'
@@ -213,6 +213,7 @@ export default function CalendarPage() {
   const [extraSaving,      setExtraSaving]      = useState(false)
 
   const [sendingInvoiceId, setSendingInvoiceId] = useState(null)
+  const invoiceInFlight = useRef(false)   // synchronous double-send guard (both invoice paths)
   const [invoicePreview,   setInvoicePreview]   = useState(null)
   const [dayFilter,        setDayFilter]        = useState('all') // 'all' | 'pending' | 'completed' | 'route'
   const [draggingId,       setDraggingId]       = useState(null)
@@ -416,11 +417,14 @@ export default function CalendarPage() {
     const p = invoicePreview
     if (!p) return
     const { schedule, isWalkIn, clientName, clientEmail, clientPhone, totalCents, lineItems } = p
+    if (invoiceInFlight.current) return   // synchronous double-send guard
+    invoiceInFlight.current = true
     setSendingInvoiceId(schedule.id)
     try {
+      const idToken = await user.getIdToken()
       const res = await fetch('/api/stripe/invoice', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
         body: JSON.stringify({
           stripeAccountId: profile.stripeAccountId,
           totalCents,
@@ -477,6 +481,7 @@ export default function CalendarPage() {
       toast.error(e.message || (lang === 'es' ? 'Error al enviar' : 'Failed to send'))
     } finally {
       setSendingInvoiceId(null)
+      invoiceInFlight.current = false
     }
   }
 
@@ -530,6 +535,15 @@ export default function CalendarPage() {
 
   async function handleAddSchedule() {
     if (!selectedClient || !selectedDay) return
+
+    // Past-date guard — the date field's `min` blocks it in the picker, but a
+    // contractor can open this modal off a previously-tapped past calendar day.
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
+    if (selectedDay < todayStart) {
+      toast.error(lang === 'es' ? 'No se puede programar en el pasado' : "Can't schedule a visit in the past")
+      return
+    }
+
     const client      = clients.find(c => c.id === selectedClient)
     const datesToAdd  = repeatMode === 'none' ? [selectedDay] : generateOccurrences(selectedDay, repeatMode, occurrences)
 
@@ -613,6 +627,8 @@ export default function CalendarPage() {
 
   async function handleWalkInInvoice(channels = 'both') {
     if (!walkInInvoiceTarget) return
+    if (invoiceInFlight.current) return   // synchronous double-send guard
+    invoiceInFlight.current = true
     setInvoicingWalkIn(true)
     try {
       const basePrice   = walkInInvoiceTarget.basePrice || 0
@@ -625,8 +641,9 @@ export default function CalendarPage() {
         ...materials.map(m => ({ label: m.name, amountCents: m.totalCents || 0, category: 'material' })),
       ]
       const totalCents = basePrice + finalAddons.reduce((s, a) => s + a.amountCents, 0) + materialsTotalCents
+      const idToken = await user.getIdToken()
       const res = await fetch('/api/stripe/invoice', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
         body: JSON.stringify({
           stripeAccountId: profile?.stripeAccountId,
           totalCents,
@@ -682,7 +699,7 @@ export default function CalendarPage() {
       )
       setShowWalkInInvoice(false); loadData()
     } catch (err) { toast.error(err.message || translate('common', 'error')) }
-    finally { setInvoicingWalkIn(false) }
+    finally { setInvoicingWalkIn(false); invoiceInFlight.current = false }
   }
 
   async function handleComplete(schedule) {
@@ -1116,8 +1133,25 @@ export default function CalendarPage() {
         </>}
       >
         <div className="space-y-4">
+          <Input
+            type="date"
+            label={lang === 'es' ? 'Comenzando el' : 'Starting on'}
+            value={selectedDay ? toDateStr(selectedDay) : ''}
+            min={toDateStr(new Date())}
+            hint={repeatMode !== 'none'
+              ? (lang === 'es' ? 'Fecha de la primera visita' : 'Date of the first visit')
+              : undefined}
+            onChange={e => {
+              const v = e.target.value
+              if (!v) return
+              const [y, m, d] = v.split('-').map(Number)
+              setSelectedDay(new Date(y, m - 1, d))
+            }}
+          />
           <Select label={translate('calendar', 'client')} value={selectedClient} onChange={e => handleClientSelect(e.target.value)}>
-            {clients.map(c => <option key={c.id} value={c.id}>{c.name} — {translate('packages', c.packageType) || c.packageType}</option>)}
+            {clients
+              .filter(c => c.leadStatus !== 'new' && c.leadStatus !== 'dismissed')
+              .map(c => <option key={c.id} value={c.id}>{c.name} — {translate('packages', c.packageType) || c.packageType}</option>)}
           </Select>
           <Select label={translate('calendar', 'time')} value={selectedTime} onChange={e => setSelectedTime(e.target.value)}>
             {TIMES.map(t => <option key={t} value={t}>{t}</option>)}

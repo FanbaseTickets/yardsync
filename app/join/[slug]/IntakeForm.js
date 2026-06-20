@@ -113,6 +113,8 @@ function normalizePhone(raw) {
   // Strip a leading 1 from inputs like "+1 (210) 555-0100" or "1-210-555-0100"
   const local = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits
   if (local.length !== 10) return null
+  if (/^(\d)\1{9}$/.test(local)) return null              // reject all-same-digit junk
+  if (!/^[2-9]\d{2}[2-9]\d{6}$/.test(local)) return null  // NANP: area + exchange start 2-9
   return `+1${local}`
 }
 
@@ -232,8 +234,13 @@ export default function IntakeForm({ slug, owner, services, initialLang, backLin
 
   // ── Confirmation screen ───────────────────────────────────────────────
   if (submitted) {
+    // After submission we deliberately HIDE the call/text/save actions
+    // (allowContact={false}) and drop the "Call now" button: the request is in,
+    // we've told them we'll reach out, and we don't want the contractor flooded
+    // with follow-up calls/texts from every lead. Contact is available BEFORE
+    // submitting only.
     return (
-      <Page slug={slug} owner={owner} lang={lang} setLang={setLang} t={t} backLinkHref={backLinkHref}>
+      <Page slug={slug} owner={owner} lang={lang} setLang={setLang} t={t} backLinkHref={backLinkHref} allowContact={false}>
         <div className="text-center py-8">
           <div className="w-16 h-16 rounded-full bg-green-100 mx-auto mb-4 flex items-center justify-center">
             <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -245,14 +252,6 @@ export default function IntakeForm({ slug, owner, services, initialLang, backLin
           </h2>
           {smsConsent && (
             <p className="text-sm text-gray-600 mb-6">{t.confirmSmsSent}</p>
-          )}
-          {owner.phone && (
-            <a
-              href={`tel:${owner.phone.replace(/\D/g, '')}`}
-              className="inline-block bg-brand-600 text-white font-semibold px-6 py-3 rounded-xl hover:bg-brand-700 transition-colors"
-            >
-              📞 {t.callNow}
-            </a>
           )}
         </div>
       </Page>
@@ -461,7 +460,7 @@ export default function IntakeForm({ slug, owner, services, initialLang, backLin
  * footer mark. Used by both the form view and the post-submit
  * confirmation view so the two share visual scaffolding.
  */
-function Page({ slug, owner, lang, setLang, t, children, backLinkHref }) {
+function Page({ slug, owner, lang, setLang, t, children, backLinkHref, allowContact = true }) {
   return (
     <main className="min-h-screen bg-gray-50">
       {/* Header strip with accent color */}
@@ -555,8 +554,10 @@ function Page({ slug, owner, lang, setLang, t, children, backLinkHref }) {
         {/* Persistent contact row — keeps Save/Call/Text reachable from the
             form page (matches the secondary actions on the card) so a
             prospect who scanned a QR can still call directly. Gated by
-            the same showContactPhone / showContactEmail flags as the card. */}
-        {(() => {
+            the same showContactPhone / showContactEmail flags as the card.
+            Hidden after submission (allowContact=false) so a submitted lead
+            can't immediately call/text/email and flood the contractor. */}
+        {allowContact && (() => {
           const showCall  = owner.showContactPhone !== false && !!owner.phone
           const showEmail = owner.showContactEmail === true && !!owner.email
           // Save is always shown; only hide the row if Save would be alone

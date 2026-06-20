@@ -7,6 +7,33 @@ import { computeInvoiceType } from '@/lib/stripeHelpers'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
+const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+// Verify the caller's Firebase ID token and return their uid (localId), or null.
+// This is an unauthenticated-by-default route otherwise: without this, anyone
+// who knows a connected-account ID could mint fee-bearing payment links that
+// route funds to that account.
+async function verifyCallerUid(req) {
+  const auth = req.headers.get('authorization')
+  if (!auth?.startsWith('Bearer ')) return null
+  try {
+    const res = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: auth.slice(7) }),
+      }
+    )
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.users?.[0]?.localId || null
+  } catch {
+    return null
+  }
+}
+
 function buildInvoiceEmail({ clientName, totalCents, paymentUrl, contractorName, lang }) {
   const amount = `$${(totalCents / 100).toFixed(2)}`
   const name = clientName || (lang === 'es' ? 'Cliente' : 'Client')
@@ -64,14 +91,40 @@ export async function POST(req) {
       channels,
     } = await req.json()
 
+    // Auth: require a valid Firebase ID token whose uid matches gardenerUid, so
+    // a caller can only mint payment links that route to their OWN account.
+    const callerUid = await verifyCallerUid(req)
+    if (!callerUid) {
+      return NextResponse.json({ error: 'Unauthorized', code: 'unauthorized' }, { status: 401 })
+    }
+    if (!gardenerUid || callerUid !== gardenerUid) {
+      return NextResponse.json({ error: 'Forbidden', code: 'forbidden' }, { status: 403 })
+    }
+
     if (!stripeAccountId) {
       return NextResponse.json({ error: 'Stripe Connect not completed', code: 'no_connect' }, { status: 400 })
     }
-    if (!totalCents) {
-      return NextResponse.json({ error: 'Invoice total is required', code: 'no_total' }, { status: 400 })
+
+    // Amount: when line items are provided, recompute the total server-side from
+    // them (don't trust the client's total) and charge that; otherwise fall back
+    // to the provided totalCents. Require a whole number of cents at/above
+    // Stripe's 50¢ minimum so a tampered or buggy client can't charge a
+    // mismatched / negative / fractional amount.
+    const itemsTotal = Array.isArray(lineItems) && lineItems.length > 0
+      ? lineItems.reduce((sum, it) => sum + (Number.isFinite(it?.amountCents) ? it.amountCents : 0), 0)
+      : null
+    const chargeCents = itemsTotal != null ? itemsTotal : totalCents
+    if (!Number.isInteger(chargeCents) || chargeCents < 50) {
+      return NextResponse.json({ error: 'Invoice total must be a whole number of cents ≥ 50', code: 'bad_total' }, { status: 400 })
+    }
+    if (itemsTotal != null && Number.isInteger(totalCents) && itemsTotal !== totalCents) {
+      console.warn(`[invoice] client totalCents (${totalCents}) != sum(lineItems) (${itemsTotal}); charging server-computed total`)
+    }
+    if (clientEmail && !EMAIL_RE.test(clientEmail)) {
+      return NextResponse.json({ error: 'Invalid client email', code: 'bad_email' }, { status: 400 })
     }
 
-    const applicationFeeAmount = Math.round(totalCents * 0.055)
+    const applicationFeeAmount = Math.round(chargeCents * 0.055)
 
     // Step 1: Create Stripe PaymentIntent (destination charge).
     //
@@ -88,7 +141,7 @@ export async function POST(req) {
     // receipts would require requesting card_payments at onboarding + additional
     // KYC on every account — tracked as a deliberate follow-up, not done here.
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: totalCents,
+      amount: chargeCents,
       currency: 'usd',
       application_fee_amount: applicationFeeAmount,
       transfer_data: { destination: stripeAccountId },
@@ -104,7 +157,11 @@ export async function POST(req) {
 
     const paymentUrl = `${getBaseUrl(req)}/pay/${paymentIntent.id}`
 
-    // Step 2: Write invoice to Firestore server-side (authenticated as admin)
+    // Step 2: Write invoice to Firestore server-side (authenticated as admin).
+    // If this fails we'd have a live PaymentIntent the client could pay with NO
+    // invoice record — the webhook could never reconcile it and the contractor's
+    // history would be missing the charge. So cancel the PaymentIntent and fail
+    // loudly rather than hand back an untracked payment link.
     try {
       const docId = await createDocument('invoices', {
         gardenerUid:           gardenerUid || '',
@@ -112,11 +169,11 @@ export async function POST(req) {
         clientName:            clientName || '',
         clientEmail:           clientEmail || '',
         clientPhone:           clientPhone || '',
-        totalCents:            totalCents,
+        totalCents:            chargeCents,
         stripePaymentIntentId: paymentIntent.id,
         stripePaymentUrl:      paymentUrl,
         applicationFee:        applicationFeeAmount,
-        contractorReceives:    totalCents - applicationFeeAmount,
+        contractorReceives:    chargeCents - applicationFeeAmount,
         status:                'sent',
         paymentPath:           'stripe',
         // Compute invoiceType from lineItem categories so a "recurring" client
@@ -132,6 +189,15 @@ export async function POST(req) {
       console.log('Invoice written to Firestore:', docId, 'PI:', paymentIntent.id)
     } catch (fsErr) {
       console.error('Firestore invoice write failed:', fsErr.message)
+      try {
+        await stripe.paymentIntents.cancel(paymentIntent.id)
+      } catch (cancelErr) {
+        console.error('PaymentIntent cancel after Firestore failure also failed:', cancelErr.message)
+      }
+      return NextResponse.json(
+        { error: 'Could not save the invoice — please try again', code: 'invoice_write_failed' },
+        { status: 500 }
+      )
     }
 
     // Step 2.5: Email the client if we have an address and channel allows it.
@@ -141,7 +207,7 @@ export async function POST(req) {
     if (emailChannel && clientEmail) {
       const tmpl = buildInvoiceEmail({
         clientName,
-        totalCents,
+        totalCents: chargeCents,
         paymentUrl,
         contractorName,
         lang: lang === 'es' ? 'es' : 'en',
@@ -161,9 +227,9 @@ export async function POST(req) {
       paymentIntentId: paymentIntent.id,
       clientSecret: paymentIntent.client_secret,
       paymentUrl,
-      amount: totalCents,
+      amount: chargeCents,
       applicationFee: applicationFeeAmount,
-      contractorReceives: totalCents - applicationFeeAmount,
+      contractorReceives: chargeCents - applicationFeeAmount,
       emailNotified: !!(emailChannel && clientEmail),
       smsRequested:  !!smsChannel,
     })

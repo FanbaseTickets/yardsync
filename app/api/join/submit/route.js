@@ -55,6 +55,8 @@ function normalizePhone(raw) {
   const digits = raw.replace(/\D/g, '')
   const local = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits
   if (local.length !== 10) return null
+  if (/^(\d)\1{9}$/.test(local)) return null              // reject all-same-digit junk
+  if (!/^[2-9]\d{2}[2-9]\d{6}$/.test(local)) return null  // NANP: area + exchange start 2-9
   return `+1${local}`
 }
 
