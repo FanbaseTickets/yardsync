@@ -675,6 +675,38 @@ export default function SettingsPage() {
                       >
                         {lang === 'es' ? 'Editar URL' : 'Edit URL'}
                       </button>
+
+                      {/* Direct intake link — for warm leads who don't need the
+                          card pitch. Skips straight to the form. */}
+                      <div className="mt-4 pt-3 border-t border-dashed border-gray-200">
+                        <p className="text-[11px] text-gray-500 mb-1">
+                          {lang === 'es' ? 'Enlace directo al formulario' : 'Direct intake link'}
+                        </p>
+                        <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 mb-1">
+                          <a
+                            href={`/join/${profile.publicSlug}/request`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[12px] text-gray-700 flex-1 truncate hover:text-brand-600 transition-colors"
+                          >
+                            {displayHost}/join/{profile.publicSlug}/request
+                          </a>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${currentOrigin}/join/${profile.publicSlug}/request`)
+                              toast.success(lang === 'es' ? 'Copiado' : 'Copied')
+                            }}
+                            className="text-[12px] text-brand-600 font-medium hover:text-brand-700"
+                          >
+                            {lang === 'es' ? 'Copiar' : 'Copy'}
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-gray-400">
+                          {lang === 'es'
+                            ? 'Envíe este enlace a clientes que ya conocen su negocio — los lleva directo al formulario.'
+                            : 'Send this to clients who already know your business — it skips the card and goes straight to the form.'}
+                        </p>
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-2">
