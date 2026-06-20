@@ -10,6 +10,7 @@ import { Card, Badge, Button, Skeleton, Modal, Input, Select } from '@/component
 import { getClient, updateClient, deleteClient, getClientInvoices, getServices, saveInvoice, getMostRecentSchedule } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { buildInvoiceSms } from '@/lib/invoiceSms'
+import { validatePhone } from '@/lib/phone'
 import { Phone, MapPin, Mail, CalendarDays, DollarSign, Pencil, FileText, CheckCircle2, RefreshCw, Clock, ShieldAlert, Sparkles, X } from 'lucide-react'
 import PhoneInput from '@/components/ui/PhoneInput'
 import AiReminderDrafter from '@/components/AiReminderDrafter'
@@ -224,6 +225,23 @@ export default function ClientDetailPage() {
   }
 
   async function handleSave() {
+    // Validation (matches Add Client) — don't let an edit leave a client with
+    // no contact channel or a malformed one, which would silently break
+    // invoicing for them later.
+    const phone = form.phone.trim()
+    const email = form.email.trim()
+    if (!phone && !email) {
+      toast.error(lang === 'es' ? 'Teléfono o email requerido' : 'Phone or email required')
+      return
+    }
+    if (phone && !validatePhone(phone)) {
+      toast.error(lang === 'es' ? 'Ingresa un número válido (10 dígitos)' : 'Enter a valid phone number (10 digits)')
+      return
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error(lang === 'es' ? 'Ingresa un email válido' : 'Enter a valid email address')
+      return
+    }
     setSaving(true)
     try {
       // Explicit handling: empty string means "clear the field", not "keep old value"

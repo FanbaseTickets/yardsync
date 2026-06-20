@@ -26,8 +26,8 @@ PR #20's guard uses `getSchedulesForDay`, scoped to the loaded (visible) month. 
 ### G. In-calendar "Add job" still defaults to today
 PR #20 fixed only the `?client=` deep-link. The calendar's own **Add job** button uses `selectedDay` (inits to today), and there's **no date field inside the modal** — the date is locked to the title. **Fix:** add an editable date field to the Add-job and Walk-in modals.
 
-### H. Timezone / date-key bug
-All `serviceDate` keys derive from device-local `new Date()` / `toDateStr`; cron compares bare `YYYY-MM-DD` lexically. Near-midnight / cross-TZ / DST scheduling can key a job under the wrong day vs the reminder cron. **Fix:** anchor to a stored contractor timezone or persist an ISO timestamp alongside the date key.
+### H. Timezone / date-key bug  ✅analyzed — non-issue for US given the cron schedule
+All `serviceDate` keys derive from device-local `new Date()` / `toDateStr`; the cron compares bare `YYYY-MM-DD`. In theory near-midnight / cross-TZ scheduling could key a job under the wrong day vs the reminder cron. **Analysis (2026-06-20):** the SMS cron runs at **13:00 UTC** (`vercel.json`), and `formatDate` returns the UTC date. At 13:00 UTC the calendar date is identical across every US timezone (9 AM EDT … 3 AM HST), and schedules store `serviceDate` in the contractor's local date — so `UTC-date == local-date` and the cron matches correctly for any US-based contractor, including out-of-state. **The only real risk is silent:** moving the cron into the 00:00–08:00 UTC window would break it for western US zones. Documented as a guardrail comment in `app/api/cron/sms/route.js`. A per-contractor stored timezone is only needed for non-US contractors or a schedule change — defer to the multi-city / international stage.
 
 ### (partially fixed) Contractor lead notification fragility
 Single fire-and-forget SMS, no email fallback, no in-app unread badge. **PR #19 already adds the bilingual email fallback + `getBaseUrl` host.** Remaining: in-app unread-leads badge on the Clients nav; surface a "your profile has no phone" setup warning.
