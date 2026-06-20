@@ -174,6 +174,15 @@ All 6 `NEXT_PUBLIC_FIREBASE_*` env vars plus `FIREBASE_ADMIN_PASSWORD` are split
 - [x] ~~Live-mode verified via temporary `/api/debug-stripe` diagnostic route — returned `keyMode: "live"`. Route deleted after verification~~ done 2026-06-07 (commits `3058acc` → `b9bfad4`)
 - [x] ~~Dev/prod environment separation scaffolded — `.env.test` (committed, safe), `.env.example` (committed, no secrets), `docs/DEVELOPMENT.md`, `docs/BRANCH_PROTECTION.md`, `.gitignore` allowlist for `.env.test` + `.env.example`~~ done 2026-06-07 (commit `fd216af`)
 
+### Preview URL aliases — always test the rolling alias, not the immutable hash
+
+Vercel exposes two URLs for every Preview deployment:
+
+- **Immutable hash URL** — `yardsync-{8-char-hash}-fanbasetickets-projects.vercel.app` — pinned to one specific commit. Useful for forensic comparison ("what did commit X look like?"), but a stale trap when verifying the latest fix.
+- **Rolling branch alias** — `yardsync-git-{branch-name-hyphenated}-fanbasetickets-projects.vercel.app` — always serves the latest commit on that branch. **This is the testing URL.**
+
+For `chore/preview-env` the alias is `yardsync-git-chore-preview-env-fanbasetickets-projects.vercel.app`. If CC (or any test agent) reports a feature missing on Preview, first check whether they hit the immutable hash URL instead of the alias — the fix may already be live on the rolling alias.
+
 ### Workflow going forward — DEV/TEST first, sync to PROD seamlessly
 Jay's preferred development model from this point on:
 1. **All work happens on feature branches** — never push directly to `main`
@@ -220,3 +229,4 @@ Several silent-failure paths surfaced during the 2026-06-18 E2E test. Tackle as 
 - [ ] Delete `jay+scenarioa3@fanbasetickets.net` from Firestore + Firebase Auth (same blocker as bulk cleanup — do via Firebase Console or unblock per above)
 - [ ] Lawyer review of ToS Section 6 (Early Adopter Pricing Lock) before any volume marketing
 - [ ] Fix AI drafter Spanish prompt to use Spanish STOP line (cosmetic, A2P compliant either way)
+- [ ] **Settings tab refactor** — page now has ~7 sections (Profile / Language / Card / SMS / Payment / Subscription / Stripe Connect / Volume Rewards) and is too long to scroll. Convert to top tabs (recommend 4 tabs: Profile · Card · SMS · Billing) with `?tab=` URL param so existing deep links (post-signup, Connect onboarding, "manage subscription" toasts) can target the right tab. Don't bundle with feature work — this is its own PR. Considered alternative was collapsible sections (faster ship) but tabs scale better.
