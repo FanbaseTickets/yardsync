@@ -1,7 +1,7 @@
 # YardSync — Project Brief for Claude
 
 > This file is auto-loaded at the start of every Claude Code session.
-> Keep it current. Last updated: 2026-06-18 (end of session — live E2E test + 5-PR cleanup sweep merged: receipt branding, SMS UX, cancellation persistence, Stripe API drift fix, Connect requirements remediation. Architecture-separation workstream queued next.).
+> Keep it current. Last updated: 2026-06-19 (Smart Business Card rev 3 card-first build complete on `chore/preview-env` — 24 commits, all 15 CC test scenarios PASS. PR queued for review/merge tomorrow. Ships: digital card at /join/{slug}, intake form at /join/{slug}/request, vCard download, server-rendered QR, Settings live preview + contact toggles + bio + direct intake link, New Leads UI w/ Accept/Dismiss, trust-state mechanic (webhook completedJobsCount increment + first-time banner + switch-to-post-visit prompt), per-client deadline override, first-time SMS template via lib/invoiceSms.js. Phase B asset generation (PDF/social PNGs) + i18n consolidation queued as follow-up PRs.).
 >
 > **Session startup:** When the user says "get up to speed", read `YARDSYNC_KNOWLEDGE_BASE.md`
 > in the project root. That single file contains the full project history, architecture,
@@ -203,6 +203,24 @@ Jay's preferred development model from this point on:
 - [x] ~~Diagnose + fix orphan `FIREBASE_API_KEY` env var that was silently failing every Preview firestoreRest write since the 2026-06-14 dev/prod split~~ — Jay deleted orphan from Vercel
 - [x] ~~Create live-mode `yardsync-production-connect` Stripe webhook destination + add `STRIPE_WEBHOOK_SECRET_CONNECT` to Vercel Production scope~~ — Jay manual config
 - [ ] **Begin outreach** — first San Antonio contractor cold-DM batch (the only remaining pre-launch action)
+
+### Smart Business Card rev 3 — DONE on `chore/preview-env`, awaiting merge (2026-06-19)
+24 commits, 15 CC test scenarios all PASS. See PR description for full breakdown. Highlights:
+- [x] `/join/[slug]` digital card (server-rendered, QR SVG, EN/ES, contact gating, vCard download)
+- [x] `/join/[slug]/request` intake form route + no-JS native form fallback
+- [x] Settings: live CardPreview tile, bio (300-char), contact-visibility toggles, "Now booking" badge, Direct intake link, per-client deadline override
+- [x] New Leads UI in `/clients` (Accept/Dismiss) + trust-state writes on Accept
+- [x] Webhook idempotent `completedJobsCount` increment + first-time-upfront banner + one-time "switch to post-visit?" prompt
+- [x] `lib/invoiceSms.js` — first-time SMS template w/ `{paymentDeadline}` resolution (client override → contractor default → 24h fallback)
+- [x] Slug system: `slugs/{slug}` resolver, reserved blocklist, 30-day old-slug redirect, server-side validation
+- [x] `useRef`-guarded one-shot form init in Settings (fixes the AuthContext re-render → form reset race)
+- [x] Vercel Preview deployment-protection toggled off for Hobby tier (so QR scans work from real phones)
+- [x] CLAUDE.md note about Vercel Preview URL aliases (rolling vs immutable)
+
+**Follow-up PRs queued (not in this PR):**
+- [ ] **C10 Phase B** — headshot upload (LogoUpload pattern), QR PNG download, printable PDF card (front + back), social square 1080×1080, social story 1080×1920. Will share `lib/cardTemplate.js` composition spec with the digital card.
+- [ ] **C11 i18n consolidation** — fold inline EN/ES STRINGS tables into `lib/i18n.js`
+- [ ] **Settings tab refactor** — Profile · Card · SMS · Billing tabs with `?tab=` URL param so existing deep links survive
 
 ### Architecture-separation workstream (next major work)
 Several silent-failure paths surfaced during the 2026-06-18 E2E test. Tackle as a cohesive workstream before scaling:
