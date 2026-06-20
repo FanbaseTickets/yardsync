@@ -56,6 +56,7 @@ const STRINGS = {
     callNow:           'Call now',
     poweredBy:         'Powered by',
     addressPlaceholder: 'Street, City, State ZIP',
+    viewFullCard:      'View full card',
   },
   es: {
     requestService:    'Solicitar servicio',
@@ -88,6 +89,7 @@ const STRINGS = {
     callNow:           'Llamar ahora',
     poweredBy:         'Con tecnología de',
     addressPlaceholder: 'Calle, Ciudad, Estado CP',
+    viewFullCard:      'Ver tarjeta completa',
   },
 }
 
@@ -120,7 +122,7 @@ function getInitials(name) {
   return (parts[0]?.[0] || '?').toUpperCase() + (parts[1]?.[0] || '').toUpperCase()
 }
 
-export default function IntakeForm({ slug, owner, services, initialLang }) {
+export default function IntakeForm({ slug, owner, services, initialLang, backLinkHref }) {
   const [lang, setLang] = useState(initialLang === 'es' ? 'es' : 'en')
   const t = STRINGS[lang]
 
@@ -196,7 +198,7 @@ export default function IntakeForm({ slug, owner, services, initialLang }) {
   // ── Confirmation screen ───────────────────────────────────────────────
   if (submitted) {
     return (
-      <Page owner={owner} lang={lang} setLang={setLang} t={t}>
+      <Page owner={owner} lang={lang} setLang={setLang} t={t} backLinkHref={backLinkHref}>
         <div className="text-center py-8">
           <div className="w-16 h-16 rounded-full bg-green-100 mx-auto mb-4 flex items-center justify-center">
             <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -224,7 +226,7 @@ export default function IntakeForm({ slug, owner, services, initialLang }) {
 
   // ── Form ──────────────────────────────────────────────────────────────
   return (
-    <Page owner={owner} lang={lang} setLang={setLang} t={t}>
+    <Page owner={owner} lang={lang} setLang={setLang} t={t} backLinkHref={backLinkHref}>
       <h2 className="text-lg font-semibold text-gray-900 mb-4 text-center border-t border-gray-200 pt-6">
         {t.requestService}
       </h2>
@@ -411,15 +413,23 @@ export default function IntakeForm({ slug, owner, services, initialLang }) {
  * footer mark. Used by both the form view and the post-submit
  * confirmation view so the two share visual scaffolding.
  */
-function Page({ owner, lang, setLang, t, children }) {
+function Page({ owner, lang, setLang, t, children, backLinkHref }) {
   return (
     <main className="min-h-screen bg-gray-50">
       {/* Header strip with accent color */}
       <div className="h-2" style={{ backgroundColor: owner.accentColor }} />
 
       <div className="max-w-md mx-auto px-5 py-6">
-        {/* Language toggle */}
-        <div className="flex justify-end mb-4">
+        {/* Top row: back link (left) + language toggle (right) */}
+        <div className={`flex items-center mb-4 ${backLinkHref ? 'justify-between' : 'justify-end'}`}>
+          {backLinkHref && (
+            <a
+              href={backLinkHref}
+              className="text-xs font-medium text-gray-500 hover:text-gray-700 inline-flex items-center gap-1"
+            >
+              ‹ {t.viewFullCard}
+            </a>
+          )}
           <div className="inline-flex bg-white border border-gray-200 rounded-full p-0.5 text-xs">
             <button
               onClick={() => setLang('en')}
