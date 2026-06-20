@@ -55,6 +55,13 @@ Single fire-and-forget SMS, no email fallback, no in-app unread badge. **PR #19 
 - Duplicate-lead detection is phone-only (misses email-only repeats).
 - `receipt_email` passed to Stripe unvalidated server-side.
 
+## INFRA / ENVIRONMENT
+
+### INFRA-1. Stable Preview webhook alias (test-mode Stripe webhooks go stale on every branch rotation)  ✅root-caused
+The test-mode Stripe webhook destinations (`yardsync-preview`, `yardsync-preview-connect`) are pointed at a **branch-specific** Preview URL (`yardsync-git-chore-preview-env-…vercel.app`). Every test payment is processed by *that* deployment's code, writing into the shared `yardsync-dev` Firestore — so a fix on any *other* branch (e.g. `fix/qa-round-1`) is never executed by the webhook, even though its invoice still gets marked paid in the shared DB. This is what made QA round 1's T8 look like a code failure when the increment fix was actually correct but never run.
+**Symptom signature:** an invoice flips to `paid` (webhook ran) but a same-handler side-effect (e.g. `completedJobsCount`) doesn't change → the webhook is hitting a *different* deployment than the branch under test.
+**Permanent fix:** assign a **stable Vercel alias** (e.g. `dev.yardsyncapp.com`) to the active dev/integration branch and point both test-mode webhook destinations at it once. Then the test webhook target never goes stale on branch rotation. Until then, the manual workaround is to edit the two destinations' URLs to the current integration branch's deployment (same destination = same signing secret, so no Vercel env-var change needed).
+
 ## Suggested fix sequencing (batched PRs)
 1. **Accept-lead correctness** (A, B, Q) — actively produces wrong invoices; highest user-facing priority.
 2. **Invoice route hardening** (C, O, S-server, L4) — security + double-charge; one focused pass on the API route.
