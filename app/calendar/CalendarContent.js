@@ -418,9 +418,10 @@ export default function CalendarPage() {
     const { schedule, isWalkIn, clientName, clientEmail, clientPhone, totalCents, lineItems } = p
     setSendingInvoiceId(schedule.id)
     try {
+      const idToken = await user.getIdToken()
       const res = await fetch('/api/stripe/invoice', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
         body: JSON.stringify({
           stripeAccountId: profile.stripeAccountId,
           totalCents,
@@ -625,8 +626,9 @@ export default function CalendarPage() {
         ...materials.map(m => ({ label: m.name, amountCents: m.totalCents || 0, category: 'material' })),
       ]
       const totalCents = basePrice + finalAddons.reduce((s, a) => s + a.amountCents, 0) + materialsTotalCents
+      const idToken = await user.getIdToken()
       const res = await fetch('/api/stripe/invoice', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
         body: JSON.stringify({
           stripeAccountId: profile?.stripeAccountId,
           totalCents,

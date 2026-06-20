@@ -331,9 +331,10 @@ async function handleSendInvoice(channels = 'both') {
     const allLineItems = [...lineItems, ...materialLineItems]
     const grandTotal = invoiceTotal
 
+    const idToken = await user.getIdToken()
     const res = await fetch('/api/stripe/invoice', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
       body: JSON.stringify({
         stripeAccountId: profile?.stripeAccountId,
         totalCents: grandTotal,
