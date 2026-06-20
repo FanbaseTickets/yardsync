@@ -116,6 +116,25 @@ function normalizePhone(raw) {
   return `+1${local}`
 }
 
+/**
+ * Format a phone string for display as the user types — mirrors
+ * components/ui/PhoneInput.js: strip non-digits, drop a leading US "+1",
+ * cap at 10 digits, render as (XXX) XXX-XXXX. Kept inline (not imported
+ * from components/ui) so this no-Firebase route stays isolated from the
+ * components/ui barrel, which transitively imports Firebase via LogoUpload.
+ */
+function formatPhoneInput(raw) {
+  const allDigits = String(raw || '').replace(/\D/g, '')
+  const stripped = (allDigits.length >= 11 && allDigits.startsWith('1'))
+    ? allDigits.slice(1)
+    : allDigits
+  const digits = stripped.slice(0, 10)
+  if (digits.length > 6) return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+  if (digits.length > 3) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
+  if (digits.length > 0) return `(${digits}`
+  return ''
+}
+
 function isValidEmailish(email) {
   if (!email) return true // optional
   // Permissive — server does the final check
@@ -142,15 +161,25 @@ export default function IntakeForm({ slug, owner, services, initialLang, backLin
   const [websiteUrl,      setWebsiteUrl]      = useState('') // honeypot — should stay empty
 
   const [errors,    setErrors]    = useState({})
+  const [phoneTouched, setPhoneTouched] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitted,  setSubmitted]  = useState(false)
   const [serverError, setServerError] = useState(null)
 
+  // Resolve the inline phone error for a given value (or null if valid).
+  // Shared by the live on-change/on-blur checks and submit validation so
+  // the field behaves like the rest of the app's client forms.
+  function phoneErrorFor(val) {
+    if (!val.trim()) return t.errPhoneRequired
+    if (!normalizePhone(val)) return t.errPhoneInvalid
+    return null
+  }
+
   function validateClientSide() {
     const e = {}
     if (!name.trim()) e.name = t.errNameRequired
-    if (!phone.trim()) e.phone = t.errPhoneRequired
-    else if (!normalizePhone(phone)) e.phone = t.errPhoneInvalid
+    const phoneErr = phoneErrorFor(phone)
+    if (phoneErr) e.phone = phoneErr
     if (email && !isValidEmailish(email)) e.email = t.errEmailInvalid
     setErrors(e)
     return Object.keys(e).length === 0
@@ -285,11 +314,24 @@ export default function IntakeForm({ slug, owner, services, initialLang, backLin
             required
             inputMode="tel"
             value={phone}
-            onChange={e => setPhone(e.target.value)}
+            onChange={e => {
+              const formatted = formatPhoneInput(e.target.value)
+              setPhone(formatted)
+              // Once the field has been touched, keep the inline error in sync
+              // as they type so it clears the moment the number becomes valid.
+              if (phoneTouched) {
+                setErrors(prev => ({ ...prev, phone: phoneErrorFor(formatted) || undefined }))
+              }
+            }}
+            onBlur={() => {
+              setPhoneTouched(true)
+              setErrors(prev => ({ ...prev, phone: phoneErrorFor(phone) || undefined }))
+            }}
             className="form-input"
+            style={errors.phone ? { borderColor: '#dc2626' } : undefined}
             autoComplete="tel"
             placeholder="(210) 555-0100"
-            maxLength={20}
+            maxLength={14}
           />
         </Field>
 
