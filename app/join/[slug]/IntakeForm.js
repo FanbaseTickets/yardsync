@@ -204,7 +204,7 @@ export default function IntakeForm({ slug, owner, services, initialLang, backLin
   // ── Confirmation screen ───────────────────────────────────────────────
   if (submitted) {
     return (
-      <Page owner={owner} lang={lang} setLang={setLang} t={t} backLinkHref={backLinkHref}>
+      <Page slug={slug} owner={owner} lang={lang} setLang={setLang} t={t} backLinkHref={backLinkHref}>
         <div className="text-center py-8">
           <div className="w-16 h-16 rounded-full bg-green-100 mx-auto mb-4 flex items-center justify-center">
             <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -232,7 +232,7 @@ export default function IntakeForm({ slug, owner, services, initialLang, backLin
 
   // ── Form ──────────────────────────────────────────────────────────────
   return (
-    <Page owner={owner} lang={lang} setLang={setLang} t={t} backLinkHref={backLinkHref}>
+    <Page slug={slug} owner={owner} lang={lang} setLang={setLang} t={t} backLinkHref={backLinkHref}>
       <h2 className="text-lg font-semibold text-gray-900 mb-4 text-center border-t border-gray-200 pt-6">
         {t.requestService}
       </h2>
@@ -419,7 +419,7 @@ export default function IntakeForm({ slug, owner, services, initialLang, backLin
  * footer mark. Used by both the form view and the post-submit
  * confirmation view so the two share visual scaffolding.
  */
-function Page({ owner, lang, setLang, t, children, backLinkHref }) {
+function Page({ slug, owner, lang, setLang, t, children, backLinkHref }) {
   return (
     <main className="min-h-screen bg-gray-50">
       {/* Header strip with accent color */}
