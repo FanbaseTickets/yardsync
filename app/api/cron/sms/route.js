@@ -21,6 +21,15 @@ export async function GET(request) {
   }
 
   try {
+    // TIMEZONE INVARIANT — do not break: this cron is scheduled at 13:00 UTC
+    // (see vercel.json "0 13 * * *"). `formatDate` returns the UTC date, and at
+    // 13:00 UTC the calendar date is identical across every US timezone
+    // (9 AM EDT / 8 AM CDT / 6 AM PDT / 3 AM HST). Schedules store serviceDate
+    // in the contractor's LOCAL date, so UTC-date == local-date here and the
+    // match below is correct for any US-based contractor regardless of state.
+    // ⚠️ If you ever move this cron into the 00:00–08:00 UTC window, this breaks
+    // for western US zones (UTC date would be a day ahead of their local date)
+    // — at that point switch to a per-contractor timezone stored on the profile.
     const now     = new Date()
     const today   = formatDate(now)
     const results = { sent: 0, skipped: 0, errors: 0 }
