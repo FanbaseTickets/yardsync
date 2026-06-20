@@ -12,6 +12,7 @@ import { Card, Button, Badge, Modal, Select, EmptyState, Skeleton, Input } from 
 import { getClients, getSchedules, addSchedule, updateSchedule, deleteSchedule, getServices, updateScheduleMaterials, saveInvoice, getClientInvoices } from '@/lib/db'
 import { deleteAllClientSchedules } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
+import { buildInvoiceSms } from '@/lib/invoiceSms'
 import { validatePhone, formatPhone } from '@/lib/phone'
 import PhoneInput from '@/components/ui/PhoneInput'
 import {
@@ -445,9 +446,14 @@ export default function CalendarPage() {
       }
 
       if (data.smsRequested && clientPhone && data.paymentUrl) {
-        const smsBody = lang === 'es'
-          ? `Hola ${clientName}! Tu factura de $${(totalCents / 100).toFixed(2)} está lista. Paga aquí: ${data.paymentUrl}`
-          : `Hi ${clientName}! Your invoice for $${(totalCents / 100).toFixed(2)} is ready. Pay here: ${data.paymentUrl}`
+        const scheduledClient = clients.find(c => c.id === schedule.clientId)
+        const smsBody = buildInvoiceSms({
+          client:     scheduledClient || { name: clientName },
+          contractor: profile,
+          totalCents,
+          paymentUrl: data.paymentUrl,
+          lang,
+        })
         fetch('/api/twilio/send', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ clientPhone, message: smsBody, gardenerUid: user?.uid }),
@@ -620,9 +626,16 @@ export default function CalendarPage() {
       }
 
       if (data.smsRequested && walkInInvoiceTarget.clientPhone && data.paymentUrl) {
-        const smsBody = lang === 'es'
-          ? `Hola ${walkInInvoiceTarget.clientName}! Tu factura de $${(totalCents / 100).toFixed(2)} está lista. Paga aquí: ${data.paymentUrl}`
-          : `Hi ${walkInInvoiceTarget.clientName}! Your invoice for $${(totalCents / 100).toFixed(2)} is ready. Pay here: ${data.paymentUrl}`
+        // Walk-ins have no client doc (one-time customers), so they always
+        // get the standard template — the trust-state mechanic only
+        // applies to tracked clients.
+        const smsBody = buildInvoiceSms({
+          client:     { name: walkInInvoiceTarget.clientName },
+          contractor: profile,
+          totalCents,
+          paymentUrl: data.paymentUrl,
+          lang,
+        })
         fetch('/api/twilio/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

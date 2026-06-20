@@ -9,6 +9,7 @@ import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, Skeleton, Modal, Input, Select } from '@/components/ui'
 import { getClient, updateClient, deleteClient, getClientInvoices, getServices, saveInvoice, getMostRecentSchedule } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
+import { buildInvoiceSms } from '@/lib/invoiceSms'
 import { Phone, MapPin, Mail, CalendarDays, DollarSign, Pencil, FileText, CheckCircle2, RefreshCw, Clock, ShieldAlert, Sparkles, X } from 'lucide-react'
 import PhoneInput from '@/components/ui/PhoneInput'
 import AiReminderDrafter from '@/components/AiReminderDrafter'
@@ -114,6 +115,9 @@ export default function ClientDetailPage() {
           status:           c.status           || 'active',
           notes:            c.notes            || '',
           preferredChannel: c.preferredChannel || 'both',
+          // Per-client deadline override (spec §12). Empty string means
+          // "use the contractor's global default from Settings".
+          upfrontDeadlineHours: c.upfrontDeadlineHours == null ? '' : String(c.upfrontDeadlineHours),
         })
       }
     } catch {
@@ -234,6 +238,19 @@ export default function ClientDetailPage() {
         preferredChannel: form.preferredChannel || 'both',
       }
 
+      // Per-client deadline override: empty/invalid → null (use the
+      // contractor's global Settings default); 1-168 → save as a number.
+      const deadlineRaw = String(form.upfrontDeadlineHours ?? '').trim()
+      if (deadlineRaw === '') {
+        updateData.upfrontDeadlineHours = null
+      } else {
+        const n = Number(deadlineRaw)
+        if (Number.isFinite(n) && n >= 1 && n <= 168) {
+          updateData.upfrontDeadlineHours = Math.round(n)
+        }
+        // If out of range, silently keep prior value (the input has min/max)
+      }
+
       if (form.serviceId && form.serviceId !== client.serviceId) {
         const svc = services.find(s => s.id === form.serviceId)
         if (svc) {
@@ -348,9 +365,13 @@ async function handleSendInvoice(channels = 'both') {
 
     // Send payment link via SMS to client
     if (data.smsRequested && client.phone && data.paymentUrl) {
-      const smsBody = lang === 'es'
-        ? `Hola ${client.name}! Tu factura de $${(grandTotal / 100).toFixed(2)} está lista. Paga aquí: ${data.paymentUrl}`
-        : `Hi ${client.name}! Your invoice for $${(grandTotal / 100).toFixed(2)} is ready. Pay here: ${data.paymentUrl}`
+      const smsBody = buildInvoiceSms({
+        client,
+        contractor: profile,
+        totalCents: grandTotal,
+        paymentUrl: data.paymentUrl,
+        lang,
+      })
       fetch('/api/twilio/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1018,6 +1039,30 @@ async function handleSendInvoice(channels = 'both') {
           >
             {BILLING_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </Select>
+
+          {/* Per-client deadline override (visible only for upfront billing).
+              Blank = inherit the contractor's Settings default. */}
+          {form.billingMode === 'upfront' && (
+            <div>
+              <label className="text-[12px] font-medium text-gray-700 block mb-1">
+                {lang === 'es' ? 'Plazo de pago (horas)' : 'Payment deadline (hours)'}
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={168}
+                value={form.upfrontDeadlineHours ?? ''}
+                onChange={e => setField('upfrontDeadlineHours', e.target.value)}
+                placeholder={String(profile?.upfrontDeadlineHours || 24)}
+                className="w-full rounded-xl border border-gray-200 bg-white text-[13px] px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              <p className="text-[10px] text-gray-400 mt-1">
+                {lang === 'es'
+                  ? `Vacío = usar el valor predeterminado de Ajustes (${profile?.upfrontDeadlineHours || 24}h).`
+                  : `Blank = use Settings default (${profile?.upfrontDeadlineHours || 24}h).`}
+              </p>
+            </div>
+          )}
 
           <div>
             <p className="text-[13px] font-medium text-gray-700 mb-2">{lang === 'es' ? 'Enviar facturas por' : 'Send invoices by'}</p>
