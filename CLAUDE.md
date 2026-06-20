@@ -1,7 +1,7 @@
 # YardSync — Project Brief for Claude
 
 > This file is auto-loaded at the start of every Claude Code session.
-> Keep it current. Last updated: 2026-06-18 (end of session — live E2E test + 5-PR cleanup sweep merged: receipt branding, SMS UX, cancellation persistence, Stripe API drift fix, Connect requirements remediation. Architecture-separation workstream queued next.).
+> Keep it current. Last updated: 2026-06-19 (Smart Business Card rev 3 card-first build complete on `chore/preview-env` — 24 commits, all 15 CC test scenarios PASS. PR queued for review/merge tomorrow. Ships: digital card at /join/{slug}, intake form at /join/{slug}/request, vCard download, server-rendered QR, Settings live preview + contact toggles + bio + direct intake link, New Leads UI w/ Accept/Dismiss, trust-state mechanic (webhook completedJobsCount increment + first-time banner + switch-to-post-visit prompt), per-client deadline override, first-time SMS template via lib/invoiceSms.js. Phase B asset generation (PDF/social PNGs) + i18n consolidation queued as follow-up PRs.).
 >
 > **Session startup:** When the user says "get up to speed", read `YARDSYNC_KNOWLEDGE_BASE.md`
 > in the project root. That single file contains the full project history, architecture,
@@ -174,6 +174,15 @@ All 6 `NEXT_PUBLIC_FIREBASE_*` env vars plus `FIREBASE_ADMIN_PASSWORD` are split
 - [x] ~~Live-mode verified via temporary `/api/debug-stripe` diagnostic route — returned `keyMode: "live"`. Route deleted after verification~~ done 2026-06-07 (commits `3058acc` → `b9bfad4`)
 - [x] ~~Dev/prod environment separation scaffolded — `.env.test` (committed, safe), `.env.example` (committed, no secrets), `docs/DEVELOPMENT.md`, `docs/BRANCH_PROTECTION.md`, `.gitignore` allowlist for `.env.test` + `.env.example`~~ done 2026-06-07 (commit `fd216af`)
 
+### Preview URL aliases — always test the rolling alias, not the immutable hash
+
+Vercel exposes two URLs for every Preview deployment:
+
+- **Immutable hash URL** — `yardsync-{8-char-hash}-fanbasetickets-projects.vercel.app` — pinned to one specific commit. Useful for forensic comparison ("what did commit X look like?"), but a stale trap when verifying the latest fix.
+- **Rolling branch alias** — `yardsync-git-{branch-name-hyphenated}-fanbasetickets-projects.vercel.app` — always serves the latest commit on that branch. **This is the testing URL.**
+
+For `chore/preview-env` the alias is `yardsync-git-chore-preview-env-fanbasetickets-projects.vercel.app`. If CC (or any test agent) reports a feature missing on Preview, first check whether they hit the immutable hash URL instead of the alias — the fix may already be live on the rolling alias.
+
 ### Workflow going forward — DEV/TEST first, sync to PROD seamlessly
 Jay's preferred development model from this point on:
 1. **All work happens on feature branches** — never push directly to `main`
@@ -194,6 +203,24 @@ Jay's preferred development model from this point on:
 - [x] ~~Diagnose + fix orphan `FIREBASE_API_KEY` env var that was silently failing every Preview firestoreRest write since the 2026-06-14 dev/prod split~~ — Jay deleted orphan from Vercel
 - [x] ~~Create live-mode `yardsync-production-connect` Stripe webhook destination + add `STRIPE_WEBHOOK_SECRET_CONNECT` to Vercel Production scope~~ — Jay manual config
 - [ ] **Begin outreach** — first San Antonio contractor cold-DM batch (the only remaining pre-launch action)
+
+### Smart Business Card rev 3 — DONE on `chore/preview-env`, awaiting merge (2026-06-19)
+24 commits, 15 CC test scenarios all PASS. See PR description for full breakdown. Highlights:
+- [x] `/join/[slug]` digital card (server-rendered, QR SVG, EN/ES, contact gating, vCard download)
+- [x] `/join/[slug]/request` intake form route + no-JS native form fallback
+- [x] Settings: live CardPreview tile, bio (300-char), contact-visibility toggles, "Now booking" badge, Direct intake link, per-client deadline override
+- [x] New Leads UI in `/clients` (Accept/Dismiss) + trust-state writes on Accept
+- [x] Webhook idempotent `completedJobsCount` increment + first-time-upfront banner + one-time "switch to post-visit?" prompt
+- [x] `lib/invoiceSms.js` — first-time SMS template w/ `{paymentDeadline}` resolution (client override → contractor default → 24h fallback)
+- [x] Slug system: `slugs/{slug}` resolver, reserved blocklist, 30-day old-slug redirect, server-side validation
+- [x] `useRef`-guarded one-shot form init in Settings (fixes the AuthContext re-render → form reset race)
+- [x] Vercel Preview deployment-protection toggled off for Hobby tier (so QR scans work from real phones)
+- [x] CLAUDE.md note about Vercel Preview URL aliases (rolling vs immutable)
+
+**Follow-up PRs queued (not in this PR):**
+- [ ] **C10 Phase B** — headshot upload (LogoUpload pattern), QR PNG download, printable PDF card (front + back), social square 1080×1080, social story 1080×1920. Will share `lib/cardTemplate.js` composition spec with the digital card.
+- [ ] **C11 i18n consolidation** — fold inline EN/ES STRINGS tables into `lib/i18n.js`
+- [ ] **Settings tab refactor** — Profile · Card · SMS · Billing tabs with `?tab=` URL param so existing deep links survive
 
 ### Architecture-separation workstream (next major work)
 Several silent-failure paths surfaced during the 2026-06-18 E2E test. Tackle as a cohesive workstream before scaling:
@@ -220,3 +247,4 @@ Several silent-failure paths surfaced during the 2026-06-18 E2E test. Tackle as 
 - [ ] Delete `jay+scenarioa3@fanbasetickets.net` from Firestore + Firebase Auth (same blocker as bulk cleanup — do via Firebase Console or unblock per above)
 - [ ] Lawyer review of ToS Section 6 (Early Adopter Pricing Lock) before any volume marketing
 - [ ] Fix AI drafter Spanish prompt to use Spanish STOP line (cosmetic, A2P compliant either way)
+- [ ] **Settings tab refactor** — page now has ~7 sections (Profile / Language / Card / SMS / Payment / Subscription / Stripe Connect / Volume Rewards) and is too long to scroll. Convert to top tabs (recommend 4 tabs: Profile · Card · SMS · Billing) with `?tab=` URL param so existing deep links (post-signup, Connect onboarding, "manage subscription" toasts) can target the right tab. Don't bundle with feature work — this is its own PR. Considered alternative was collapsible sections (faster ship) but tabs scale better.

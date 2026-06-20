@@ -243,6 +243,38 @@ export async function POST(request) {
               updatedAt: new Date().toISOString(),
             })
             console.log(`Invoice ${invDoc.id} marked paid via PaymentIntent ${piId}`)
+
+            // Trust-state mechanic (spec §6.3): on first paid invoice for an
+            // intake-sourced client (billingMode='upfront'), increment the
+            // completedJobsCount. Once it crosses 1, the /clients UI offers
+            // the contractor a one-time "switch to post-visit?" prompt.
+            //
+            // Idempotent via per-invoice countedTowardTrust flag — Stripe can
+            // re-fire payment_succeeded after retries, and we don't want to
+            // inflate the counter. The check + flag write isn't transactional
+            // but the failure mode (double-count under tight concurrency) is
+            // benign for a trust-building counter.
+            if (!invDoc.data.countedTowardTrust && invDoc.data.clientId) {
+              try {
+                const clientDoc = await getDocument('clients', invDoc.data.clientId)
+                if (clientDoc?.data) {
+                  const prev = clientDoc.data.completedJobsCount || 0
+                  await updateDocument('clients', invDoc.data.clientId, {
+                    completedJobsCount: prev + 1,
+                    lastInvoicePaidAt:  new Date().toISOString(),
+                    updatedAt:          new Date().toISOString(),
+                  })
+                  await updateDocument('invoices', invDoc.id, {
+                    countedTowardTrust: true,
+                  })
+                  console.log(`Trust-state: clients/${invDoc.data.clientId}.completedJobsCount ${prev} -> ${prev + 1}`)
+                } else {
+                  console.warn(`[webhook] trust-state: clients/${invDoc.data.clientId} not found; skipping increment`)
+                }
+              } catch (trustErr) {
+                console.error('[webhook] trust-state increment failed (non-fatal):', trustErr.message)
+              }
+            }
           } else {
             console.log('No invoice found for PaymentIntent:', piId)
           }

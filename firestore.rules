@@ -39,5 +39,21 @@ service cloud.firestore {
       // or proxy reads through a server-side API endpoint.
       allow read, write: if isAdmin();
     }
+    match /slugs/{slug} {
+      // Public-URL slug resolver collection for the Smart Business Card
+      // feature (see docs/SMART_BUSINESS_CARD_SPEC.md §1.4). Every read +
+      // write path goes through server-side lib/firestoreRest.js
+      // (admin-authed) — the public /join/[slug] page reads via the
+      // server component, /api/slug/check uses firestoreRest, and
+      // /api/slug/generate uses firestoreRest. Contractors never write
+      // directly from the client SDK. Admin-only is sufficient.
+      allow read, write: if isAdmin();
+    }
+    match /rateLimits/{slug} {
+      // Per-slug spam throttle for the public intake form. Read-modify-
+      // write happens server-side in /api/join/submit (admin-authed via
+      // firestoreRest). Never touched by client code.
+      allow read, write: if isAdmin();
+    }
   }
 }
