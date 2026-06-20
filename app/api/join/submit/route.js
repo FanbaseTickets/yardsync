@@ -28,6 +28,7 @@ import {
   listCollection,
 } from '@/lib/firestoreRest'
 import { sendSms } from '@/lib/sms'
+import { sendClientEmail } from '@/lib/email'
 import { getBaseUrl } from '@/lib/baseUrl'
 
 const RATE_LIMIT_WINDOW_MS  = 60 * 60 * 1000 // 1 hour
@@ -64,6 +65,41 @@ function isValidEmail(email) {
 
 function sha256(input) {
   return crypto.createHash('sha256').update(String(input || '')).digest('hex')
+}
+
+// ── Contractor "new lead" email ─────────────────────────────────────────
+// Bilingual (EN + ES) because the contractor's preferred language isn't
+// stored on their profile yet, and the primary audience is Spanish-first.
+// Operational alert to the contractor's own inbox — no STOP/opt-out needed.
+function buildLeadEmail({ businessName, lead, clientsUrl }) {
+  const from  = businessName || 'YardSync'
+  const rows  = [
+    ['Name / Nombre',        lead.name],
+    ['Phone / Teléfono',     lead.phone],
+    ['Address / Dirección',  lead.address],
+    ['Service / Servicio',   lead.serviceInterest],
+    ['Note / Nota',          lead.note],
+  ].filter(([, v]) => v)
+
+  const htmlRows = rows.map(
+    ([k, v]) => `<tr><td style="padding:4px 12px 4px 0;color:#666;white-space:nowrap;vertical-align:top;">${k}</td><td style="padding:4px 0;color:#111;">${v}</td></tr>`
+  ).join('')
+  const textRows = rows.map(([k, v]) => `${k}: ${v}`).join('\n')
+
+  return {
+    subject: `New lead / Nueva solicitud: ${lead.name}`,
+    text: `You have a new service request / Tiene una nueva solicitud de servicio.\n\n${textRows}\n\nFollow up / Dar seguimiento: ${clientsUrl}\n\n${from} via YardSync`,
+    html: `
+      <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 520px; margin: 0 auto; color: #111;">
+        <h2 style="color: #0E7C66; margin: 0 0 4px;">New lead · Nueva solicitud</h2>
+        <p style="color:#555; margin: 0 0 16px;">You have a new service request. / Tiene una nueva solicitud de servicio.</p>
+        <table style="font-size:14px; border-collapse:collapse; margin-bottom:20px;">${htmlRows}</table>
+        <p style="margin: 0 0 24px;">
+          <a href="${clientsUrl}" style="background: #0E7C66; color: #fff; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">Follow up · Dar seguimiento</a>
+        </p>
+        <p style="color: #666; font-size: 12px; margin-top: 32px;">${from} via YardSync</p>
+      </div>`,
+  }
 }
 
 // ── Rate limit (per slug, 1h window) ────────────────────────────────────
@@ -242,30 +278,60 @@ export async function POST(request) {
         : jsonResponse({ error: 'server_error' }, 500)
     }
 
-    // ── 7. Notify the contractor (their own already-opted-in phone) ────
-    // No STOP line per A2P guidance (the SMS is to their own phone, not
-    // a third-party). Fail-quietly: don't reject the request if Twilio
-    // hiccups — the lead is already saved.
+    // Owner profile — fetched once and reused for contractor notifications
+    // (email + SMS) and the client thank-you below. Non-fatal if it fails.
+    let ownerData = null
     try {
       const ownerDoc = await getDocument('users', ownerUid)
-      const contractorPhone = ownerDoc?.data?.phone
-      if (contractorPhone) {
+      ownerData = ownerDoc?.data || null
+    } catch (ownerErr) {
+      console.error('[join/submit] owner fetch failed (non-fatal):', ownerErr.message)
+    }
+    const businessName = ownerData?.businessName || 'YardSync'
+
+    // ── 7. Notify the contractor — EMAIL + SMS ─────────────────────────
+    // Email is the reliable channel (carrier spam filters routinely eat the
+    // SMS alert; the contractor's configured phone may also differ from the
+    // person testing). Both are best-effort: the lead is already saved, so a
+    // notification failure must never reject the request. The contractor is
+    // alerting themselves, so no STOP/opt-out line is required.
+    const clientsUrl = `${baseUrl}/clients`
+
+    if (ownerData?.email) {
+      try {
+        const tmpl = buildLeadEmail({
+          businessName,
+          lead: { name, phone: phoneNormalized, address, serviceInterest, note },
+          clientsUrl,
+        })
+        await sendClientEmail({
+          to:       ownerData.email,
+          subject:  tmpl.subject,
+          html:     tmpl.html,
+          text:     tmpl.text,
+          fromName: 'YardSync',
+        })
+      } catch (emailErr) {
+        console.error('[join/submit] contractor email failed (non-fatal):', emailErr.message)
+      }
+    }
+
+    if (ownerData?.phone) {
+      try {
         await sendSms({
-          to:      contractorPhone,
-          body:    `New YardSync lead: ${name} (${phoneNormalized}). Open YardSync to follow up: yardsyncapp.com/clients`,
+          to:      ownerData.phone,
+          body:    `New YardSync lead: ${name} (${phoneNormalized}). Open YardSync to follow up: ${clientsUrl}`,
           context: 'join_lead_to_contractor',
           refIds:  { gardenerUid: ownerUid, clientId },
         })
+      } catch (notifyErr) {
+        console.error('[join/submit] contractor SMS failed (non-fatal):', notifyErr.message)
       }
-    } catch (notifyErr) {
-      console.error('[join/submit] contractor notify failed (non-fatal):', notifyErr.message)
     }
 
     // ── 8. Optional thank-you SMS to the client (gated by consent) ─────
     if (smsConsent) {
       try {
-        const ownerDoc = await getDocument('users', ownerUid)
-        const businessName = ownerDoc?.data?.businessName || 'YardSync'
         const body = language === 'es'
           ? `¡Hola ${name}! Gracias por su solicitud a ${businessName}. Pronto nos comunicaremos. Responda STOP para cancelar. – ${businessName}`
           : `Hi ${name}! Thanks for your request to ${businessName}. We'll be in touch soon. Reply STOP to opt out. – ${businessName}`
