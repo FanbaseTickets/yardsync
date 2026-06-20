@@ -9,7 +9,7 @@ import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, Skeleton, Modal, Input, Select } from '@/components/ui'
 import { getClient, updateClient, deleteClient, getClientInvoices, getServices, saveInvoice, getMostRecentSchedule } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
-import { Phone, MapPin, Mail, CalendarDays, DollarSign, Pencil, FileText, CheckCircle2, RefreshCw, Clock } from 'lucide-react'
+import { Phone, MapPin, Mail, CalendarDays, DollarSign, Pencil, FileText, CheckCircle2, RefreshCw, Clock, ShieldAlert, Sparkles, X } from 'lucide-react'
 import PhoneInput from '@/components/ui/PhoneInput'
 import AiReminderDrafter from '@/components/AiReminderDrafter'
 import toast from 'react-hot-toast'
@@ -272,6 +272,34 @@ export default function ClientDetailPage() {
     }
   }
 
+  // Trust-state handlers (spec §6): after the first paid invoice on an
+  // upfront client, prompt the contractor once to switch them to
+  // post-visit billing. Either answer marks billingModePrompted=true so
+  // the prompt never shows again.
+  async function handleSwitchToPostvisit() {
+    try {
+      await updateClient(id, {
+        billingMode:         'postvisit',
+        billingModePrompted: true,
+      })
+      toast.success(lang === 'es' ? 'Cambiado a facturación después de la visita' : 'Switched to post-visit billing')
+      loadData()
+    } catch (err) {
+      console.error(err)
+      toast.error(translate('common', 'error'))
+    }
+  }
+
+  async function handleKeepUpfront() {
+    try {
+      await updateClient(id, { billingModePrompted: true })
+      loadData()
+    } catch (err) {
+      console.error(err)
+      toast.error(translate('common', 'error'))
+    }
+  }
+
 async function handleSendInvoice(channels = 'both') {
   setInvoicing(true)
   try {
@@ -496,6 +524,67 @@ async function handleSendInvoice(channels = 'both') {
               )}
             </div>
           </Card>
+
+          {/* ── Trust-state banners (spec §6) ──────────────────────────
+              On a first-time client in 'upfront' mode the contractor
+              sees a yellow heads-up: payment must be received before
+              service. After the first paid invoice the banner is
+              replaced by a one-time prompt offering to switch the
+              client to post-visit billing. Either button on the prompt
+              writes billingModePrompted=true so it never shows again. */}
+          {client.billingMode === 'upfront' && (client.completedJobsCount || 0) === 0 && (
+            <Card className="bg-amber-50 border-amber-200">
+              <div className="flex items-start gap-3">
+                <ShieldAlert size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-[13px] font-semibold text-amber-900 mb-0.5">
+                    {lang === 'es' ? 'Cliente nuevo — pago por adelantado' : 'First-time client — upfront billing'}
+                  </p>
+                  <p className="text-[12px] text-amber-800 leading-relaxed">
+                    {lang === 'es'
+                      ? 'La factura requiere pago antes del servicio. Avísele al cliente que pague por adelantado, o no se puede prestar el servicio.'
+                      : "Invoice will require payment before service. Let them know to pay ahead, or service can't be rendered."}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {client.billingMode === 'upfront'
+            && (client.completedJobsCount || 0) >= 1
+            && !client.billingModePrompted && (
+            <Card className="bg-brand-50 border-brand-200">
+              <div className="flex items-start gap-3 mb-3">
+                <Sparkles size={18} className="text-brand-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-[13px] font-semibold text-brand-900 mb-0.5">
+                    {lang === 'es' ? 'Han pagado su primera factura' : 'They paid their first invoice'}
+                  </p>
+                  <p className="text-[12px] text-brand-800 leading-relaxed">
+                    {lang === 'es'
+                      ? `${client.name} demostró que paga. ¿Cambiarlo a facturación después de la visita?`
+                      : `${client.name} has shown they pay. Switch them to post-visit billing?`}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSwitchToPostvisit}
+                  className="flex-1 flex items-center justify-center gap-1.5 bg-brand-600 text-white text-[13px] font-semibold py-2 rounded-lg hover:bg-brand-700 transition-colors"
+                >
+                  <CheckCircle2 size={14} />
+                  {lang === 'es' ? 'Sí, cambiar' : 'Yes, switch'}
+                </button>
+                <button
+                  onClick={handleKeepUpfront}
+                  className="flex items-center justify-center gap-1.5 bg-white text-gray-600 text-[13px] font-medium py-2 px-4 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+                >
+                  <X size={14} />
+                  {lang === 'es' ? 'Mantener' : 'Keep upfront'}
+                </button>
+              </div>
+            </Card>
+          )}
 
           {/* Billing card */}
           <Card>
