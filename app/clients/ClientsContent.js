@@ -81,6 +81,9 @@ export default function ClientsPage() {
   const [form,     setForm]     = useState(DEFAULT_FORM)
   const [errors,   setErrors]   = useState({})
   const [saving,   setSaving]   = useState(false)
+  // When set, the Add-client modal is in "accept lead" mode: it edits this
+  // existing lead doc (assigning a package) instead of creating a new client.
+  const [acceptingLeadId, setAcceptingLeadId] = useState(null)
 
   const BILLING_OPTIONS   = lang === 'es' ? BILLING_OPTIONS_ES : BILLING_OPTIONS_EN
   const RECURRENCE_LABELS = lang === 'es' ? RECURRENCE_LABELS_ES : RECURRENCE_LABELS_EN
@@ -226,25 +229,79 @@ export default function ClientsPage() {
   const inactiveCount = nonLeadClients.filter(c => c.status !== 'active').length
 
   // ── Lead actions ───────────────────────────────────────────────────
-  // Accept: graduate the lead to an active client with upfront billing
-  // (trust state — see spec §6). Dismiss: soft-delete (we keep the
-  // record for audit and possible-duplicate detection later).
-  async function handleAcceptLead(lead) {
+  // Accept: graduate the lead to an active client. We REQUIRE a package to
+  // be assigned first (otherwise the client has no price and silently
+  // defaults to $65 everywhere), so Accept opens the add-client modal in
+  // "accept" mode, pre-filled from the lead, and saves into the existing
+  // lead doc. Dismiss: soft-delete (kept for audit + duplicate detection).
+  function handleAcceptLead(lead) {
+    // Guard against double-accept (stale UI / second tab): only brand-new
+    // leads can be accepted, so trust-state counters are never reset on a
+    // client who has already started paying.
+    if (lead.leadStatus !== 'new') return
+    // Fold the intake's free-text service interest + note into the client
+    // notes so that context isn't lost when the lead graduates.
+    const leadContext = [lead.serviceInterest, lead.note].filter(Boolean).join(' — ')
+    setForm({
+      name:        lead.name || '',
+      phone:       lead.phone ? formatPhone(lead.phone) : '',
+      email:       lead.email || '',
+      address:     lead.address || '',
+      serviceId:   '',
+      billingMode: 'upfront',
+      notes:       leadContext,
+      language:    lead.language === 'es' ? 'es' : 'en',
+    })
+    setErrors({})
+    setAcceptingLeadId(lead.id)
+    setShowAdd(true)
+  }
+
+  // Save handler for "accept" mode — assigns the chosen package and flips the
+  // lead to an active client with first-time-upfront trust state.
+  async function handleAcceptSave() {
+    if (!acceptingLeadId) return
+    if (!validate()) return
+    setSaving(true)
     try {
-      await updateClient(lead.id, {
+      await updateClient(acceptingLeadId, {
+        name:            form.name.trim(),
+        phone:           formatPhone(form.phone.trim()),
+        email:           form.email.trim(),
+        address:         form.address.trim(),
+        notes:           form.notes.trim(),
+        billingMode:     form.billingMode,
+        language:        form.language,
+        serviceId:       form.serviceId,
+        packageType:     selectedService?.packageType    || 'monthly',
+        basePriceCents:  selectedService?.priceCents     || 6500,
+        packageLabel:    selectedService?.label          || '',
+        packageDesc:     selectedService?.description    || '',
+        packageIncludes: selectedService?.includes       || '',
+        recurrence:      selectedService?.recurrence     || 'biweekly',
+        preferredDay:    selectedService?.preferredDay   || '',
         leadStatus:          'accepted',
         leadAcceptedAt:      new Date().toISOString(),
         status:              'active',
-        billingMode:         'upfront',
         completedJobsCount:  0,
         billingModePrompted: false,
       })
-      toast.success(lang === 'es' ? `${lead.name} aceptado` : `${lead.name} accepted ✓`)
+      toast.success(lang === 'es' ? `${form.name} aceptado ✓` : `${form.name} accepted ✓`)
+      closeAddModal()
       loadData()
     } catch (err) {
       console.error('Failed to accept lead:', err)
       toast.error(translate('common', 'error'))
+    } finally {
+      setSaving(false)
     }
+  }
+
+  function closeAddModal() {
+    setShowAdd(false)
+    setForm(DEFAULT_FORM)
+    setErrors({})
+    setAcceptingLeadId(null)
   }
 
   async function handleDismissLead(lead) {
@@ -508,15 +565,24 @@ export default function ClientsPage() {
 
       <Modal
         open={showAdd}
-        onClose={() => { setShowAdd(false); setForm(DEFAULT_FORM); setErrors({}) }}
-        title={translate('clients', 'add_client')}
+        onClose={closeAddModal}
+        title={acceptingLeadId
+          ? (lang === 'es' ? 'Aceptar solicitud' : 'Accept lead')
+          : translate('clients', 'add_client')}
         footer={
           <>
-            <Button variant="secondary" fullWidth onClick={() => setShowAdd(false)}>
+            <Button variant="secondary" fullWidth onClick={closeAddModal}>
               {translate('common', 'cancel')}
             </Button>
-            <Button fullWidth loading={saving} onClick={handleAdd} disabled={services.length === 0}>
-              {translate('clients', 'add_client')}
+            <Button
+              fullWidth
+              loading={saving}
+              onClick={acceptingLeadId ? handleAcceptSave : handleAdd}
+              disabled={services.length === 0}
+            >
+              {acceptingLeadId
+                ? (lang === 'es' ? 'Aceptar' : 'Accept')
+                : translate('clients', 'add_client')}
             </Button>
           </>
         }
