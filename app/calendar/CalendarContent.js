@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { useLang } from '@/context/LangContext'
@@ -213,6 +213,7 @@ export default function CalendarPage() {
   const [extraSaving,      setExtraSaving]      = useState(false)
 
   const [sendingInvoiceId, setSendingInvoiceId] = useState(null)
+  const invoiceInFlight = useRef(false)   // synchronous double-send guard (both invoice paths)
   const [invoicePreview,   setInvoicePreview]   = useState(null)
   const [dayFilter,        setDayFilter]        = useState('all') // 'all' | 'pending' | 'completed' | 'route'
   const [draggingId,       setDraggingId]       = useState(null)
@@ -416,6 +417,8 @@ export default function CalendarPage() {
     const p = invoicePreview
     if (!p) return
     const { schedule, isWalkIn, clientName, clientEmail, clientPhone, totalCents, lineItems } = p
+    if (invoiceInFlight.current) return   // synchronous double-send guard
+    invoiceInFlight.current = true
     setSendingInvoiceId(schedule.id)
     try {
       const idToken = await user.getIdToken()
@@ -478,6 +481,7 @@ export default function CalendarPage() {
       toast.error(e.message || (lang === 'es' ? 'Error al enviar' : 'Failed to send'))
     } finally {
       setSendingInvoiceId(null)
+      invoiceInFlight.current = false
     }
   }
 
@@ -623,6 +627,8 @@ export default function CalendarPage() {
 
   async function handleWalkInInvoice(channels = 'both') {
     if (!walkInInvoiceTarget) return
+    if (invoiceInFlight.current) return   // synchronous double-send guard
+    invoiceInFlight.current = true
     setInvoicingWalkIn(true)
     try {
       const basePrice   = walkInInvoiceTarget.basePrice || 0
@@ -693,7 +699,7 @@ export default function CalendarPage() {
       )
       setShowWalkInInvoice(false); loadData()
     } catch (err) { toast.error(err.message || translate('common', 'error')) }
-    finally { setInvoicingWalkIn(false) }
+    finally { setInvoicingWalkIn(false); invoiceInFlight.current = false }
   }
 
   async function handleComplete(schedule) {
@@ -1143,7 +1149,9 @@ export default function CalendarPage() {
             }}
           />
           <Select label={translate('calendar', 'client')} value={selectedClient} onChange={e => handleClientSelect(e.target.value)}>
-            {clients.map(c => <option key={c.id} value={c.id}>{c.name} — {translate('packages', c.packageType) || c.packageType}</option>)}
+            {clients
+              .filter(c => c.leadStatus !== 'new' && c.leadStatus !== 'dismissed')
+              .map(c => <option key={c.id} value={c.id}>{c.name} — {translate('packages', c.packageType) || c.packageType}</option>)}
           </Select>
           <Select label={translate('calendar', 'time')} value={selectedTime} onChange={e => setSelectedTime(e.target.value)}>
             {TIMES.map(t => <option key={t} value={t}>{t}</option>)}
