@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
@@ -86,8 +86,24 @@ export default function SettingsPage() {
   }, [])
   const displayHost = currentOrigin.replace(/^https?:\/\//, '')
 
+  // One-shot form initialization from profile.
+  //
+  // Earlier this useEffect re-fired whenever `profile` got a new object
+  // reference from AuthContext (which can happen for many reasons:
+  // navigation, focus events, background token refresh, sibling reads
+  // triggering provider re-renders). Every re-fire overwrote in-progress
+  // user edits — most visibly, unchecking a card-visibility toggle and
+  // having it silently snap back ~1 render later, leaving the DOM
+  // checkbox momentarily unchecked but the React state (and CardPreview
+  // prop) re-set to the persisted profile value.
+  //
+  // The ref guard initializes the form once on first profile load. After
+  // a successful save we re-sync explicitly in handleSave (the saved
+  // values are what the user just typed, so the form is already in
+  // sync — no auto-reset needed).
+  const formInitialized = useRef(false)
   useEffect(() => {
-    if (profile) {
+    if (profile && !formInitialized.current) {
       setForm({
         name:           profile.name           || '',
         businessName:   profile.businessName   || '',
@@ -108,6 +124,7 @@ export default function SettingsPage() {
         upfrontDeadlineHours: profile.upfrontDeadlineHours || 24,
       })
       setSlugDraft(profile.publicSlug || '')
+      formInitialized.current = true
     }
   }, [profile])
 
