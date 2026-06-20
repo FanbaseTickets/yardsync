@@ -90,14 +90,17 @@ export default async function RequestPage({ params }) {
     <IntakeForm
       slug={slug}
       owner={{
-        businessName:  owner.businessName  || 'Service Provider',
-        tagline:       owner.tagline       || '',
-        bio:           owner.bio           || '',
-        serviceArea:   owner.serviceArea   || '',
-        logoURL:       owner.logoURL       || '',
-        headshotURL:   owner.headshotURL   || '',
-        phone:         owner.phone         || '',
+        businessName:      owner.businessName     || 'Service Provider',
+        tagline:           owner.tagline          || '',
+        bio:               owner.bio              || '',
+        serviceArea:       owner.serviceArea      || '',
+        logoURL:           owner.logoURL          || '',
+        headshotURL:       owner.headshotURL      || '',
+        phone:             owner.phone            || '',
+        email:             owner.email            || '',
         accentColor,
+        showContactPhone:  owner.showContactPhone !== false,
+        showContactEmail:  owner.showContactEmail === true,
       }}
       services={services}
       initialLang={initialLang}

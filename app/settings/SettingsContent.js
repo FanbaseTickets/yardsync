@@ -731,6 +731,8 @@ export default function SettingsPage() {
                       serviceArea={form.serviceArea}
                       logoUrl={form.logoUrl}
                       accentColor={form.accentColor}
+                      phone={form.phone}
+                      email={form.email}
                       showContactPhone={form.showContactPhone}
                       showContactEmail={form.showContactEmail}
                       cardStatusBadge={form.cardStatusBadge}

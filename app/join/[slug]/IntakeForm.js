@@ -510,38 +510,55 @@ function Page({ owner, lang, setLang, t, children, backLinkHref }) {
           </p>
         )}
 
-        {/* Persistent contact row — keeps Call/Text/Save reachable from the
+        {/* Persistent contact row — keeps Save/Call/Text reachable from the
             form page (matches the secondary actions on the card) so a
-            prospect who scanned a QR can still call directly. */}
-        {(owner.phone || owner.headshotURL) && (
-          <div className="flex justify-center gap-2 mb-5">
-            <a
-              href={`/api/join/${slug}/vcard`}
-              className="flex flex-col items-center gap-0.5 bg-white border border-gray-200 rounded-lg px-4 py-2 hover:border-gray-300 transition-colors"
-            >
-              <BookmarkPlus size={14} className="text-gray-600" />
-              <span className="text-[10px] font-medium text-gray-700">{t.save || 'Save'}</span>
-            </a>
-            {owner.phone && (
-              <>
+            prospect who scanned a QR can still call directly. Gated by
+            the same showContactPhone / showContactEmail flags as the card. */}
+        {(() => {
+          const showCall  = owner.showContactPhone !== false && !!owner.phone
+          const showEmail = owner.showContactEmail === true && !!owner.email
+          // Save is always shown; only hide the row if Save would be alone
+          // AND we want to avoid an awkward solo button. We keep Save always
+          // visible — it's how prospects keep the business in their phone.
+          return (
+            <div className="flex justify-center gap-2 mb-5">
+              <a
+                href={`/api/join/${slug}/vcard`}
+                className="flex flex-col items-center gap-0.5 bg-white border border-gray-200 rounded-lg px-4 py-2 hover:border-gray-300 transition-colors"
+              >
+                <BookmarkPlus size={14} className="text-gray-600" />
+                <span className="text-[10px] font-medium text-gray-700">{t.save || 'Save'}</span>
+              </a>
+              {showCall && (
+                <>
+                  <a
+                    href={`tel:${owner.phone.replace(/\D/g, '')}`}
+                    className="flex flex-col items-center gap-0.5 bg-white border border-gray-200 rounded-lg px-4 py-2 hover:border-gray-300 transition-colors"
+                  >
+                    <Phone size={14} className="text-gray-600" />
+                    <span className="text-[10px] font-medium text-gray-700">{t.call || 'Call'}</span>
+                  </a>
+                  <a
+                    href={`sms:${owner.phone.replace(/\D/g, '')}`}
+                    className="flex flex-col items-center gap-0.5 bg-white border border-gray-200 rounded-lg px-4 py-2 hover:border-gray-300 transition-colors"
+                  >
+                    <MessageSquare size={14} className="text-gray-600" />
+                    <span className="text-[10px] font-medium text-gray-700">{t.text || 'Text'}</span>
+                  </a>
+                </>
+              )}
+              {showEmail && (
                 <a
-                  href={`tel:${owner.phone.replace(/\D/g, '')}`}
-                  className="flex flex-col items-center gap-0.5 bg-white border border-gray-200 rounded-lg px-4 py-2 hover:border-gray-300 transition-colors"
-                >
-                  <Phone size={14} className="text-gray-600" />
-                  <span className="text-[10px] font-medium text-gray-700">{t.call || 'Call'}</span>
-                </a>
-                <a
-                  href={`sms:${owner.phone.replace(/\D/g, '')}`}
+                  href={`mailto:${owner.email}`}
                   className="flex flex-col items-center gap-0.5 bg-white border border-gray-200 rounded-lg px-4 py-2 hover:border-gray-300 transition-colors"
                 >
                   <MessageSquare size={14} className="text-gray-600" />
-                  <span className="text-[10px] font-medium text-gray-700">{t.text || 'Text'}</span>
+                  <span className="text-[10px] font-medium text-gray-700">Email</span>
                 </a>
-              </>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          )
+        })()}
 
         {children}
 

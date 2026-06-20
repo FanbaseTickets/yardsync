@@ -91,13 +91,22 @@ export default function CardPreview({
   serviceArea,
   logoUrl,
   accentColor,
+  phone,
+  email,
   showContactPhone,
   showContactEmail,
   cardStatusBadge,
   publicSlug,
   lang = 'en',
 }) {
-  const accent = accentColor || DEFAULT_ACCENT
+  const accent       = accentColor || DEFAULT_ACCENT
+  // Mirror the real card's gating: actions appear only when both the
+  // visibility toggle is on AND the underlying contact channel exists.
+  // (The real card hides Call/Text whenever phone is missing, regardless
+  // of the toggle — preview must match so it isn't misleading.)
+  const showCall     = !!(showContactPhone && phone)
+  const showEmailBtn = !!(showContactEmail && email)
+  const showBadge    = cardStatusBadge === 'booking'
   const T = lang === 'es'
     ? {
         requestService: 'Solicitar servicio',
@@ -178,7 +187,7 @@ export default function CardPreview({
           )}
 
           {/* Status badge */}
-          {cardStatusBadge !== 'none' && (
+          {showBadge && (
             <span
               className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wide text-white"
               style={{ backgroundColor: accent }}
@@ -214,7 +223,7 @@ export default function CardPreview({
               <BookmarkPlus size={12} className="text-gray-600" />
               <span className="text-[9px] font-medium text-gray-700">{T.save}</span>
             </div>
-            {showContactPhone && (
+            {showCall && (
               <>
                 <div className="flex-1 flex flex-col items-center gap-0.5 bg-gray-50 border border-gray-200 rounded-md py-1.5">
                   <Phone size={12} className="text-gray-600" />
@@ -226,7 +235,7 @@ export default function CardPreview({
                 </div>
               </>
             )}
-            {showContactEmail && (
+            {showEmailBtn && (
               <div className="flex-1 flex flex-col items-center gap-0.5 bg-gray-50 border border-gray-200 rounded-md py-1.5">
                 <MessageSquare size={12} className="text-gray-600" />
                 <span className="text-[9px] font-medium text-gray-700">@</span>
