@@ -10,6 +10,7 @@ import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Input, Select } from '@/components/ui'
 import PhoneInput from '@/components/ui/PhoneInput'
 import LogoUpload from '@/components/ui/LogoUpload'
+import CardPreview from './CardPreview'
 import { saveGardenerProfile, getGardenerProfile, getInvoices } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { Bell, Globe, User, Clock, CreditCard, Link2, CheckCircle2, ArrowUpCircle, TrendingUp, Lock, Zap, LogOut, AlertTriangle } from 'lucide-react'
@@ -703,6 +704,23 @@ export default function SettingsPage() {
                       </p>
                     </div>
                   )}
+
+                  {/* Live card preview — mirrors /join/[slug] from local form state */}
+                  <div className="pt-3 border-t border-gray-100">
+                    <CardPreview
+                      businessName={form.businessName}
+                      tagline={form.tagline}
+                      bio={form.bio}
+                      serviceArea={form.serviceArea}
+                      logoUrl={form.logoUrl}
+                      accentColor={form.accentColor}
+                      showContactPhone={form.showContactPhone}
+                      showContactEmail={form.showContactEmail}
+                      cardStatusBadge={form.cardStatusBadge}
+                      publicSlug={profile.publicSlug}
+                      lang={lang}
+                    />
+                  </div>
 
                   {/* Public-profile fields used by /join page + the card */}
                   <div className="space-y-3 pt-3 border-t border-gray-100">
