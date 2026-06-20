@@ -531,6 +531,15 @@ export default function CalendarPage() {
 
   async function handleAddSchedule() {
     if (!selectedClient || !selectedDay) return
+
+    // Past-date guard — the date field's `min` blocks it in the picker, but a
+    // contractor can open this modal off a previously-tapped past calendar day.
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
+    if (selectedDay < todayStart) {
+      toast.error(lang === 'es' ? 'No se puede programar en el pasado' : "Can't schedule a visit in the past")
+      return
+    }
+
     const client      = clients.find(c => c.id === selectedClient)
     const datesToAdd  = repeatMode === 'none' ? [selectedDay] : generateOccurrences(selectedDay, repeatMode, occurrences)
 
@@ -1118,6 +1127,21 @@ export default function CalendarPage() {
         </>}
       >
         <div className="space-y-4">
+          <Input
+            type="date"
+            label={lang === 'es' ? 'Comenzando el' : 'Starting on'}
+            value={selectedDay ? toDateStr(selectedDay) : ''}
+            min={toDateStr(new Date())}
+            hint={repeatMode !== 'none'
+              ? (lang === 'es' ? 'Fecha de la primera visita' : 'Date of the first visit')
+              : undefined}
+            onChange={e => {
+              const v = e.target.value
+              if (!v) return
+              const [y, m, d] = v.split('-').map(Number)
+              setSelectedDay(new Date(y, m - 1, d))
+            }}
+          />
           <Select label={translate('calendar', 'client')} value={selectedClient} onChange={e => handleClientSelect(e.target.value)}>
             {clients.map(c => <option key={c.id} value={c.id}>{c.name} — {translate('packages', c.packageType) || c.packageType}</option>)}
           </Select>
