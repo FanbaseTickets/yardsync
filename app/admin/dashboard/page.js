@@ -449,6 +449,34 @@ export default function AdminDashboard() {
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
 
+        {/* Founder referral card — Jay's shareable "sell YardSync" card (/grow).
+            Public, no attribution yet — grab the link/QR here to pitch in the field. */}
+        {(() => {
+          const growUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://yardsyncapp.com'}/grow`
+          async function shareGrow() {
+            try {
+              if (navigator.share) await navigator.share({ title: 'YardSync', text: 'Run your field-service business from your phone:', url: growUrl })
+              else { navigator.clipboard.writeText(growUrl); toast.success('Copied') }
+            } catch { /* share sheet cancelled */ }
+          }
+          return (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <h2 className="text-[15px] font-semibold text-gray-900">Your YardSync referral card</h2>
+                  <p className="text-[13px] text-gray-500 mt-0.5">Share this to pitch YardSync — recipients can forward it and sign up.</p>
+                </div>
+                <a href="/grow" target="_blank" rel="noopener noreferrer" className="text-[13px] font-medium text-brand-700 hover:text-brand-800 whitespace-nowrap">Open card →</a>
+              </div>
+              <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 mt-3">
+                <span className="text-[12px] text-gray-600 flex-1 truncate">{growUrl}</span>
+                <button onClick={() => { navigator.clipboard.writeText(growUrl); toast.success('Copied') }} className="text-[12px] font-medium text-brand-700 hover:text-brand-800">Copy</button>
+                <button onClick={shareGrow} className="text-[12px] font-medium text-brand-700 hover:text-brand-800">Share</button>
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Stripe Requirements — contractors flagged by Stripe for KYC info.
             Surfaces account.updated webhook data so Jay can proactively
             send remediation links instead of contractors discovering
