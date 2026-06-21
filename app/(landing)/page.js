@@ -209,16 +209,7 @@ export default function LandingPage() {
             <p style={{fontSize:'13px',color:'#8aaa96',fontStyle:'italic'}}>Cada contratista recibe su propia tarjeta de presentación digital con código QR. Compártala o muéstrela — nunca más pague por tarjetas de papel.</p>
           </div>
           <div>
-            {/*
-              SCREENSHOT SLOT — drop a /join card screenshot in /public/landing/
-              and swap this placeholder for:
-              <img src="/landing/business-card.png" alt="YardSync digital business card" style={{width:'100%',maxWidth:'300px',margin:'0 auto',display:'block',borderRadius:'18px',boxShadow:'0 12px 44px rgba(0,0,0,0.14)'}} />
-            */}
-            <div style={{width:'100%',maxWidth:'300px',margin:'0 auto',aspectRatio:'9/16',borderRadius:'18px',background:'#fff',boxShadow:'0 12px 44px rgba(0,0,0,0.14)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'10px',color:'#9aa',border:'1px dashed #cfd8d2'}}>
-              <div style={{fontSize:'40px'}}>📇</div>
-              <div style={{fontSize:'13px',fontWeight:600,color:'#6b7b72'}}>Your business card preview</div>
-              <div style={{fontSize:'11px'}}>(screenshot goes here)</div>
-            </div>
+            <img src="/landing/business-card.png" alt="Example YardSync digital business card for a lawn care contractor" style={{width:'100%',maxWidth:'300px',margin:'0 auto',display:'block',borderRadius:'18px',boxShadow:'0 12px 44px rgba(0,0,0,0.14)'}} />
           </div>
         </div>
       </section>
