@@ -21,7 +21,7 @@ const STRINGS = {
     p3:           '5.5% per invoice. No quarterly bills, no hidden fees.',
     p4:           'Your own free digital business card with a QR code',
     cta:          'Get started free',
-    scan:         'Scan to open this card',
+    scan:         'Scan to get started with YardSync',
     copy:         'Copy link',
     copied:       'Copied',
     share:        'Share',
@@ -36,7 +36,7 @@ const STRINGS = {
     p3:           '5.5% por factura. Sin cobros trimestrales ni cargos ocultos.',
     p4:           'Su propia tarjeta de presentación digital gratis con código QR',
     cta:          'Empieza gratis',
-    scan:         'Escanee para abrir esta tarjeta',
+    scan:         'Escanee para empezar con YardSync',
     copy:         'Copiar enlace',
     copied:       'Copiado',
     share:        'Compartir',
@@ -141,11 +141,13 @@ export default function GrowContent({ qrSvg, growUrl, homeUrl, initialLang }) {
             </button>
           </div>
 
-          {/* QR */}
+          {/* QR — encodes the homepage (scan routes the prospect to YardSync).
+              The svg arrives sized 200px; force it to fit the container so it
+              doesn't overflow onto the caption below. */}
           {qrSvg && (
             <div className="mt-6 pt-5 border-t border-gray-100 flex flex-col items-center">
-              <div className="w-40 h-40" dangerouslySetInnerHTML={{ __html: qrSvg }} />
-              <p className="text-[11px] text-gray-400 mt-2">{t.scan}</p>
+              <div className="w-44 [&>svg]:block [&>svg]:w-full [&>svg]:h-auto" dangerouslySetInnerHTML={{ __html: qrSvg }} />
+              <p className="text-[11px] text-gray-400 mt-3 text-center">{t.scan}</p>
             </div>
           )}
         </div>

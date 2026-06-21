@@ -6,8 +6,10 @@
  * pitch; the primary CTA routes to the homepage to sign up. No Firebase in this
  * route (public marketing page, same constraint as the landing page).
  *
- * Server-renders a QR encoding the /grow URL so the card is scannable + the
- * scanner can re-share it. No referral attribution yet (fast follow-up).
+ * The on-card QR encodes the HOMEPAGE — when the founder shows their phone to a
+ * prospect in person, scanning routes the prospect straight to YardSync to sign
+ * up. The Share/Copy buttons share the /grow card URL (to send the pitch to
+ * someone). No referral attribution yet (fast follow-up).
  */
 
 import { headers } from 'next/headers'
@@ -54,7 +56,9 @@ export default async function GrowPage() {
   const homeUrl     = `${baseUrl}/`
   const acceptLang  = (headersList.get('accept-language') || '').toLowerCase()
   const initialLang = acceptLang.startsWith('es') ? 'es' : 'en'
-  const qrSvg       = await generateQrSvg(growUrl)
+  // QR routes a scanning prospect straight to YardSync (homepage), not back to
+  // this card. Share/Copy still hand out the /grow card URL.
+  const qrSvg       = await generateQrSvg(homeUrl)
 
   return (
     <GrowContent
