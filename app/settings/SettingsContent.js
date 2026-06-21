@@ -41,6 +41,29 @@ export default function SettingsPage() {
   const [canceling,        setCanceling]        = useState(false)
   const [reactivating,     setReactivating]     = useState(false)
   const [stripeRemediating, setStripeRemediating] = useState(false)
+  const [activeTab, setActiveTab] = useState('profile')
+
+  // Tab from ?tab= (read via window.location to avoid a Suspense boundary —
+  // constraint #3). Switching tabs updates the URL so refreshes + deep links
+  // (e.g. /settings?tab=billing) land on the right tab.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab')
+    if (['profile', 'card', 'sms', 'billing'].includes(t)) setActiveTab(t)
+  }, [])
+
+  function selectTab(t) {
+    setActiveTab(t)
+    const url = new URL(window.location.href)
+    url.searchParams.set('tab', t)
+    window.history.replaceState({}, '', url)
+  }
+
+  const SETTINGS_TABS = [
+    { key: 'profile', en: 'Profile', es: 'Perfil' },
+    { key: 'card',    en: 'Card',    es: 'Tarjeta' },
+    { key: 'sms',     en: 'SMS',     es: 'SMS' },
+    { key: 'billing', en: 'Billing', es: 'Pagos' },
+  ]
 
   const [form,    setForm]    = useState({
     name:           '',
@@ -529,6 +552,24 @@ export default function SettingsPage() {
             </Card>
           )}
 
+          {/* Tab bar — Profile · Card · SMS · Billing (?tab= deep-linkable) */}
+          <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 sticky top-0 z-10">
+            {SETTINGS_TABS.map(t => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => selectTab(t.key)}
+                className={`flex-1 text-[13px] font-medium py-2 rounded-lg transition-colors ${
+                  activeTab === t.key ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {lang === 'es' ? t.es : t.en}
+              </button>
+            ))}
+          </div>
+
+          {/* ── Profile tab ── */}
+          {activeTab === 'profile' && (<>
           {/* Profile */}
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -615,6 +656,10 @@ export default function SettingsPage() {
             </Card>
           </section>
 
+          </>)}
+
+          {/* ── Card tab ── */}
+          {activeTab === 'card' && (<>
           {/* YardSync Card — public business card + intake URL */}
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -921,6 +966,10 @@ export default function SettingsPage() {
             </Card>
           </section>
 
+          </>)}
+
+          {/* ── SMS tab ── */}
+          {activeTab === 'sms' && (<>
           {/* SMS Reminders */}
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -972,6 +1021,10 @@ export default function SettingsPage() {
             </Card>
           </section>
 
+          </>)}
+
+          {/* ── Billing tab ── (Subscription · Payment Reminders · Volume Rewards · Stripe Connect) */}
+          {activeTab === 'billing' && (<>
           {/* Subscription */}
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -1299,6 +1352,7 @@ export default function SettingsPage() {
               </button>
             </div>
           )}
+          </>)}
 
           <div className="mt-8 pt-6 border-t border-gray-200">
             <button
