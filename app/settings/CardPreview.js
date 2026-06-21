@@ -97,6 +97,7 @@ export default function CardPreview({
   showContactPhone,
   showContactEmail,
   cardStatusBadge,
+  offersFreeEstimate,
   publicSlug,
   lang = 'en',
 }) {
@@ -108,6 +109,7 @@ export default function CardPreview({
   const showCall     = !!(showContactPhone && phone)
   const showEmailBtn = !!(showContactEmail && email)
   const showBadge    = cardStatusBadge === 'booking'
+  const showFreeEstimate = offersFreeEstimate === true
   const T = lang === 'es'
     ? {
         requestService: 'Solicitar servicio',
@@ -115,6 +117,7 @@ export default function CardPreview({
         call:           'Llamar',
         text:           'Mensaje',
         nowBooking:     'Reservando ahora',
+        freeEstimate:   'Estimado gratis',
         poweredBy:      'Con tecnología de',
         scanToRequest:  'Escanee para solicitar',
         openFullCard:   'Abrir tarjeta completa',
@@ -127,6 +130,7 @@ export default function CardPreview({
         call:           'Call',
         text:           'Text',
         nowBooking:     'Now booking',
+        freeEstimate:   'Free estimate',
         poweredBy:      'Powered by',
         scanToRequest:  'Scan to request',
         openFullCard:   'Open full card',
@@ -193,15 +197,27 @@ export default function CardPreview({
             </p>
           )}
 
-          {/* Status badge */}
-          {showBadge && (
-            <span
-              className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wide text-white"
-              style={{ backgroundColor: accent }}
-            >
-              <span className="w-1 h-1 rounded-full bg-white" />
-              {T.nowBooking}
-            </span>
+          {/* Status badges */}
+          {(showBadge || showFreeEstimate) && (
+            <div className="mt-2 flex flex-wrap justify-center gap-1.5">
+              {showBadge && (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wide text-white"
+                  style={{ backgroundColor: accent }}
+                >
+                  <span className="w-1 h-1 rounded-full bg-white" />
+                  {T.nowBooking}
+                </span>
+              )}
+              {showFreeEstimate && (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wide bg-white border"
+                  style={{ color: accent, borderColor: accent }}
+                >
+                  🎁 {T.freeEstimate}
+                </span>
+              )}
+            </div>
           )}
 
           {/* Bio */}

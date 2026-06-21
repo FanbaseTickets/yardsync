@@ -24,6 +24,7 @@ const STRINGS = {
     text:              'Text',
     scanToRequest:     'Scan to request service',
     nowBooking:        'Now booking',
+    freeEstimate:      'Free estimate',
     poweredBy:         'Powered by',
     serviceAreaLabel:  'Service area',
     servicesLabel:     'Services',
@@ -35,6 +36,7 @@ const STRINGS = {
     text:              'Mensaje',
     scanToRequest:     'Escanee para solicitar servicio',
     nowBooking:        'Reservando ahora',
+    freeEstimate:      'Estimado gratis',
     poweredBy:         'Con tecnología de',
     serviceAreaLabel:  'Área de servicio',
     servicesLabel:     'Servicios',
@@ -59,6 +61,7 @@ export default function CardActions({ slug, owner, services, qrSvg, initialLang 
   const showPhone  = owner.showContactPhone !== false && !!owner.phone
   const showEmail  = owner.showContactEmail === true && !!owner.email
   const showBadge  = owner.cardStatusBadge !== 'none'
+  const showFreeEstimate = owner.offersFreeEstimate === true
   const phoneDigits = stripPhone(owner.phone)
   const servicesList = (services || [])
     .map(s => s.label || s.name)
@@ -141,16 +144,26 @@ export default function CardActions({ slug, owner, services, qrSvg, initialLang 
           </p>
         )}
 
-        {/* ── Status badge ─────────────────────────────────────────────── */}
-        {showBadge && (
-          <div className="flex justify-center mb-4">
-            <span
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide text-white"
-              style={{ backgroundColor: accent }}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-              {t.nowBooking}
-            </span>
+        {/* ── Status badges (Now booking + Free estimate) ─────────────────── */}
+        {(showBadge || showFreeEstimate) && (
+          <div className="flex flex-wrap justify-center gap-2 mb-4">
+            {showBadge && (
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide text-white"
+                style={{ backgroundColor: accent }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                {t.nowBooking}
+              </span>
+            )}
+            {showFreeEstimate && (
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide bg-white border"
+                style={{ color: accent, borderColor: accent }}
+              >
+                🎁 {t.freeEstimate}
+              </span>
+            )}
           </div>
         )}
 

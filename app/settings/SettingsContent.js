@@ -84,6 +84,7 @@ export default function SettingsPage() {
     showContactPhone:     true,        // show phone + Call/Text on card (default ON)
     showContactEmail:     false,       // show email on card (default OFF — opt-in)
     cardStatusBadge:      'booking',   // 'booking' | 'none' — Now booking pill
+    offersFreeEstimate:   false,       // show a "Free estimate" badge on the card
     upfrontDeadlineHours: 24,          // global default for upfront billing (1-168, default 24)
   })
   const [saving, setSaving] = useState(false)
@@ -147,6 +148,7 @@ export default function SettingsPage() {
         showContactPhone:     profile.showContactPhone !== false,        // default ON
         showContactEmail:     profile.showContactEmail === true,         // default OFF
         cardStatusBadge:      profile.cardStatusBadge      || 'booking', // 'booking' | 'none'
+        offersFreeEstimate:   profile.offersFreeEstimate === true,
         upfrontDeadlineHours: profile.upfrontDeadlineHours || 24,
       })
       setSlugDraft(profile.publicSlug || '')
@@ -906,6 +908,7 @@ export default function SettingsPage() {
                       showContactPhone={form.showContactPhone}
                       showContactEmail={form.showContactEmail}
                       cardStatusBadge={form.cardStatusBadge}
+                      offersFreeEstimate={form.offersFreeEstimate}
                       publicSlug={profile.publicSlug}
                       lang={lang}
                     />
@@ -1030,6 +1033,23 @@ export default function SettingsPage() {
                             {lang === 'es'
                               ? 'Apague cuando esté lleno o de vacaciones.'
                               : 'Turn off when you\'re full or on vacation.'}
+                          </span>
+                        </span>
+                      </label>
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!form.offersFreeEstimate}
+                          onChange={e => setField('offersFreeEstimate', e.target.checked)}
+                          disabled={!settingsEditing}
+                          className="mt-0.5 w-4 h-4 accent-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <span className="text-[13px] text-gray-700 flex-1">
+                          {lang === 'es' ? 'Mostrar pastilla "Estimado gratis"' : 'Show "Free estimate" badge'}
+                          <span className="block text-[11px] text-gray-400 mt-0.5">
+                            {lang === 'es'
+                              ? 'Atrae prospectos ofreciendo una cotización sin costo.'
+                              : 'Draws prospects in by offering a no-cost quote.'}
                           </span>
                         </span>
                       </label>
