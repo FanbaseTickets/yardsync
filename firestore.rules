@@ -55,5 +55,13 @@ service cloud.firestore {
       // firestoreRest). Never touched by client code.
       allow read, write: if isAdmin();
     }
+    match /referralCards/{doc} {
+      // Founder referral-card profile shown on /grow (name, title, headshot
+      // + visibility toggles). Read + write only via server-side
+      // lib/firestoreRest.js (admin-authed): the admin editor writes it
+      // through /api/admin/referral-card and /grow reads it server-side.
+      // Never touched by client SDK. Admin-only is sufficient.
+      allow read, write: if isAdmin();
+    }
   }
 }
