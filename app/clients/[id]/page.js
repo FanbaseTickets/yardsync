@@ -388,8 +388,12 @@ async function handleSendInvoice(channels = 'both') {
       throw new Error(data.error || 'Invoice failed')
     }
 
-    // Send payment link via SMS to client
-    if (data.smsRequested && client.phone && data.paymentUrl) {
+    // Send payment link via SMS to client — AWAIT it so the toast reflects
+    // whether Twilio actually accepted the text, not merely that one was
+    // requested. (smsSent stays false if the send errors or is rejected.)
+    const smsTried = !!(data.smsRequested && client.phone && data.paymentUrl)
+    let smsSent = false
+    if (smsTried) {
       const smsBody = buildInvoiceSms({
         client,
         contractor: profile,
@@ -397,20 +401,27 @@ async function handleSendInvoice(channels = 'both') {
         paymentUrl: data.paymentUrl,
         lang,
       })
-      fetch('/api/twilio/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientPhone: client.phone, message: smsBody, gardenerUid: user?.uid }),
-      }).catch(err => console.error('Invoice SMS failed (non-fatal):', err))
+      try {
+        const smsRes = await fetch('/api/twilio/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientPhone: client.phone, message: smsBody, gardenerUid: user?.uid }),
+        })
+        smsSent = smsRes.ok
+      } catch (err) {
+        console.error('Invoice SMS failed (non-fatal):', err)
+      }
     }
 
     const parts = []
     if (data.emailNotified) parts.push('email')
-    if (data.smsRequested && client.phone) parts.push(lang === 'es' ? 'SMS' : 'text')
+    if (smsSent) parts.push(lang === 'es' ? 'SMS' : 'text')
     const via = parts.length === 2 ? parts.join(' + ') : parts[0]
     toast.success(via
       ? (lang === 'es' ? `Factura enviada por ${via} ✓` : `Invoice sent via ${via} ✓`)
-      : (lang === 'es' ? 'Factura creada — sin notificación' : 'Invoice created — no notification sent')
+      : (smsTried
+          ? (lang === 'es' ? 'Factura creada — no se pudo enviar el texto' : "Invoice created — couldn't text the link")
+          : (lang === 'es' ? 'Factura creada — sin notificación' : 'Invoice created — no notification sent'))
     )
     setShowInvoice(false)
     loadData()

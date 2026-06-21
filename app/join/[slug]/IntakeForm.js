@@ -179,7 +179,8 @@ export default function IntakeForm({ slug, owner, services, initialLang, backLin
 
   function validateClientSide() {
     const e = {}
-    if (!name.trim()) e.name = t.errNameRequired
+    // Name must be ≥2 chars with at least one letter (parity with the server).
+    if (name.trim().length < 2 || !/[A-Za-zÀ-ÿ]/.test(name)) e.name = t.errNameRequired
     const phoneErr = phoneErrorFor(phone)
     if (phoneErr) e.phone = phoneErr
     if (email && !isValidEmailish(email)) e.email = t.errEmailInvalid
