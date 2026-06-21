@@ -47,6 +47,7 @@ export function Input({ label, id, error, hint, prefix, suffix, className, conta
           className={clsx(
             'w-full rounded-xl border bg-white text-gray-900 text-[14px] transition-colors',
             'placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent',
+            'disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-100 disabled:cursor-not-allowed',
             error ? 'border-red-300' : 'border-gray-200 hover:border-gray-300',
             prefix ? 'pl-7' : 'pl-3',
             suffix ? 'pr-10' : 'pr-3',
@@ -72,6 +73,7 @@ export function Select({ label, id, error, hint, className, containerClassName, 
         className={clsx(
           'w-full rounded-xl border bg-white text-gray-900 text-[14px] px-3 py-2.5 transition-colors',
           'focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent',
+          'disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-100 disabled:cursor-not-allowed',
           error ? 'border-red-300' : 'border-gray-200 hover:border-gray-300', className
         )}
         {...props}
