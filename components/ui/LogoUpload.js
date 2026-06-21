@@ -33,7 +33,16 @@ import toast from 'react-hot-toast'
 const MAX_BYTES = 2 * 1024 * 1024 // 2 MB
 const ACCEPT_TYPES = ['image/png', 'image/jpeg', 'image/webp']
 
-export default function LogoUpload({ value, onChange, label, hint }) {
+export default function LogoUpload({
+  value,
+  onChange,
+  label,
+  hint,
+  storageName = 'logo',   // Storage filename stem: users/{uid}/{storageName}.{ext}
+  noun = 'logo',          // word used in buttons/toasts ("Upload {noun}")
+  rounded = 'rounded-xl',  // image shape — pass 'rounded-full' for a headshot
+  disabled = false,        // lock the controls (edit/lock mode)
+}) {
   const { user } = useAuth()
   const [uploading, setUploading] = useState(false)
 
@@ -59,12 +68,12 @@ export default function LogoUpload({ value, onChange, label, hint }) {
       const ext = file.type === 'image/png'  ? 'png'
                 : file.type === 'image/jpeg' ? 'jpg'
                 :                              'webp'
-      const path = `users/${user.uid}/logo.${ext}`
+      const path = `users/${user.uid}/${storageName}.${ext}`
       const storageRef = ref(storage, path)
       const snapshot = await uploadBytes(storageRef, file, { contentType: file.type })
       const url = await getDownloadURL(snapshot.ref)
       onChange(url)
-      toast.success('Logo uploaded ✓')
+      toast.success(`${noun.charAt(0).toUpperCase()}${noun.slice(1)} uploaded ✓`)
     } catch (err) {
       console.error('Logo upload failed:', err)
       const msg = err.code === 'storage/unauthorized'
@@ -94,44 +103,48 @@ export default function LogoUpload({ value, onChange, label, hint }) {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={value}
-              alt="Business logo"
-              className="w-20 h-20 rounded-xl object-cover border border-gray-200 bg-gray-50"
+              alt={noun}
+              className={`w-20 h-20 ${rounded} object-cover border border-gray-200 bg-gray-50`}
             />
-            <button
-              type="button"
-              onClick={handleRemove}
-              disabled={uploading}
-              aria-label="Remove logo"
-              className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm"
-            >
-              <X size={12} className="text-gray-500" />
-            </button>
+            {!disabled && (
+              <button
+                type="button"
+                onClick={handleRemove}
+                disabled={uploading}
+                aria-label={`Remove ${noun}`}
+                className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm"
+              >
+                <X size={12} className="text-gray-500" />
+              </button>
+            )}
           </div>
         ) : (
-          <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50 flex-shrink-0">
+          <div className={`w-20 h-20 ${rounded} border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50 flex-shrink-0`}>
             <Camera size={20} className="text-gray-300" />
           </div>
         )}
 
-        <label className="cursor-pointer">
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            onChange={handleFile}
-            disabled={uploading}
-            className="hidden"
-          />
-          <span className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-medium bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
-            {uploading ? (
-              <>
-                <Loader2 size={14} className="animate-spin" />
-                Uploading…
-              </>
-            ) : (
-              <>{value ? 'Change logo' : 'Upload logo'}</>
-            )}
-          </span>
-        </label>
+        {!disabled && (
+          <label className="cursor-pointer">
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={handleFile}
+              disabled={uploading}
+              className="hidden"
+            />
+            <span className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-medium bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+              {uploading ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Uploading…
+                </>
+              ) : (
+                <>{value ? `Change ${noun}` : `Upload ${noun}`}</>
+              )}
+            </span>
+          </label>
+        )}
       </div>
 
       {hint && (
