@@ -146,7 +146,9 @@ export default function ClientsPage() {
     } else {
       setForm(prev => ({ ...prev, serviceId: value, customPrice: '' }))
     }
-    if (errors.serviceId) setErrors(prev => ({ ...prev, serviceId: null }))
+    // Clear any stale package/price errors so they don't linger after the
+    // field re-fills on a package switch.
+    setErrors(prev => ({ ...prev, serviceId: null, customPrice: null, newPkgLabel: null, newPkgPrice: null }))
   }
 
   // Resolve the package fields written to the client doc. Existing package →
@@ -821,7 +823,7 @@ export default function ClientsPage() {
                   : `Package price: ${formatCents(selectedService.priceCents || 0)}. Adjust it for bigger lots.`}
               />
               <p className="text-[12px] font-semibold text-brand-800">
-                {translate('clients', 'client_pays')} {formatCents(resolvePackage().basePriceCents)} / {selectedService.packageType}
+                {translate('clients', 'client_pays')} {formatCents(resolvePackage().basePriceCents)} / {translate('packages', selectedService.packageType) || selectedService.packageType}
               </p>
               <p className="text-[10px] text-gray-400">
                 {lang === 'es' ? '5.5% deducido de tu pago por factura' : '5.5% deducted from your payout per invoice'}
