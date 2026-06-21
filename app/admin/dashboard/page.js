@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { fmt as format } from '@/lib/date'
+import ReferralCardEditor from './ReferralCardEditor'
 
 function splitInvoice(inv) {
   // Q11 (preferred): when the webhook has captured Stripe's processing fee,
@@ -449,6 +450,9 @@ export default function AdminDashboard() {
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
 
+        {/* Founder referral card — shareable /grow card + editable founder details. */}
+        <ReferralCardEditor />
+
         {/* Stripe Requirements — contractors flagged by Stripe for KYC info.
             Surfaces account.updated webhook data so Jay can proactively
             send remediation links instead of contractors discovering
@@ -760,6 +764,66 @@ export default function AdminDashboard() {
                               <p className="text-[11px] text-amber-700 mt-1">outstanding to collect</p>
                             </div>
                           </div>
+
+                          {/* Per-contractor P&L — gross → minus Stripe → net invoice cut,
+                              plus their subscription, = my net profit this month. Based on
+                              PAID invoices this month (where Stripe fees are actually taken). */}
+                          {(() => {
+                            const now = new Date()
+                            const inMonth = inv => {
+                              const d = inv.createdAt?.toDate?.() || new Date(inv.createdAt || 0)
+                              return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+                            }
+                            const paid = g.allInvoices.filter(inv => inv.status === 'paid' && inMonth(inv))
+                            const grossFee  = paid.reduce((s, inv) => s + (inv.applicationFee || 0), 0)
+                            const stripeFee = paid.reduce((s, inv) => s + (typeof inv.stripeProcessingFee === 'number'
+                              ? inv.stripeProcessingFee
+                              : Math.max(0, (inv.applicationFee || 0) - (typeof inv.netToPlatform === 'number' ? inv.netToPlatform : (inv.applicationFee || 0)))), 0)
+                            const netInvoice = grossFee - stripeFee
+
+                            const isActive = ACTIVE_SUB.has(g.subscriptionStatus)
+                            const rewardActive = (g.rewardStreak || 0) >= 2 && g.rewardTier && g.rewardTier !== 'base'
+                            let subGross = 0
+                            let planLabel = 'No active sub'
+                            if (isActive) {
+                              if (g.subscriptionPlan === 'annual') { subGross = 3250; planLabel = 'Annual (amortized)' }
+                              else { subGross = 3900; planLabel = 'Monthly' }
+                              if (rewardActive && g.rewardTier === 'free') { subGross = 0; planLabel += ' · free reward' }
+                              else if (rewardActive && g.rewardTier === 'half') { subGross = Math.round(subGross * 0.5); planLabel += ' · 50% reward' }
+                            }
+                            const subStripe = subGross > 0 ? Math.round(subGross * 0.029) + (g.subscriptionPlan === 'annual' ? 3 : 30) : 0
+                            const subNet = subGross - subStripe
+                            const netProfit = netInvoice + subNet
+
+                            const Row = ({ label, cents, neg = false, strong = false, muted = false }) => (
+                              <div className="flex items-center justify-between py-1">
+                                <span className={`text-[12px] ${muted ? 'text-gray-500' : strong ? 'text-gray-300 font-medium' : 'text-gray-400'}`}>{label}</span>
+                                <span className={`text-[12px] tabular-nums ${neg ? 'text-red-400' : strong ? 'text-gray-200 font-semibold' : 'text-gray-300'}`}>
+                                  {neg ? '−' : ''}{formatCents(Math.abs(cents))}
+                                </span>
+                              </div>
+                            )
+
+                            return (
+                              <div className="mb-4 bg-gray-800 rounded-xl p-4">
+                                <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">Your economics — this month (paid)</p>
+                                <Row label="Invoice cut (5.5%)" cents={grossFee} />
+                                <Row label="− Stripe processing" cents={stripeFee} neg />
+                                <Row label="= Net from invoices" cents={netInvoice} strong />
+                                <div className="border-t border-gray-700 my-2" />
+                                <Row label={`Subscription · ${planLabel}`} cents={subGross} />
+                                <Row label="− Stripe on subscription (est.)" cents={subStripe} neg />
+                                <Row label="= Net subscription" cents={subNet} strong />
+                                <div className="border-t border-gray-700 my-2.5" />
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[13px] font-semibold text-white">Net profit this month</span>
+                                  <span className="text-[18px] font-bold text-green-400 tabular-nums">{netProfit < 0 ? '−' : ''}{formatCents(Math.abs(netProfit))}</span>
+                                </div>
+                                <p className="text-[10px] text-gray-600 mt-1.5">Invoice figures are exact from paid invoices; the Stripe-on-subscription line is an estimate (2.9% + $0.30).</p>
+                              </div>
+                            )
+                          })()}
+
                           <div className="grid grid-cols-3 gap-3 mb-4">
                             <div className="bg-gray-800 rounded-xl p-3 text-center">
                               <p className="text-[16px] font-bold text-gray-200">{formatCents(g.allTime.gardener)}</p>

@@ -133,7 +133,7 @@ export default function LogoUpload({
               disabled={uploading}
               className="hidden"
             />
-            <span className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-medium bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+            <span className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
               {uploading ? (
                 <>
                   <Loader2 size={14} className="animate-spin" />
