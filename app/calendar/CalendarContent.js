@@ -452,7 +452,9 @@ export default function CalendarPage() {
         throw new Error(data.error || 'Invoice failed')
       }
 
-      if (data.smsRequested && clientPhone && data.paymentUrl) {
+      const smsTried = !!(data.smsRequested && clientPhone && data.paymentUrl)
+      let smsSent = false
+      if (smsTried) {
         const scheduledClient = clients.find(c => c.id === schedule.clientId)
         const smsBody = buildInvoiceSms({
           client:     scheduledClient || { name: clientName },
@@ -461,18 +463,23 @@ export default function CalendarPage() {
           paymentUrl: data.paymentUrl,
           lang,
         })
-        fetch('/api/twilio/send', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clientPhone, message: smsBody, gardenerUid: user?.uid }),
-        }).catch(err => console.error('Invoice SMS failed (non-fatal):', err))
+        try {
+          const smsRes = await fetch('/api/twilio/send', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clientPhone, message: smsBody, gardenerUid: user?.uid }),
+          })
+          smsSent = smsRes.ok
+        } catch (err) { console.error('Invoice SMS failed (non-fatal):', err) }
       }
       const parts = []
       if (data.emailNotified) parts.push('email')
-      if (data.smsRequested && clientPhone) parts.push(lang === 'es' ? 'SMS' : 'text')
+      if (smsSent) parts.push(lang === 'es' ? 'SMS' : 'text')
       const via = parts.length === 2 ? parts.join(' + ') : parts[0]
       toast.success(via
         ? (lang === 'es' ? `Factura enviada por ${via} ✓` : `Invoice sent via ${via} ✓`)
-        : (lang === 'es' ? 'Factura creada — sin notificación' : 'Invoice created — no notification sent')
+        : (smsTried
+            ? (lang === 'es' ? 'Factura creada — no se pudo enviar el texto' : "Invoice created — couldn't text the link")
+            : (lang === 'es' ? 'Factura creada — sin notificación' : 'Invoice created — no notification sent'))
       )
       setExpandedId(null)
       setInvoicePreview(null)
@@ -682,7 +689,9 @@ export default function CalendarPage() {
         throw new Error(data.error || 'Invoice failed')
       }
 
-      if (data.smsRequested && walkInInvoiceTarget.clientPhone && data.paymentUrl) {
+      const smsTried = !!(data.smsRequested && walkInInvoiceTarget.clientPhone && data.paymentUrl)
+      let smsSent = false
+      if (smsTried) {
         // Walk-ins have no client doc (one-time customers), so they always
         // get the standard template — the trust-state mechanic only
         // applies to tracked clients.
@@ -693,19 +702,24 @@ export default function CalendarPage() {
           paymentUrl: data.paymentUrl,
           lang,
         })
-        fetch('/api/twilio/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clientPhone: walkInInvoiceTarget.clientPhone, message: smsBody, gardenerUid: user?.uid }),
-        }).catch(err => console.error('Walk-in SMS failed (non-fatal):', err))
+        try {
+          const smsRes = await fetch('/api/twilio/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clientPhone: walkInInvoiceTarget.clientPhone, message: smsBody, gardenerUid: user?.uid }),
+          })
+          smsSent = smsRes.ok
+        } catch (err) { console.error('Walk-in SMS failed (non-fatal):', err) }
       }
       const parts = []
       if (data.emailNotified) parts.push('email')
-      if (data.smsRequested && walkInInvoiceTarget.clientPhone) parts.push(lang === 'es' ? 'SMS' : 'text')
+      if (smsSent) parts.push(lang === 'es' ? 'SMS' : 'text')
       const via = parts.length === 2 ? parts.join(' + ') : parts[0]
       toast.success(via
         ? (lang === 'es' ? `Factura enviada por ${via} ✓` : `Invoice sent via ${via} ✓`)
-        : (lang === 'es' ? 'Factura creada — sin notificación' : 'Invoice created — no notification sent')
+        : (smsTried
+            ? (lang === 'es' ? 'Factura creada — no se pudo enviar el texto' : "Invoice created — couldn't text the link")
+            : (lang === 'es' ? 'Factura creada — sin notificación' : 'Invoice created — no notification sent'))
       )
       setShowWalkInInvoice(false); loadData()
     } catch (err) { toast.error(err.message || translate('common', 'error')) }

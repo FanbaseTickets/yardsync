@@ -198,8 +198,11 @@ export async function POST(request) {
     }
 
     // ── 4. Validate ────────────────────────────────────────────────────
+    // Name must be ≥2 chars AND contain at least one letter — rejects junk/bot
+    // leads like ".", "1", or "----" that the old non-empty check let through.
+    // Accented Latin letters are allowed for Spanish names.
     const name = String(body.name || '').trim()
-    if (!name) {
+    if (name.length < 2 || !/[A-Za-zÀ-ÿ]/.test(name)) {
       return isFormPost
         ? noJsError(slug, baseUrl, 'name_required')
         : jsonResponse({ error: 'name_required' }, 400)
