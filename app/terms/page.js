@@ -2,7 +2,7 @@ export default function TermsPage() {
   return (
     <div className="max-w-2xl mx-auto px-6 py-12">
       <h1 className="text-3xl font-bold mb-2">Terms and Conditions</h1>
-      <p className="text-sm text-gray-500 mb-8">Last updated: June 7, 2026</p>
+      <p className="text-sm text-gray-500 mb-8">Last updated: June 20, 2026</p>
 
       <section className="space-y-6 text-gray-700 text-sm leading-relaxed">
 
@@ -13,7 +13,7 @@ export default function TermsPage() {
 
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">2. Description of Service</h2>
-          <p>YardSync provides field service management tools including client scheduling, invoicing via Stripe Connect, materials tracking, AI-assisted SMS drafting, logo storage, volume-based subscription rewards, and SMS appointment reminders via Twilio.</p>
+          <p>YardSync provides field service management tools including client scheduling, invoicing via Stripe Connect, materials tracking, AI-assisted SMS drafting, logo and headshot image storage, a public digital business card with QR code and prospect-intake (lead capture) form, volume-based subscription rewards, and SMS appointment reminders via Twilio.</p>
         </div>
 
         <div>
@@ -65,8 +65,8 @@ export default function TermsPage() {
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">8. User Content</h2>
-          <p>Service providers may upload logos and other content to YardSync. You represent that you have the rights to any content you upload and that it does not infringe any third-party intellectual property rights. JNew Technologies reserves the right to remove content that violates these Terms.</p>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">8. User Content and Public Business Card</h2>
+          <p>Service providers may upload logos, business-card photos (headshots), and other content to YardSync, and may publish a public digital business card at a YardSync link. You represent that you have the rights to any content you upload or display and that it does not infringe any third-party intellectual property rights, and you are solely responsible for the accuracy and content of your public business card. JNew Technologies reserves the right to remove content or disable a public card that violates these Terms.</p>
         </div>
 
         <div>
@@ -84,7 +84,7 @@ export default function TermsPage() {
 
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">10. User Responsibilities</h2>
-          <p>Service providers are responsible for obtaining appropriate consent from their clients before entering client contact information into YardSync. Users agree not to use the platform for spam, harassment, or any unlawful purpose.</p>
+          <p>Service providers are responsible for obtaining appropriate consent from their clients before entering client contact information into YardSync. Service providers are likewise responsible for handling information submitted by prospective clients through their public intake form — including name, phone, email, and address — in accordance with applicable law, and for contacting those prospects only as permitted by law. Users agree not to use the platform for spam, harassment, or any unlawful purpose.</p>
         </div>
 
         <div>

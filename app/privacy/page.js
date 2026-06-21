@@ -2,7 +2,7 @@ export default function PrivacyPage() {
   return (
     <div className="max-w-2xl mx-auto px-6 py-12">
       <h1 className="text-3xl font-bold mb-2">Privacy Policy</h1>
-      <p className="text-sm text-gray-500 mb-8">Last updated: June 7, 2026</p>
+      <p className="text-sm text-gray-500 mb-8">Last updated: June 20, 2026</p>
 
       <section className="space-y-6 text-gray-700 text-sm leading-relaxed">
 
@@ -19,7 +19,9 @@ export default function PrivacyPage() {
             <li>Business name and address</li>
             <li>Client contact information entered by service providers</li>
             <li>Scheduling and invoice data</li>
-            <li>Logo and image files uploaded by service providers</li>
+            <li>Logo, business-card photo (headshot), and other image files uploaded by service providers</li>
+            <li>Public business-card profile content set by service providers (business name, tagline, bio, service area, brand color, and the contact details they choose to display)</li>
+            <li>Information submitted by prospective clients through a service provider&apos;s public intake form, including name, phone number, email address, service address, service interest, notes, and SMS consent</li>
             <li>Usage data including IP address, browser type, device type, and pages visited</li>
             <li>Communications sent through the platform</li>
           </ul>
@@ -33,7 +35,8 @@ export default function PrivacyPage() {
             <li>To process payments via Stripe</li>
             <li>To improve and maintain the platform</li>
             <li>To power AI-assisted message drafting features using Anthropic&apos;s Claude API</li>
-            <li>To store and display contractor logos on client-facing payment pages</li>
+            <li>To store and display contractor logos, headshots, and business-card profiles on client-facing payment pages and public digital business cards</li>
+            <li>To host each service provider&apos;s public digital business card and to capture service requests from prospective clients as leads for that provider</li>
           </ul>
         </div>
 
@@ -72,16 +75,21 @@ export default function PrivacyPage() {
 
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">9. Image and File Storage</h2>
-          <p>Service providers may upload business logo images to YardSync. These files are stored securely in Google Firebase Storage and are accessible via secure HTTPS connections. Logos may be displayed on client-facing payment pages. Service providers may remove their logo at any time through Settings.</p>
+          <p>Service providers may upload business logo images and a personal business-card photo (headshot) to YardSync. These files are stored in Google Firebase Storage and served over secure HTTPS connections. Because they are shown on client-facing payment pages and on the provider&apos;s public digital business card, these images are publicly accessible to anyone who has the link or scans the card&apos;s QR code. Service providers control which images they upload and may remove them at any time through Settings.</p>
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">10. Data Security</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">10. Public Business Card and Lead Intake</h2>
+          <p>Each service provider may publish a public digital business card at a YardSync link (for example, yardsyncapp.com/join/their-name). This card displays the profile content the provider chooses to make public and may include a contact form. Information a prospective client submits through that form is collected on behalf of the service provider and made available to them as a lead within their YardSync account. Service providers are responsible for the content of their public card and for handling the prospect information they collect in accordance with applicable law. If a prospect consents, YardSync may send them a one-time confirmation text on the provider&apos;s behalf; standard message and data rates may apply and the prospect may reply STOP to opt out.</p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">11. Data Security</h2>
           <p>We use industry-standard security measures to protect your data. All data is stored securely in Google Firebase and transmitted over encrypted connections.</p>
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">11. Contact Us</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">12. Contact Us</h2>
           <p>For privacy questions, contact us at: <a href="mailto:support@yardsyncapp.com" className="text-green-700 underline">support@yardsyncapp.com</a></p>
           <p className="mt-2"><strong>Governing Law:</strong> This Privacy Policy is governed by the laws of the State of Texas.</p>
         </div>
