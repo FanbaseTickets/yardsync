@@ -204,6 +204,13 @@ export default function ClientsPage() {
     c => c.leadStatus !== 'new' && c.leadStatus !== 'dismissed'
   )
 
+  // If the contractor is focused on the New Leads chip and clears the last
+  // lead (Accept/Dismiss), the chip vanishes from the row — fall back to the
+  // full list so we never strand them on a blank view.
+  useEffect(() => {
+    if (filter === 'leads' && pendingLeads.length === 0) setFilter('all')
+  }, [filter, pendingLeads.length])
+
   const filtered = (() => {
     let list = nonLeadClients.filter(c =>
       c.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -370,32 +377,55 @@ export default function ClientsPage() {
             />
           </div>
 
-          {/* Filter chips */}
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          {/* Filter chips — wrap so nothing is cut off on narrow screens
+              (the prior horizontal-scroll row hid its scrollbar and stranded
+              the last chips off-screen). */}
+          <div className="flex flex-wrap gap-2">
             {[
+              // New Leads chip leads the row (only when there are pending
+              // leads) so contractors can jump straight to intake submissions.
+              ...(pendingLeads.length > 0
+                ? [{ value: 'leads', label: lang === 'es' ? 'Nuevas solicitudes' : 'New leads', count: pendingLeads.length }]
+                : []),
               { value: 'all',       label: lang === 'es' ? 'Todos (A-Z)' : 'All (A-Z)' },
               { value: 'recent',    label: lang === 'es' ? 'Recientes' : 'Recent' },
               { value: 'monthly',   label: lang === 'es' ? 'Mensual' : 'Monthly' },
               { value: 'quarterly', label: lang === 'es' ? 'Trimestral' : 'Quarterly' },
               { value: 'annual',    label: lang === 'es' ? 'Anual' : 'Annual' },
               { value: 'weekly',    label: lang === 'es' ? 'Semanal' : 'Weekly' },
-            ].map(chip => (
-              <button
-                key={chip.value}
-                onClick={() => setFilter(chip.value)}
-                className={`flex-shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full transition-colors ${
-                  filter === chip.value
-                    ? 'bg-brand-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {chip.label}
-              </button>
-            ))}
+            ].map(chip => {
+              const isLeads  = chip.value === 'leads'
+              const selected = filter === chip.value
+              return (
+                <button
+                  key={chip.value}
+                  onClick={() => setFilter(chip.value)}
+                  className={`flex-shrink-0 inline-flex items-center gap-1.5 text-[12px] font-medium px-3 py-1.5 rounded-full transition-colors ${
+                    selected
+                      ? 'bg-brand-600 text-white'
+                      : isLeads
+                        ? 'bg-brand-50 text-brand-700 hover:bg-brand-100'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {chip.label}
+                  {chip.count != null && (
+                    <span className={`text-[10px] font-semibold leading-none px-1.5 py-0.5 rounded-full ${
+                      selected ? 'bg-white/25 text-white' : 'bg-brand-600 text-white'
+                    }`}>
+                      {chip.count}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </div>
 
-          {/* ── New Leads section (above the regular client list) ──── */}
-          {!loading && pendingLeads.length > 0 && (
+          {/* ── New Leads section (above the regular client list) ────
+              Shows on the default "All" view (prominent alert) and when the
+              New Leads chip is selected (focused view). Package/Recent filters
+              stay decluttered. */}
+          {!loading && (filter === 'all' || filter === 'leads') && pendingLeads.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 px-1">
                 <Sparkles size={14} className="text-brand-600" />
@@ -506,7 +536,8 @@ export default function ClientsPage() {
             </div>
           )}
 
-          {loading ? (
+          {/* Active client list — hidden when the New Leads chip is focused */}
+          {filter !== 'leads' && (loading ? (
             <div className="space-y-2">
               {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-20" />)}
             </div>
@@ -559,7 +590,7 @@ export default function ClientsPage() {
                 </Card>
               ))}
             </div>
-          )}
+          ))}
         </div>
       </div>
 

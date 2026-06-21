@@ -63,5 +63,13 @@ service cloud.firestore {
       // Never touched by client SDK. Admin-only is sufficient.
       allow read, write: if isAdmin();
     }
+    match /settings/{doc} {
+      // Platform-wide admin config (settings/platform: SMS-cron master switch,
+      // future toggles). Read + write only via server-side lib/firestoreRest.js
+      // (admin-authed): the admin dashboard writes it through
+      // /api/admin/cron-control and the SMS cron reads it server-side. Never
+      // touched by client SDK. Admin-only is sufficient.
+      allow read, write: if isAdmin();
+    }
   }
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { formatDate } from '@/lib/date'
 import { formatDateForSMS } from '@/lib/i18n'
-import { listCollection, setDocument, updateDocument } from '@/lib/firestoreRest'
+import { listCollection, setDocument, updateDocument, getDocument } from '@/lib/firestoreRest'
 
 const TWILIO_SID     = process.env.TWILIO_ACCOUNT_SID
 const TWILIO_TOKEN   = process.env.TWILIO_AUTH_TOKEN
@@ -18,6 +18,20 @@ export async function GET(request) {
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // ── Master kill-switch ────────────────────────────────────────────────
+  // Admin can pause all reminder sends from the dashboard (settings/platform
+  // .smsRemindersEnabled). Fail-safe: any missing doc / read error / non-true
+  // value is treated as DISABLED so we never bill Twilio unexpectedly — the
+  // contractor base is still test data until launch. Flip ON in Admin to send.
+  try {
+    const cfg = await getDocument('settings', 'platform')
+    if (cfg?.data?.smsRemindersEnabled !== true) {
+      return NextResponse.json({ ok: true, skipped: 'sms-reminders-disabled' })
+    }
+  } catch {
+    return NextResponse.json({ ok: true, skipped: 'sms-reminders-config-unreadable' })
   }
 
   try {
