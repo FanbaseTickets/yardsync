@@ -75,6 +75,7 @@ export default function SettingsPage() {
     smsTemplate:    '',
     smsTemplateEs:  '',
     logoUrl:        '',
+    headshotUrl:    '',          // contractor headshot — preferred over logo on the card
     // Smart Business Card fields (see docs/SMART_BUSINESS_CARD_SPEC.md §1.1):
     bio:                  '',          // free-text description shown on /join/[slug]
     tagline:              '',          // one-line selling line for the card
@@ -86,6 +87,7 @@ export default function SettingsPage() {
     upfrontDeadlineHours: 24,          // global default for upfront billing (1-168, default 24)
   })
   const [saving, setSaving] = useState(false)
+  const [profileEditing, setProfileEditing] = useState(false)  // Profile tab edit/lock
 
   // Slug state lives outside `form` because slug changes need their own
   // generate/check/save lifecycle (debounced availability check, reserved
@@ -137,6 +139,7 @@ export default function SettingsPage() {
         smsTemplate:    profile.smsTemplate    || 'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! Reply STOP to opt out. – {business}',
         smsTemplateEs:  profile.smsTemplateEs  || 'Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! Responda STOP para cancelar. – {business}',
         logoUrl:        profile.logoUrl        || '',
+        headshotUrl:    profile.headshotUrl    || '',
         bio:                  profile.bio                  || '',
         tagline:              profile.tagline              || '',
         accentColor:          profile.accentColor          || '',
@@ -572,38 +575,77 @@ export default function SettingsPage() {
           {activeTab === 'profile' && (<>
           {/* Profile */}
           <section>
-            <div className="flex items-center gap-2 mb-3">
-              <User size={14} className="text-brand-600" />
-              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
-                {translate('settings', 'profile')}
-              </p>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <User size={14} className="text-brand-600" />
+                <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                  {translate('settings', 'profile')}
+                </p>
+              </div>
+              {/* Edit / Save toggle — fields stay locked until "Edit" is tapped,
+                  then "Save" persists and re-locks them. */}
+              {!profileEditing ? (
+                <button
+                  type="button"
+                  onClick={() => setProfileEditing(true)}
+                  className="text-[12px] text-brand-600 font-medium hover:text-brand-700"
+                >
+                  {lang === 'es' ? 'Editar' : 'Edit'}
+                </button>
+              ) : (
+                <Button
+                  size="sm"
+                  loading={saving}
+                  onClick={async () => { await handleSave(); setProfileEditing(false) }}
+                >
+                  {lang === 'es' ? 'Guardar' : 'Save'}
+                </Button>
+              )}
             </div>
             <Card>
               <div className="space-y-4">
+                {/* Images first — headshot (preferred on the card) + logo */}
+                <div className="flex flex-wrap gap-6">
+                  <LogoUpload
+                    label={lang === 'es' ? 'Tu foto' : 'Your headshot'}
+                    storageName="headshot"
+                    noun="headshot"
+                    rounded="rounded-full"
+                    disabled={!profileEditing}
+                    value={form.headshotUrl}
+                    onChange={url => setField('headshotUrl', url)}
+                    hint={lang === 'es' ? 'Se muestra en tu tarjeta.' : 'Shown on your card.'}
+                  />
+                  <LogoUpload
+                    label={lang === 'es' ? 'Logo del negocio' : 'Business logo'}
+                    disabled={!profileEditing}
+                    value={form.logoUrl}
+                    onChange={url => setField('logoUrl', url)}
+                    hint={lang === 'es'
+                      ? 'PNG, JPG o WebP. Máx 2MB.'
+                      : 'PNG, JPG, or WebP. Max 2MB.'}
+                  />
+                </div>
+
                 <Input
                   label={translate('settings', 'your_name')}
                   value={form.name}
                   onChange={e => setField('name', e.target.value)}
                   placeholder="Marco Rodriguez"
+                  disabled={!profileEditing}
                 />
                 <Input
                   label={translate('settings', 'business_name')}
                   value={form.businessName}
                   onChange={e => setField('businessName', e.target.value)}
                   placeholder="Rodriguez Lawn Care"
-                />
-                <LogoUpload
-                  label={lang === 'es' ? 'Logo del negocio' : 'Business logo'}
-                  value={form.logoUrl}
-                  onChange={url => setField('logoUrl', url)}
-                  hint={lang === 'es'
-                    ? 'PNG, JPG o WebP. Máximo 2MB. Se mostrará a tus clientes en la página de pago.'
-                    : 'PNG, JPG, or WebP. Max 2MB. Shown to your clients on the payment page.'}
+                  disabled={!profileEditing}
                 />
                 <PhoneInput
                   label={translate('settings', 'phone')}
                   value={form.phone}
                   onChange={val => setField('phone', val)}
+                  disabled={!profileEditing}
                 />
                 <p className="text-[11px] text-brand-600 -mt-2">
                   {lang === 'es'
@@ -617,6 +659,7 @@ export default function SettingsPage() {
                   onChange={e => setField('email', e.target.value)}
                   placeholder={lang === 'es' ? 'usted@ejemplo.com' : 'you@example.com'}
                   autoComplete="email"
+                  disabled={!profileEditing}
                 />
                 <p className="text-[11px] text-gray-400 -mt-2">
                   {lang === 'es'
@@ -849,6 +892,7 @@ export default function SettingsPage() {
                       bio={form.bio}
                       serviceArea={form.serviceArea}
                       logoUrl={form.logoUrl}
+                      headshotUrl={form.headshotUrl}
                       accentColor={form.accentColor}
                       phone={form.phone}
                       email={form.email}

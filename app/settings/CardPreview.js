@@ -90,6 +90,7 @@ export default function CardPreview({
   bio,
   serviceArea,
   logoUrl,
+  headshotUrl,
   accentColor,
   phone,
   email,
@@ -157,8 +158,14 @@ export default function CardPreview({
         <div className="h-1.5" style={{ backgroundColor: accent }} />
 
         <div className="px-4 py-4 flex flex-col items-center">
-          {/* Avatar */}
-          {logoUrl ? (
+          {/* Avatar — mirror the real card: headshot preferred, then logo, then initials */}
+          {headshotUrl ? (
+            <img
+              src={headshotUrl}
+              alt=""
+              className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md"
+            />
+          ) : logoUrl ? (
             <img
               src={logoUrl}
               alt=""

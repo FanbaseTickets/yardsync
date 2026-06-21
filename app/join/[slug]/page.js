@@ -129,8 +129,10 @@ export default async function CardPage({ params }) {
         tagline:           owner.tagline          || '',
         bio:               owner.bio              || '',
         serviceArea:       owner.serviceArea      || '',
-        logoURL:           owner.logoURL          || '',
-        headshotURL:       owner.headshotURL      || '',
+        // Profile saves these lowercase (logoUrl / headshotUrl); read both
+        // casings so logos/headshots saved via Settings actually render here.
+        logoURL:           owner.logoUrl     || owner.logoURL     || '',
+        headshotURL:       owner.headshotUrl || owner.headshotURL || '',
         phone:             owner.phone            || '',
         email:             owner.email            || '',
         accentColor,
