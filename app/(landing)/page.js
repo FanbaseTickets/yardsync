@@ -199,6 +199,30 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* DIGITAL BUSINESS CARD */}
+      <section className="lp-bili">
+        <div className="lp-bili-in">
+          <div>
+            <div className="sec-lbl">Your card | Su tarjeta</div>
+            <h2 className="sec-h">Your own digital business card — free forever</h2>
+            <p style={{fontSize:'15px',color:'var(--g6)',marginBottom:'8px'}}>Every YardSync contractor gets a shareable digital business card with a built-in QR code. Prospects tap your link or scan your code to request service — and they&apos;re added to your leads automatically. <strong>Never spend money on paper business cards again.</strong></p>
+            <p style={{fontSize:'13px',color:'#8aaa96',fontStyle:'italic'}}>Cada contratista recibe su propia tarjeta de presentación digital con código QR. Compártala o muéstrela — nunca más pague por tarjetas de papel.</p>
+          </div>
+          <div>
+            {/*
+              SCREENSHOT SLOT — drop a /join card screenshot in /public/landing/
+              and swap this placeholder for:
+              <img src="/landing/business-card.png" alt="YardSync digital business card" style={{width:'100%',maxWidth:'300px',margin:'0 auto',display:'block',borderRadius:'18px',boxShadow:'0 12px 44px rgba(0,0,0,0.14)'}} />
+            */}
+            <div style={{width:'100%',maxWidth:'300px',margin:'0 auto',aspectRatio:'9/16',borderRadius:'18px',background:'#fff',boxShadow:'0 12px 44px rgba(0,0,0,0.14)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'10px',color:'#9aa',border:'1px dashed #cfd8d2'}}>
+              <div style={{fontSize:'40px'}}>📇</div>
+              <div style={{fontSize:'13px',fontWeight:600,color:'#6b7b72'}}>Your business card preview</div>
+              <div style={{fontSize:'11px'}}>(screenshot goes here)</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* VOLUME REWARD */}
       <section className="lp-vol" id="volume-reward">
         <div style={{maxWidth:'1100px',margin:'0 auto'}}>
