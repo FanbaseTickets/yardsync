@@ -14,6 +14,7 @@
 
 import { headers } from 'next/headers'
 import QRCode from 'qrcode'
+import { getDocument } from '@/lib/firestoreRest'
 import GrowContent from './GrowContent'
 
 export const dynamic = 'force-dynamic'
@@ -60,12 +61,32 @@ export default async function GrowPage() {
   // this card. Share/Copy still hand out the /grow card URL.
   const qrSvg       = await generateQrSvg(homeUrl)
 
+  // Founder identity block — editable via the admin dashboard, each field
+  // independently toggleable. Read server-side; missing/all-off → plain card.
+  let founder = null
+  try {
+    const doc = await getDocument('referralCards', 'founder')
+    const c = doc?.data
+    if (c) {
+      founder = {
+        name:     c.showName === true     ? (c.founderName || '')        : '',
+        title:    c.showTitle === true    ? (c.founderTitle || '')       : '',
+        headshot: c.showHeadshot === true ? (c.founderHeadshotUrl || '') : '',
+      }
+      // If nothing is visible, treat as no identity block.
+      if (!founder.name && !founder.title && !founder.headshot) founder = null
+    }
+  } catch (err) {
+    console.error('[grow] referral card fetch failed (non-fatal):', err.message)
+  }
+
   return (
     <GrowContent
       qrSvg={qrSvg}
       growUrl={growUrl}
       homeUrl={homeUrl}
       initialLang={initialLang}
+      founder={founder}
     />
   )
 }

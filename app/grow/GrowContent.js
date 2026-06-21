@@ -44,7 +44,12 @@ const STRINGS = {
   },
 }
 
-export default function GrowContent({ qrSvg, growUrl, homeUrl, initialLang }) {
+function getInitials(name) {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean)
+  return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '★'
+}
+
+export default function GrowContent({ qrSvg, growUrl, homeUrl, initialLang, founder }) {
   const [lang, setLang]     = useState(initialLang === 'es' ? 'es' : 'en')
   const [copied, setCopied] = useState(false)
   const t = STRINGS[lang]
@@ -102,7 +107,24 @@ export default function GrowContent({ qrSvg, growUrl, homeUrl, initialLang }) {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-600 mb-2">{t.sharedBy}</p>
+          {/* Founder identity block — only when set + toggled on in admin */}
+          {founder ? (
+            <div className="flex items-center gap-3 mb-4">
+              {founder.headshot ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={founder.headshot} alt={founder.name || 'Founder'} className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-md flex-shrink-0" />
+              ) : founder.name ? (
+                <div className="w-14 h-14 rounded-full bg-brand-600 text-white flex items-center justify-center text-lg font-bold flex-shrink-0">{getInitials(founder.name)}</div>
+              ) : null}
+              <div className="min-w-0">
+                {founder.name && <p className="text-[15px] font-bold text-gray-900 leading-tight truncate">{founder.name}</p>}
+                {founder.title && <p className="text-[12px] text-brand-600 font-medium truncate">{founder.title}</p>}
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mt-0.5">{t.sharedBy}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-600 mb-2">{t.sharedBy}</p>
+          )}
           <h1 className="text-2xl font-bold text-gray-900 leading-tight mb-2">{t.headline}</h1>
           <p className="text-sm text-gray-600 leading-relaxed mb-5">{t.sub}</p>
 
