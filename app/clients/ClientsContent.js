@@ -377,8 +377,10 @@ export default function ClientsPage() {
             />
           </div>
 
-          {/* Filter chips */}
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          {/* Filter chips — wrap so nothing is cut off on narrow screens
+              (the prior horizontal-scroll row hid its scrollbar and stranded
+              the last chips off-screen). */}
+          <div className="flex flex-wrap gap-2">
             {[
               // New Leads chip leads the row (only when there are pending
               // leads) so contractors can jump straight to intake submissions.

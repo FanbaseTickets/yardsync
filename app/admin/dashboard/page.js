@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
 import { formatCents } from '@/lib/fee'
 import { collection, getDocs, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore'
@@ -10,12 +11,10 @@ import {
   Shield, LogOut, Users, DollarSign,
   TrendingUp, AlertCircle, RefreshCw,
   ChevronDown, ChevronUp, CheckCircle, Plus, Calendar, Download, Clock,
-  CreditCard, AlertOctagon, Zap, Mail, FileSpreadsheet, Send
+  CreditCard, AlertOctagon, Zap, Mail, FileSpreadsheet, Send, Settings
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { fmt as format } from '@/lib/date'
-import ReferralCardEditor from './ReferralCardEditor'
-import CronControl from './CronControl'
 
 function splitInvoice(inv) {
   // Q11 (preferred): when the webhook has captured Stripe's processing fee,
@@ -424,6 +423,13 @@ export default function AdminDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <Link
+              href="/admin/settings"
+              className="flex items-center gap-1.5 text-[12px] text-gray-400 hover:text-white transition-colors"
+            >
+              <Settings size={13} />
+              Settings
+            </Link>
             <button
               onClick={handleExportCSV}
               className="flex items-center gap-1.5 text-[12px] text-gray-400 hover:text-white transition-colors"
@@ -450,12 +456,6 @@ export default function AdminDashboard() {
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
-
-        {/* Founder referral card — shareable /grow card + editable founder details. */}
-        <ReferralCardEditor />
-
-        {/* SMS cron master switch — pause/resume daily Twilio reminder sends. */}
-        <CronControl />
 
         {/* Stripe Requirements — contractors flagged by Stripe for KYC info.
             Surfaces account.updated webhook data so Jay can proactively
