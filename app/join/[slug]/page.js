@@ -139,6 +139,7 @@ export default async function CardPage({ params }) {
         showContactPhone:  owner.showContactPhone !== false,
         showContactEmail:  owner.showContactEmail === true,
         cardStatusBadge:   owner.cardStatusBadge  || 'booking',
+        offersFreeEstimate: owner.offersFreeEstimate === true,
       }}
       services={services}
       qrSvg={qrSvg}

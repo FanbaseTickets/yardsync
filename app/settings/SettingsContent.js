@@ -84,10 +84,11 @@ export default function SettingsPage() {
     showContactPhone:     true,        // show phone + Call/Text on card (default ON)
     showContactEmail:     false,       // show email on card (default OFF — opt-in)
     cardStatusBadge:      'booking',   // 'booking' | 'none' — Now booking pill
+    offersFreeEstimate:   false,       // show a "Free estimate" badge on the card
     upfrontDeadlineHours: 24,          // global default for upfront billing (1-168, default 24)
   })
   const [saving, setSaving] = useState(false)
-  const [profileEditing, setProfileEditing] = useState(false)  // Profile tab edit/lock
+  const [settingsEditing, setSettingsEditing] = useState(false)  // Profile tab edit/lock
 
   // Slug state lives outside `form` because slug changes need their own
   // generate/check/save lifecycle (debounced availability check, reserved
@@ -147,6 +148,7 @@ export default function SettingsPage() {
         showContactPhone:     profile.showContactPhone !== false,        // default ON
         showContactEmail:     profile.showContactEmail === true,         // default OFF
         cardStatusBadge:      profile.cardStatusBadge      || 'booking', // 'booking' | 'none'
+        offersFreeEstimate:   profile.offersFreeEstimate === true,
         upfrontDeadlineHours: profile.upfrontDeadlineHours || 24,
       })
       setSlugDraft(profile.publicSlug || '')
@@ -571,36 +573,42 @@ export default function SettingsPage() {
             ))}
           </div>
 
+          {/* Global edit/lock — every tab's fields stay read-only (greyed) until
+              "Edit" is tapped; "Save changes" persists the whole form + re-locks. */}
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] text-gray-400">
+              {settingsEditing
+                ? (lang === 'es' ? 'Editando — guarde cuando termine' : 'Editing — save when done')
+                : (lang === 'es' ? 'Toque Editar para cambiar' : 'Tap Edit to make changes')}
+            </p>
+            {!settingsEditing ? (
+              <button
+                type="button"
+                onClick={() => setSettingsEditing(true)}
+                className="text-[13px] text-brand-600 font-medium hover:text-brand-700 px-3 py-1.5"
+              >
+                {lang === 'es' ? 'Editar' : 'Edit'}
+              </button>
+            ) : (
+              <Button
+                size="sm"
+                loading={saving}
+                onClick={async () => { await handleSave(); setSettingsEditing(false) }}
+              >
+                {lang === 'es' ? 'Guardar cambios' : 'Save changes'}
+              </Button>
+            )}
+          </div>
+
           {/* ── Profile tab ── */}
           {activeTab === 'profile' && (<>
           {/* Profile */}
           <section>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <User size={14} className="text-brand-600" />
-                <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
-                  {translate('settings', 'profile')}
-                </p>
-              </div>
-              {/* Edit / Save toggle — fields stay locked until "Edit" is tapped,
-                  then "Save" persists and re-locks them. */}
-              {!profileEditing ? (
-                <button
-                  type="button"
-                  onClick={() => setProfileEditing(true)}
-                  className="text-[12px] text-brand-600 font-medium hover:text-brand-700"
-                >
-                  {lang === 'es' ? 'Editar' : 'Edit'}
-                </button>
-              ) : (
-                <Button
-                  size="sm"
-                  loading={saving}
-                  onClick={async () => { await handleSave(); setProfileEditing(false) }}
-                >
-                  {lang === 'es' ? 'Guardar' : 'Save'}
-                </Button>
-              )}
+            <div className="flex items-center gap-2 mb-3">
+              <User size={14} className="text-brand-600" />
+              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                {translate('settings', 'profile')}
+              </p>
             </div>
             <Card>
               <div className="space-y-4">
@@ -611,14 +619,14 @@ export default function SettingsPage() {
                     storageName="headshot"
                     noun="headshot"
                     rounded="rounded-full"
-                    disabled={!profileEditing}
+                    disabled={!settingsEditing}
                     value={form.headshotUrl}
                     onChange={url => setField('headshotUrl', url)}
                     hint={lang === 'es' ? 'Se muestra en tu tarjeta.' : 'Shown on your card.'}
                   />
                   <LogoUpload
                     label={lang === 'es' ? 'Logo del negocio' : 'Business logo'}
-                    disabled={!profileEditing}
+                    disabled={!settingsEditing}
                     value={form.logoUrl}
                     onChange={url => setField('logoUrl', url)}
                     hint={lang === 'es'
@@ -632,20 +640,20 @@ export default function SettingsPage() {
                   value={form.name}
                   onChange={e => setField('name', e.target.value)}
                   placeholder="Marco Rodriguez"
-                  disabled={!profileEditing}
+                  disabled={!settingsEditing}
                 />
                 <Input
                   label={translate('settings', 'business_name')}
                   value={form.businessName}
                   onChange={e => setField('businessName', e.target.value)}
                   placeholder="Rodriguez Lawn Care"
-                  disabled={!profileEditing}
+                  disabled={!settingsEditing}
                 />
                 <PhoneInput
                   label={translate('settings', 'phone')}
                   value={form.phone}
                   onChange={val => setField('phone', val)}
-                  disabled={!profileEditing}
+                  disabled={!settingsEditing}
                 />
                 <p className="text-[11px] text-brand-600 -mt-2">
                   {lang === 'es'
@@ -659,7 +667,7 @@ export default function SettingsPage() {
                   onChange={e => setField('email', e.target.value)}
                   placeholder={lang === 'es' ? 'usted@ejemplo.com' : 'you@example.com'}
                   autoComplete="email"
-                  disabled={!profileEditing}
+                  disabled={!settingsEditing}
                 />
                 <p className="text-[11px] text-gray-400 -mt-2">
                   {lang === 'es'
@@ -683,6 +691,7 @@ export default function SettingsPage() {
                 label={translate('settings', 'app_language')}
                 value={form.language}
                 onChange={e => setField('language', e.target.value)}
+                disabled={!settingsEditing}
               >
                 {LANGUAGE_OPTIONS.map(o => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -899,6 +908,7 @@ export default function SettingsPage() {
                       showContactPhone={form.showContactPhone}
                       showContactEmail={form.showContactEmail}
                       cardStatusBadge={form.cardStatusBadge}
+                      offersFreeEstimate={form.offersFreeEstimate}
                       publicSlug={profile.publicSlug}
                       lang={lang}
                     />
@@ -912,6 +922,7 @@ export default function SettingsPage() {
                       onChange={e => setField('tagline', e.target.value)}
                       placeholder={lang === 'es' ? 'Servicios confiables y a tiempo' : 'Reliable, on-time service'}
                       maxLength={100}
+                      disabled={!settingsEditing}
                     />
                     <div>
                       <label className="text-[12px] font-medium text-gray-700 block mb-1">
@@ -920,12 +931,13 @@ export default function SettingsPage() {
                       <textarea
                         value={form.bio}
                         onChange={e => setField('bio', e.target.value)}
+                        disabled={!settingsEditing}
                         placeholder={lang === 'es'
                           ? '3 líneas sobre su negocio que los clientes verán en su tarjeta.'
                           : 'A few lines about your business that clients will see on your card.'}
                         rows={3}
                         maxLength={300}
-                        className="w-full rounded-xl border border-gray-200 bg-white text-[13px] px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+                        className="w-full rounded-xl border border-gray-200 bg-white text-[13px] px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
                       />
                       <p className="text-[10px] text-gray-400 mt-1">
                         {(form.bio?.length || 0)}/300 · {lang === 'es' ? 'Escriba en su idioma.' : 'Write in your own language.'}
@@ -937,6 +949,7 @@ export default function SettingsPage() {
                       onChange={e => setField('serviceArea', e.target.value)}
                       placeholder={lang === 'es' ? 'San Antonio y suburbios del NE' : 'San Antonio & NE suburbs'}
                       maxLength={100}
+                      disabled={!settingsEditing}
                     />
                     <div>
                       <label className="text-[12px] font-medium text-gray-700 block mb-1">
@@ -947,12 +960,13 @@ export default function SettingsPage() {
                           type="color"
                           value={form.accentColor || '#0F6E56'}
                           onChange={e => setField('accentColor', e.target.value)}
-                          className="w-12 h-10 rounded-lg border border-gray-200 cursor-pointer bg-white"
+                          disabled={!settingsEditing}
+                          className="w-12 h-10 rounded-lg border border-gray-200 cursor-pointer bg-white disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                         <code className="text-[12px] text-gray-600 flex-1">
                           {form.accentColor || '#0F6E56'} {!form.accentColor && (lang === 'es' ? '(predeterminado)' : '(default)')}
                         </code>
-                        {form.accentColor && (
+                        {settingsEditing && form.accentColor && (
                           <button
                             onClick={() => setField('accentColor', '')}
                             className="text-[11px] text-gray-500 hover:text-gray-700"
@@ -976,7 +990,8 @@ export default function SettingsPage() {
                           type="checkbox"
                           checked={!!form.showContactPhone}
                           onChange={e => setField('showContactPhone', e.target.checked)}
-                          className="mt-0.5 w-4 h-4 accent-brand-600"
+                          disabled={!settingsEditing}
+                          className="mt-0.5 w-4 h-4 accent-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                         <span className="text-[13px] text-gray-700 flex-1">
                           {lang === 'es' ? 'Mostrar teléfono en la tarjeta' : 'Show phone on card'}
@@ -992,7 +1007,8 @@ export default function SettingsPage() {
                           type="checkbox"
                           checked={!!form.showContactEmail}
                           onChange={e => setField('showContactEmail', e.target.checked)}
-                          className="mt-0.5 w-4 h-4 accent-brand-600"
+                          disabled={!settingsEditing}
+                          className="mt-0.5 w-4 h-4 accent-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                         <span className="text-[13px] text-gray-700 flex-1">
                           {lang === 'es' ? 'Mostrar correo en la tarjeta' : 'Show email on card'}
@@ -1008,7 +1024,8 @@ export default function SettingsPage() {
                           type="checkbox"
                           checked={form.cardStatusBadge !== 'none'}
                           onChange={e => setField('cardStatusBadge', e.target.checked ? 'booking' : 'none')}
-                          className="mt-0.5 w-4 h-4 accent-brand-600"
+                          disabled={!settingsEditing}
+                          className="mt-0.5 w-4 h-4 accent-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                         <span className="text-[13px] text-gray-700 flex-1">
                           {lang === 'es' ? 'Mostrar pastilla "Reservando ahora"' : 'Show "Now booking" badge'}
@@ -1019,17 +1036,25 @@ export default function SettingsPage() {
                           </span>
                         </span>
                       </label>
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!form.offersFreeEstimate}
+                          onChange={e => setField('offersFreeEstimate', e.target.checked)}
+                          disabled={!settingsEditing}
+                          className="mt-0.5 w-4 h-4 accent-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <span className="text-[13px] text-gray-700 flex-1">
+                          {lang === 'es' ? 'Mostrar pastilla "Estimado gratis"' : 'Show "Free estimate" badge'}
+                          <span className="block text-[11px] text-gray-400 mt-0.5">
+                            {lang === 'es'
+                              ? 'Atrae prospectos ofreciendo una cotización sin costo.'
+                              : 'Draws prospects in by offering a no-cost quote.'}
+                          </span>
+                        </span>
+                      </label>
                     </div>
                   </div>
-                </div>
-              )}
-              {/* Contextual save so the contractor doesn't have to scroll all
-                  the way down after editing card fields. */}
-              {profile?.publicSlug && (
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <Button fullWidth loading={saving} onClick={handleSave}>
-                    {lang === 'es' ? 'Guardar cambios de la tarjeta' : 'Save card changes'}
-                  </Button>
                 </div>
               )}
             </Card>
@@ -1060,6 +1085,7 @@ export default function SettingsPage() {
                   label={translate('settings', 'send_reminders')}
                   value={form.reminderTiming}
                   onChange={e => setField('reminderTiming', e.target.value)}
+                  disabled={!settingsEditing}
                 >
                   {getReminderOptions(translate).map(o => (
                     <option key={o.value} value={o.value}>{o.label}</option>
@@ -1073,8 +1099,9 @@ export default function SettingsPage() {
                   <textarea
                     value={form.smsTemplate}
                     onChange={e => setField('smsTemplate', e.target.value)}
+                    disabled={!settingsEditing}
                     rows={3}
-                    className="w-full rounded-xl border border-gray-200 bg-white text-[13px] px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+                    className="w-full rounded-xl border border-gray-200 bg-white text-[13px] px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -1085,8 +1112,9 @@ export default function SettingsPage() {
                   <textarea
                     value={form.smsTemplateEs}
                     onChange={e => setField('smsTemplateEs', e.target.value)}
+                    disabled={!settingsEditing}
                     rows={3}
-                    className="w-full rounded-xl border border-gray-200 bg-white text-[13px] px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+                    className="w-full rounded-xl border border-gray-200 bg-white text-[13px] px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -1256,11 +1284,12 @@ export default function SettingsPage() {
                   min={1}
                   max={168}
                   value={form.upfrontDeadlineHours}
+                  disabled={!settingsEditing}
                   onChange={e => {
                     const v = parseInt(e.target.value, 10)
                     if (Number.isFinite(v)) setField('upfrontDeadlineHours', Math.max(1, Math.min(168, v)))
                   }}
-                  className="w-20 rounded-lg border border-gray-200 bg-white text-[13px] px-3 py-2 text-center focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-20 rounded-lg border border-gray-200 bg-white text-[13px] px-3 py-2 text-center focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
                 />
                 <p className="text-[13px] text-gray-600">
                   {lang === 'es' ? 'horas antes del servicio' : 'hours before service'}
@@ -1407,10 +1436,6 @@ export default function SettingsPage() {
               </Card>
             </section>
           )}
-
-          <Button fullWidth size="lg" loading={saving} onClick={handleSave}>
-            {translate('settings', 'save')}
-          </Button>
 
           {/* Pending-cancellation banner — shows when subscription will end
               at period end but hasn't been finalized yet. Replaces the
