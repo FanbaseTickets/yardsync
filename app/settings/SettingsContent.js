@@ -41,6 +41,29 @@ export default function SettingsPage() {
   const [canceling,        setCanceling]        = useState(false)
   const [reactivating,     setReactivating]     = useState(false)
   const [stripeRemediating, setStripeRemediating] = useState(false)
+  const [activeTab, setActiveTab] = useState('profile')
+
+  // Tab from ?tab= (read via window.location to avoid a Suspense boundary —
+  // constraint #3). Switching tabs updates the URL so refreshes + deep links
+  // (e.g. /settings?tab=billing) land on the right tab.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab')
+    if (['profile', 'card', 'sms', 'billing'].includes(t)) setActiveTab(t)
+  }, [])
+
+  function selectTab(t) {
+    setActiveTab(t)
+    const url = new URL(window.location.href)
+    url.searchParams.set('tab', t)
+    window.history.replaceState({}, '', url)
+  }
+
+  const SETTINGS_TABS = [
+    { key: 'profile', en: 'Profile', es: 'Perfil' },
+    { key: 'card',    en: 'Card',    es: 'Tarjeta' },
+    { key: 'sms',     en: 'SMS',     es: 'SMS' },
+    { key: 'billing', en: 'Billing', es: 'Pagos' },
+  ]
 
   const [form,    setForm]    = useState({
     name:           '',
@@ -529,6 +552,24 @@ export default function SettingsPage() {
             </Card>
           )}
 
+          {/* Tab bar — Profile · Card · SMS · Billing (?tab= deep-linkable) */}
+          <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 sticky top-0 z-10">
+            {SETTINGS_TABS.map(t => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => selectTab(t.key)}
+                className={`flex-1 text-[13px] font-medium py-2 rounded-lg transition-colors ${
+                  activeTab === t.key ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {lang === 'es' ? t.es : t.en}
+              </button>
+            ))}
+          </div>
+
+          {/* ── Profile tab ── */}
+          {activeTab === 'profile' && (<>
           {/* Profile */}
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -615,6 +656,10 @@ export default function SettingsPage() {
             </Card>
           </section>
 
+          </>)}
+
+          {/* ── Card tab ── */}
+          {activeTab === 'card' && (<>
           {/* YardSync Card — public business card + intake URL */}
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -644,6 +689,14 @@ export default function SettingsPage() {
               ) : (
                 /* Slug exists — show URL + editor + public-profile fields */
                 <div className="space-y-4">
+                  {/* What this is / why it matters */}
+                  <div className="bg-brand-50 border border-brand-100 rounded-lg p-3">
+                    <p className="text-[12px] text-brand-800 leading-relaxed">
+                      {lang === 'es'
+                        ? 'Esta es su tarjeta de presentación digital. Compártala o muestre su código QR — los clientes potenciales tocan o escanean para solicitar servicio y se agregan automáticamente como prospectos en Clientes. Es la forma más rápida de conseguir nuevos trabajos.'
+                        : "This is your digital business card. Share it or show its QR code — prospects tap or scan to request service and are added automatically as leads in Clients. It's the fastest way to win new jobs."}
+                    </p>
+                  </div>
                   {/* URL display + copy + edit */}
                   {!slugEditing ? (
                     <div>
@@ -667,6 +720,23 @@ export default function SettingsPage() {
                           className="text-[12px] text-brand-600 font-medium hover:text-brand-700"
                         >
                           {lang === 'es' ? 'Copiar' : 'Copy'}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const url = `${currentOrigin}/join/${profile.publicSlug}`
+                            const shareData = {
+                              title: profile.businessName || 'YardSync',
+                              text: lang === 'es' ? 'Solicita servicio aquí:' : 'Request service here:',
+                              url,
+                            }
+                            try {
+                              if (navigator.share) await navigator.share(shareData)
+                              else { navigator.clipboard.writeText(url); toast.success(lang === 'es' ? 'Copiado' : 'Copied') }
+                            } catch { /* user cancelled the share sheet */ }
+                          }}
+                          className="text-[12px] text-brand-600 font-medium hover:text-brand-700"
+                        >
+                          {lang === 'es' ? 'Compartir' : 'Share'}
                         </button>
                       </div>
                       <button
@@ -921,6 +991,10 @@ export default function SettingsPage() {
             </Card>
           </section>
 
+          </>)}
+
+          {/* ── SMS tab ── */}
+          {activeTab === 'sms' && (<>
           {/* SMS Reminders */}
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -931,6 +1005,13 @@ export default function SettingsPage() {
             </div>
             <Card>
               <div className="space-y-4">
+                <div className="bg-brand-50 border border-brand-100 rounded-lg p-3">
+                  <p className="text-[12px] text-brand-800 leading-relaxed">
+                    {lang === 'es'
+                      ? 'Estos mensajes recuerdan automáticamente a sus clientes sus próximas visitas por SMS. Elija cuándo se envían y edite el texto en inglés y español. Cada mensaje termina con "Responda STOP para cancelar" para cumplir con las reglas de mensajería.'
+                      : 'These automatically remind your clients of upcoming visits by text. Choose when they send and edit the English + Spanish wording. Every message ends with "Reply STOP to opt out" to stay compliant.'}
+                  </p>
+                </div>
                 <Select
                   label={translate('settings', 'send_reminders')}
                   value={form.reminderTiming}
@@ -965,13 +1046,45 @@ export default function SettingsPage() {
                   />
                 </div>
 
-                <p className="text-[11px] text-gray-400">
-                  {translate('settings', 'variables')} {'{name}'} {'{date}'} {'{time}'} {'{business}'}
-                </p>
+                <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 space-y-2.5">
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    {lang === 'es'
+                      ? '⚠️ Las variables {name} {date} {time} {business} se reemplazan automáticamente con los datos reales. Puede cambiar el texto, pero no escriba mal una variable o el mensaje saldrá incorrecto.'
+                      : "⚠️ The variables {name} {date} {time} {business} are filled in automatically with real data. You can reword the text, but don't mistype a variable or the message will come out wrong."}
+                  </p>
+                  <div>
+                    <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1">
+                      {lang === 'es' ? 'Ejemplo (inglés)' : 'Sample (English)'}
+                    </p>
+                    <p className="text-[12px] text-gray-700 bg-white rounded-md px-2.5 py-2 border border-gray-200">
+                      {(form.smsTemplate || '')
+                        .replace(/\{name\}/g, 'Maria')
+                        .replace(/\{date\}/g, 'Mon, Jun 24')
+                        .replace(/\{time\}/g, '9:00 AM')
+                        .replace(/\{business\}/g, form.businessName || 'YardSync')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1">
+                      {lang === 'es' ? 'Ejemplo (español)' : 'Sample (Spanish)'}
+                    </p>
+                    <p className="text-[12px] text-gray-700 bg-white rounded-md px-2.5 py-2 border border-gray-200">
+                      {(form.smsTemplateEs || '')
+                        .replace(/\{name\}/g, 'María')
+                        .replace(/\{date\}/g, 'lun, 24 jun')
+                        .replace(/\{time\}/g, '9:00 AM')
+                        .replace(/\{business\}/g, form.businessName || 'YardSync')}
+                    </p>
+                  </div>
+                </div>
               </div>
             </Card>
           </section>
 
+          </>)}
+
+          {/* ── Billing tab ── (Subscription · Payment Reminders · Volume Rewards · Stripe Connect) */}
+          {activeTab === 'billing' && (<>
           {/* Subscription */}
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -1074,14 +1187,21 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 mb-3">
               <Clock size={14} className="text-brand-600" />
               <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
-                {lang === 'es' ? 'Recordatorios de pago' : 'Payment reminders'}
+                {lang === 'es' ? 'Plazo de pago del cliente' : 'Client payment deadline'}
               </p>
             </div>
             <Card>
+              <div className="bg-brand-50 border border-brand-100 rounded-lg p-3 mb-3">
+                <p className="text-[12px] text-brand-800 leading-relaxed">
+                  {lang === 'es'
+                    ? 'Para clientes nuevos que pagan por adelantado, esto es cuánto tiempo tiene EL CLIENTE para pagar antes de que usted realice el servicio. No es un recordatorio para usted.'
+                    : "For first-time clients on upfront billing, this is how long THE CLIENT has to pay before you service them. It's not a reminder for you."}
+                </p>
+              </div>
               <label className="text-[12px] font-medium text-gray-700 block mb-1">
                 {lang === 'es'
-                  ? 'Plazo predeterminado de facturación anticipada'
-                  : 'Default upfront billing deadline'}
+                  ? 'Plazo predeterminado de pago anticipado'
+                  : 'Default upfront payment deadline'}
               </label>
               <div className="flex items-center gap-2">
                 <p className="text-[13px] text-gray-600">
@@ -1299,6 +1419,7 @@ export default function SettingsPage() {
               </button>
             </div>
           )}
+          </>)}
 
           <div className="mt-8 pt-6 border-t border-gray-200">
             <button

@@ -124,7 +124,7 @@ function AddonSelector({ addonServices, lang, fixedAddons, setFixedAddons, varia
                   </div>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                    <input type="number" placeholder="0.00" value={variables[service.id] || ''}
+                    <input type="number" min="0" step="0.01" placeholder="0.00" value={variables[service.id] || ''}
                       onChange={e => setVariables(prev => ({ ...prev, [service.id]: e.target.value }))}
                       onWheel={e => e.target.blur()}
                       className="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-200 text-[13px] focus:outline-none focus:ring-2 focus:ring-brand-500" />
@@ -498,7 +498,7 @@ export default function CalendarPage() {
     setWalkInPhone(c?.phone || schedule.clientPhone || '')
     setWalkInEmail(c?.email || schedule.clientEmail || '')
     setWalkInPhoneError('')
-    setWalkInPrice('65'); setWalkInAddons([]); setWalkInVariables({})
+    setWalkInPrice(''); setWalkInAddons([]); setWalkInVariables({})
     setWalkInTime('9:00 AM')
     setExpandedId(null)
     setShowWalkIn(true)
@@ -507,7 +507,7 @@ export default function CalendarPage() {
   function openWalkInModal() {
     if (!selectedDay) return
     setWalkInName(''); setWalkInPhone(''); setWalkInEmail(''); setWalkInPhoneError('')
-    setWalkInPrice('65'); setWalkInAddons([]); setWalkInVariables({})
+    setWalkInPrice(''); setWalkInAddons([]); setWalkInVariables({})
     setWalkInTime('9:00 AM')
     setShowWalkIn(true)
   }
@@ -653,7 +653,9 @@ export default function CalendarPage() {
       const materials   = walkInInvoiceTarget.materials || []
       const materialsTotalCents = materials.reduce((s, m) => s + (m.totalCents || 0), 0)
       const lineItems = [
-        { label: walkInInvoiceTarget.clientName || 'Walk-in service', amountCents: basePrice, category: 'base' },
+        // Only include a base line item when there's an actual base price — a $0
+        // "Walk-in service" line otherwise shows up on the client's invoice.
+        ...(basePrice > 0 ? [{ label: walkInInvoiceTarget.clientName || 'Walk-in service', amountCents: basePrice, category: 'base' }] : []),
         ...finalAddons.map(a => ({ label: a.label, amountCents: a.amountCents, category: 'addon' })),
         ...materials.map(m => ({ label: m.name, amountCents: m.totalCents || 0, category: 'material' })),
       ]
@@ -1246,7 +1248,7 @@ export default function CalendarPage() {
             onChange={e => setWalkInEmail(e.target.value)}
           />
           <p className="text-[11px] text-gray-400 -mt-2">{lang === 'es' ? 'Teléfono o email requerido para enviar factura' : 'Phone or email required to send invoice'}</p>
-          <Input label={lang === 'es' ? 'Precio base' : 'Base job price'} placeholder="65" type="number" prefix="$" value={walkInPrice} onChange={e => setWalkInPrice(e.target.value)}
+          <Input label={lang === 'es' ? 'Precio base' : 'Base job price'} placeholder="65" type="number" min="0" step="0.01" prefix="$" value={walkInPrice} onChange={e => setWalkInPrice(e.target.value)}
             hint={lang === 'es' ? 'Tarifa YardSync 5.5% aplica' : '5.5% YardSync fee applies'} />
           <Select label={translate('calendar', 'time')} value={walkInTime} onChange={e => setWalkInTime(e.target.value)}>
             {TIMES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -1589,6 +1591,8 @@ export default function CalendarPage() {
                 />
                 <Input
                   type="number"
+                  min="0"
+                  step="0.01"
                   placeholder={lang === 'es' ? 'Precio en dólares' : 'Price in dollars'}
                   value={extraCustomPrice}
                   onChange={e => setExtraCustomPrice(e.target.value)}
