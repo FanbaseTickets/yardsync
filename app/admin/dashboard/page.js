@@ -15,6 +15,7 @@ import {
 import toast from 'react-hot-toast'
 import { fmt as format } from '@/lib/date'
 import ReferralCardEditor from './ReferralCardEditor'
+import CronControl from './CronControl'
 
 function splitInvoice(inv) {
   // Q11 (preferred): when the webhook has captured Stripe's processing fee,
@@ -452,6 +453,9 @@ export default function AdminDashboard() {
 
         {/* Founder referral card — shareable /grow card + editable founder details. */}
         <ReferralCardEditor />
+
+        {/* SMS cron master switch — pause/resume daily Twilio reminder sends. */}
+        <CronControl />
 
         {/* Stripe Requirements — contractors flagged by Stripe for KYC info.
             Surfaces account.updated webhook data so Jay can proactively
