@@ -15,6 +15,11 @@ import { useAuth } from '@/context/AuthContext'
 import LogoUpload from '@/components/ui/LogoUpload'
 import toast from 'react-hot-toast'
 
+function getInitials(name) {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean)
+  return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '★'
+}
+
 export default function ReferralCardEditor() {
   const { user } = useAuth()
   const growUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://yardsyncapp.com'}/grow`
@@ -96,8 +101,38 @@ export default function ReferralCardEditor() {
       </button>
 
       {open && (
-        <div className="mt-3 pt-3 border-t border-gray-100 space-y-4">
-          <p className="text-[12px] text-gray-500">Add your details to make the card personal, and toggle each on/off. Leave them all off (or blank) to keep the card plain.</p>
+        <div className="mt-4 pt-4 border-t border-gray-100 space-y-4">
+          <p className="text-[12px] text-gray-500">Add your details to make the card personal, then toggle each on/off. Leave them off (or blank) to keep it plain.</p>
+
+          {/* Live preview of the identity block as it'll appear on /grow */}
+          {(() => {
+            const showHs = form.showHeadshot && form.founderHeadshotUrl
+            const showNm = form.showName && form.founderName
+            const showTt = form.showTitle && form.founderTitle
+            const any = showHs || showNm || showTt
+            return (
+              <div className="bg-gray-50 rounded-xl border border-gray-200 p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">Card preview</p>
+                {any ? (
+                  <div className="flex items-center gap-3">
+                    {showHs ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={form.founderHeadshotUrl} alt="" className="w-12 h-12 rounded-full object-cover border-2 border-white shadow flex-shrink-0" />
+                    ) : showNm ? (
+                      <div className="w-12 h-12 rounded-full bg-brand-600 text-white flex items-center justify-center text-base font-bold flex-shrink-0">{getInitials(form.founderName)}</div>
+                    ) : null}
+                    <div className="min-w-0">
+                      {showNm && <p className="text-[14px] font-bold text-gray-900 truncate">{form.founderName}</p>}
+                      {showTt && <p className="text-[12px] text-brand-700 font-medium truncate">{form.founderTitle}</p>}
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Shared by a YardSync partner</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[12px] text-gray-400 italic">Plain card — no personal details shown.</p>
+                )}
+              </div>
+            )
+          })()}
 
           <LogoUpload
             label="Your headshot"
@@ -112,12 +147,12 @@ export default function ReferralCardEditor() {
           <div>
             <label className="text-[13px] font-medium text-gray-700 block mb-1">Your name</label>
             <input value={form.founderName} onChange={e => setField('founderName', e.target.value)} placeholder="Jay Johnson" maxLength={80}
-              className="w-full rounded-xl border border-gray-200 bg-white text-[14px] px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500" />
+              className="w-full rounded-xl border border-gray-200 bg-white text-gray-900 text-[14px] px-3 py-2.5 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500" />
           </div>
           <div>
             <label className="text-[13px] font-medium text-gray-700 block mb-1">Your title</label>
             <input value={form.founderTitle} onChange={e => setField('founderTitle', e.target.value)} placeholder="Founder, YardSync" maxLength={80}
-              className="w-full rounded-xl border border-gray-200 bg-white text-[14px] px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500" />
+              className="w-full rounded-xl border border-gray-200 bg-white text-gray-900 text-[14px] px-3 py-2.5 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500" />
           </div>
 
           <div className="space-y-2">
