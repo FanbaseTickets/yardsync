@@ -9,7 +9,7 @@ import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, EmptyState, Skeleton, Modal, Input, Select } from '@/components/ui'
-import { getClients, addClient, getServices, updateClient } from '@/lib/db'
+import { getClients, addClient, getServices, updateClient, addService } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { validatePhone, formatPhone } from '@/lib/phone'
 import { isValidEmail, suggestEmailCorrection } from '@/lib/emailHelpers'
@@ -65,7 +65,26 @@ const DEFAULT_FORM = {
   billingMode: 'upfront',
   notes:       '',
   language:    'en',
+  // Per-client price override (dollars string). Pre-filled from the selected
+  // package's price; blank means "use the package price as-is".
+  customPrice: '',
+  // Inline "+ New package" creator (active when serviceId === NEW_PACKAGE).
+  newPkgLabel:  '',
+  newPkgType:   'monthly',
+  newPkgPrice:  '',
+  savePackage:  true,   // also write it to /services for reuse
 }
+
+// Sentinel serviceId for the inline "+ New package" option in the dropdown.
+const NEW_PACKAGE = '__new__'
+
+const PACKAGE_TYPE_OPTIONS = [
+  { value: 'weekly',    en: 'Weekly',    es: 'Semanal'    },
+  { value: 'monthly',   en: 'Monthly',   es: 'Mensual'    },
+  { value: 'quarterly', en: 'Quarterly', es: 'Trimestral' },
+  { value: 'annual',    en: 'Annual',    es: 'Anual'      },
+  { value: 'onetime',   en: 'One-time',  es: 'Una vez'    },
+]
 
 export default function ClientsPage() {
   const { user }            = useAuth()
@@ -115,6 +134,70 @@ export default function ClientsPage() {
   }
 
   const selectedService = services.find(s => s.id === form.serviceId)
+  const isNewPackage    = form.serviceId === NEW_PACKAGE
+
+  // Choosing an existing package pre-fills the per-client price with its price
+  // (so the contractor can tweak it for a bigger/smaller lot). "+ New package"
+  // opens the inline creator instead.
+  function handlePackageSelect(value) {
+    if (value && value !== NEW_PACKAGE) {
+      const svc = services.find(s => s.id === value)
+      setForm(prev => ({ ...prev, serviceId: value, customPrice: svc ? ((svc.priceCents || 0) / 100).toFixed(2) : '' }))
+    } else {
+      setForm(prev => ({ ...prev, serviceId: value, customPrice: '' }))
+    }
+    if (errors.serviceId) setErrors(prev => ({ ...prev, serviceId: null }))
+  }
+
+  // Resolve the package fields written to the client doc. Existing package →
+  // honor the per-client price override; "+ New package" → use the inline
+  // fields. basePriceCents is a snapshot, so an override never touches the
+  // catalog service.
+  function resolvePackage() {
+    if (isNewPackage) {
+      return {
+        serviceId:       '',
+        packageType:     form.newPkgType,
+        basePriceCents:  Math.round(parseFloat(form.newPkgPrice || '0') * 100),
+        packageLabel:    form.newPkgLabel.trim(),
+        packageDesc:     '',
+        packageIncludes: '',
+        recurrence:      form.newPkgType,
+        preferredDay:    '',
+      }
+    }
+    const svc      = selectedService
+    const override = form.customPrice.trim()
+    return {
+      serviceId:       svc?.id || '',
+      packageType:     svc?.packageType  || 'monthly',
+      basePriceCents:  override !== '' ? Math.round(parseFloat(override) * 100) : (svc?.priceCents ?? 6500),
+      packageLabel:    svc?.label        || '',
+      packageDesc:     svc?.description  || '',
+      packageIncludes: svc?.includes     || '',
+      recurrence:      svc?.recurrence   || 'biweekly',
+      preferredDay:    svc?.preferredDay || '',
+    }
+  }
+
+  // When "+ New package" + "save for reuse", persist it as a base service so it
+  // joins the catalog. Non-fatal — the client still gets the snapshot if it fails.
+  async function maybePersistNewPackage(pkg) {
+    if (!isNewPackage || !form.savePackage) return
+    try {
+      await addService(user.uid, {
+        serviceType: 'base',
+        packageType: pkg.packageType,
+        recurrence:  pkg.packageType,
+        label:       pkg.packageLabel,
+        description: '',
+        priceCents:  pkg.basePriceCents,
+        pricingType: 'fixed',
+      })
+    } catch (err) {
+      console.error('Could not save new package to catalog:', err)
+    }
+  }
 
   function validate() {
     const e = {}
@@ -144,7 +227,24 @@ export default function ClientsPage() {
     }
 
     if (!form.address.trim()) e.address   = translate('clients', 'address') + ' required'
-    if (!form.serviceId)      e.serviceId = translate('clients', 'select_package')
+
+    if (!form.serviceId) {
+      e.serviceId = translate('clients', 'select_package')
+    } else if (isNewPackage) {
+      if (!form.newPkgLabel.trim()) {
+        e.newPkgLabel = lang === 'es' ? 'Nombre del paquete requerido' : 'Package name required'
+      }
+      const p = parseFloat(form.newPkgPrice)
+      if (!form.newPkgPrice.trim() || isNaN(p) || p <= 0) {
+        e.newPkgPrice = lang === 'es' ? 'Ingresa un precio válido' : 'Enter a valid price'
+      }
+    } else if (form.customPrice.trim()) {
+      const p = parseFloat(form.customPrice)
+      if (isNaN(p) || p < 0) {
+        e.customPrice = lang === 'es' ? 'Precio inválido' : 'Invalid price'
+      }
+    }
+
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -153,6 +253,8 @@ export default function ClientsPage() {
     if (!validate()) return
     setSaving(true)
     try {
+      const pkg = resolvePackage()
+      await maybePersistNewPackage(pkg)
       await addClient(user.uid, {
         name:            form.name.trim(),
         phone:           formatPhone(form.phone.trim()),
@@ -161,14 +263,7 @@ export default function ClientsPage() {
         notes:           form.notes.trim(),
         billingMode:     form.billingMode,
         language:        form.language,
-        serviceId:       form.serviceId,
-        packageType:     selectedService?.packageType    || 'monthly',
-        basePriceCents:  selectedService?.priceCents     || 6500,
-        packageLabel:    selectedService?.label          || '',
-        packageDesc:     selectedService?.description    || '',
-        packageIncludes: selectedService?.includes       || '',
-        recurrence:      selectedService?.recurrence     || 'biweekly',
-        preferredDay:    selectedService?.preferredDay   || '',
+        ...pkg,
       })
       toast.success(`${form.name} ${translate('clients', 'add_client')} ✓`)
       setShowAdd(false)
@@ -250,12 +345,11 @@ export default function ClientsPage() {
     // notes so that context isn't lost when the lead graduates.
     const leadContext = [lead.serviceInterest, lead.note].filter(Boolean).join(' — ')
     setForm({
+      ...DEFAULT_FORM,
       name:        lead.name || '',
       phone:       lead.phone ? formatPhone(lead.phone) : '',
       email:       lead.email || '',
       address:     lead.address || '',
-      serviceId:   '',
-      billingMode: 'upfront',
       notes:       leadContext,
       language:    lead.language === 'es' ? 'es' : 'en',
     })
@@ -271,6 +365,8 @@ export default function ClientsPage() {
     if (!validate()) return
     setSaving(true)
     try {
+      const pkg = resolvePackage()
+      await maybePersistNewPackage(pkg)
       await updateClient(acceptingLeadId, {
         name:            form.name.trim(),
         phone:           formatPhone(form.phone.trim()),
@@ -279,14 +375,7 @@ export default function ClientsPage() {
         notes:           form.notes.trim(),
         billingMode:     form.billingMode,
         language:        form.language,
-        serviceId:       form.serviceId,
-        packageType:     selectedService?.packageType    || 'monthly',
-        basePriceCents:  selectedService?.priceCents     || 6500,
-        packageLabel:    selectedService?.label          || '',
-        packageDesc:     selectedService?.description    || '',
-        packageIncludes: selectedService?.includes       || '',
-        recurrence:      selectedService?.recurrence     || 'biweekly',
-        preferredDay:    selectedService?.preferredDay   || '',
+        ...pkg,
         leadStatus:          'accepted',
         leadAcceptedAt:      new Date().toISOString(),
         status:              'active',
@@ -609,7 +698,6 @@ export default function ClientsPage() {
               fullWidth
               loading={saving}
               onClick={acceptingLeadId ? handleAcceptSave : handleAdd}
-              disabled={services.length === 0}
             >
               {acceptingLeadId
                 ? (lang === 'es' ? 'Aceptar' : 'Accept')
@@ -620,17 +708,20 @@ export default function ClientsPage() {
       >
         <div className="space-y-4">
           {services.length === 0 && (
-            <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-100 rounded-xl p-3">
-              <AlertCircle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2.5 bg-brand-50 border border-brand-100 rounded-xl p-3">
+              <AlertCircle size={16} className="text-brand-600 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-[13px] font-medium text-amber-800">
-                  {translate('clients', 'no_packages')}
+                <p className="text-[13px] font-medium text-brand-800">
+                  {lang === 'es'
+                    ? 'Aún no tienes paquetes. Elige “+ Nuevo paquete” abajo para crear uno aquí mismo,'
+                    : 'No packages yet. Pick “+ New package” below to create one right here,'}
+                  {' '}
+                  <Link href="/services">
+                    <span className="text-brand-700 font-medium underline">
+                      {lang === 'es' ? 'o ve a Servicios.' : 'or head to Services.'}
+                    </span>
+                  </Link>
                 </p>
-                <Link href="/services">
-                  <span className="text-[12px] text-amber-700 font-medium underline">
-                    {translate('clients', 'go_to_services')}
-                  </span>
-                </Link>
               </div>
             </div>
           )}
@@ -690,9 +781,8 @@ export default function ClientsPage() {
           <Select
             label={translate('clients', 'package') + ' *'}
             value={form.serviceId}
-            onChange={e => setField('serviceId', e.target.value)}
+            onChange={e => handlePackageSelect(e.target.value)}
             error={errors.serviceId}
-            disabled={services.length === 0}
           >
             <option value="">{translate('clients', 'select_package')}</option>
             {services.map(s => (
@@ -700,10 +790,15 @@ export default function ClientsPage() {
                 {s.label} · {formatCents(s.priceCents || 0)}
               </option>
             ))}
+            <option value={NEW_PACKAGE}>
+              {lang === 'es' ? '+ Nuevo paquete…' : '+ New package…'}
+            </option>
           </Select>
 
+          {/* Existing package — show summary + an editable per-client price so a
+              bigger/smaller lot can be priced without a new package. */}
           {selectedService && (
-            <div className="bg-brand-50 border border-brand-100 rounded-xl p-3 space-y-1.5">
+            <div className="bg-brand-50 border border-brand-100 rounded-xl p-3 space-y-2.5">
               <div className="flex items-center gap-2">
                 <Badge label={translate('packages', selectedService.packageType) || selectedService.packageType} variant={selectedService.packageType} />
                 <p className="text-[12px] font-medium text-brand-800">{selectedService.label}</p>
@@ -711,9 +806,76 @@ export default function ClientsPage() {
               {selectedService.description && (
                 <p className="text-[12px] text-brand-600">{selectedService.description}</p>
               )}
-              <p className="text-[12px] font-semibold text-brand-800 pt-1">
-                {translate('clients', 'client_pays')} {formatCents(selectedService.priceCents || 0)} / {selectedService.packageType}
+              <Input
+                label={lang === 'es' ? 'Precio para este cliente' : 'Price for this client'}
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                prefix="$"
+                value={form.customPrice}
+                onChange={e => setField('customPrice', e.target.value)}
+                error={errors.customPrice}
+                hint={lang === 'es'
+                  ? `Precio del paquete: ${formatCents(selectedService.priceCents || 0)}. Ajústalo para lotes más grandes.`
+                  : `Package price: ${formatCents(selectedService.priceCents || 0)}. Adjust it for bigger lots.`}
+              />
+              <p className="text-[12px] font-semibold text-brand-800">
+                {translate('clients', 'client_pays')} {formatCents(resolvePackage().basePriceCents)} / {selectedService.packageType}
               </p>
+              <p className="text-[10px] text-gray-400">
+                {lang === 'es' ? '5.5% deducido de tu pago por factura' : '5.5% deducted from your payout per invoice'}
+              </p>
+            </div>
+          )}
+
+          {/* "+ New package" — create a custom package on the fly, optionally
+              saving it to the catalog for reuse. Also the path a brand-new
+              contractor with zero services takes to accept their first client. */}
+          {isNewPackage && (
+            <div className="bg-brand-50 border border-brand-100 rounded-xl p-3 space-y-3">
+              <p className="text-[12px] font-semibold text-brand-800">
+                {lang === 'es' ? 'Nuevo paquete' : 'New package'}
+              </p>
+              <Input
+                label={(lang === 'es' ? 'Nombre del paquete' : 'Package name') + ' *'}
+                placeholder={lang === 'es' ? 'Ej. Lote grande — quincenal' : 'e.g. Big lot — biweekly'}
+                value={form.newPkgLabel}
+                onChange={e => setField('newPkgLabel', e.target.value)}
+                error={errors.newPkgLabel}
+              />
+              <Select
+                label={lang === 'es' ? 'Frecuencia' : 'Frequency'}
+                value={form.newPkgType}
+                onChange={e => setField('newPkgType', e.target.value)}
+              >
+                {PACKAGE_TYPE_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{lang === 'es' ? o.es : o.en}</option>
+                ))}
+              </Select>
+              <Input
+                label={(lang === 'es' ? 'Precio' : 'Price') + ' *'}
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                prefix="$"
+                placeholder="120.00"
+                value={form.newPkgPrice}
+                onChange={e => setField('newPkgPrice', e.target.value)}
+                error={errors.newPkgPrice}
+              />
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.savePackage}
+                  onChange={e => setField('savePackage', e.target.checked)}
+                  className="w-4 h-4 accent-brand-600"
+                />
+                <span className="text-[12px] text-brand-800">
+                  {lang === 'es' ? 'Guardar en mis paquetes para reutilizar' : 'Save to my packages for reuse'}
+                </span>
+              </label>
               <p className="text-[10px] text-gray-400">
                 {lang === 'es' ? '5.5% deducido de tu pago por factura' : '5.5% deducted from your payout per invoice'}
               </p>
