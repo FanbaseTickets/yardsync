@@ -32,6 +32,7 @@ export default function LoginPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [failedAttempts, setFailedAttempts] = useState(0)
   const [signupLang, setSignupLang] = useState('en')
+  const [termsAccepted, setTermsAccepted] = useState(false)
 
   const isEs = mode === 'signup' && signupLang === 'es'
 
@@ -53,6 +54,7 @@ export default function LoginPage() {
     else if (mode === 'signup' && password !== confirmPassword) e.confirmPassword = isEs ? 'Las contraseñas no coinciden' : "Passwords don't match"
     if (mode === 'signup' && !name)           e.name     = isEs ? 'Tu nombre es requerido' : 'Your name is required'
     if (mode === 'signup' && !bizName)        e.bizName  = isEs ? 'Nombre del negocio es requerido' : 'Business name is required'
+    if (mode === 'signup' && !termsAccepted)  e.terms    = isEs ? 'Debes aceptar los Términos y la Política de Privacidad' : 'You must accept the Terms and Privacy Policy'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -94,6 +96,13 @@ export default function LoginPage() {
   }
 
   async function handleGoogle() {
+    // In signup mode, Google is also an account-creation path — require the same
+    // affirmative Terms acceptance before continuing.
+    if (mode === 'signup' && !termsAccepted) {
+      setErrors(prev => ({ ...prev, terms: isEs ? 'Debes aceptar los Términos y la Política de Privacidad' : 'You must accept the Terms and Privacy Policy' }))
+      toast.error(isEs ? 'Acepta los Términos para continuar' : 'Please accept the Terms to continue')
+      return
+    }
     setGoogleBusy(true)
     try {
       await signInWithGoogle()
@@ -111,6 +120,7 @@ export default function LoginPage() {
     setShowPassword(false)
     setShowConfirmPassword(false)
     setConfirmPassword('')
+    setTermsAccepted(false)
     if (newMode === 'signup') setPassword('')
   }
 
@@ -253,6 +263,29 @@ export default function LoginPage() {
               >
                 {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
+            </div>
+          )}
+          {mode === 'signup' && (
+            <div>
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={e => { setTermsAccepted(e.target.checked); clearError('terms') }}
+                  className="mt-0.5 w-4 h-4 accent-brand-600 flex-shrink-0"
+                />
+                <span className="text-[12px] text-gray-600 leading-snug">
+                  {isEs ? 'Acepto los ' : 'I agree to the '}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-600 font-medium hover:underline">
+                    {isEs ? 'Términos y Condiciones' : 'Terms of Service'}
+                  </a>
+                  {isEs ? ' y la ' : ' and '}
+                  <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-600 font-medium hover:underline">
+                    {isEs ? 'Política de Privacidad' : 'Privacy Policy'}
+                  </a>.
+                </span>
+              </label>
+              {errors.terms && <p className="text-[12px] text-red-500 mt-1">{errors.terms}</p>}
             </div>
           )}
           <Button type="submit" loading={busy} fullWidth size="lg" className="mt-1">
