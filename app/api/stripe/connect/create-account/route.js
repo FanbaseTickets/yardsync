@@ -10,11 +10,20 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Missing uid' }, { status: 400 })
     }
 
-    // Create new Express account
+    // Create new Express account.
+    //
+    // card_payments is requested in addition to transfers so the contractor can
+    // be the MERCHANT OF RECORD on client payments (direct charges): receipts +
+    // statements are contractor-branded and refund/dispute liability falls on
+    // the connected account, not the platform. Stripe's hosted onboarding then
+    // collects the extra KYC card_payments requires. Invoicing is gated on
+    // capabilities.card_payments === 'active'. See
+    // docs/DIRECT_CHARGES_AND_RECEIPTS.md.
     const account = await stripe.accounts.create({
       type: 'express',
       capabilities: {
-        transfers: { requested: true },
+        transfers:     { requested: true },
+        card_payments: { requested: true },
       },
     })
 
