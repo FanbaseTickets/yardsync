@@ -17,7 +17,7 @@ import { validatePhone, formatPhone } from '@/lib/phone'
 import PhoneInput from '@/components/ui/PhoneInput'
 import {
   ChevronLeft, ChevronRight, ChevronDown, Plus, CalendarDays,
-  Trash2, CheckCircle2, RefreshCw, AlertTriangle, Zap, DollarSign, Package, X, GripVertical, Route
+  Trash2, CheckCircle2, RefreshCw, AlertTriangle, Zap, DollarSign, Package, X, GripVertical, Route, CalendarClock
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -79,6 +79,24 @@ function generateOccurrences(startDate, recurrence, count) {
 function toDateStr(date) {
   const d = new Date(date)
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+
+// Parse a 'YYYY-MM-DD' schedule date into a local Date (no UTC shift).
+function dateFromStr(str) {
+  const [y, m, d] = String(str).split('-').map(Number)
+  return new Date(y, (m || 1) - 1, d || 1)
+}
+
+// Build the client-facing reschedule SMS. STOP opt-out is appended server-side
+// by /api/twilio/send, so it's intentionally omitted here.
+function buildRescheduleSms({ name, business, oldDate, newDate, time, reason, clientLang }) {
+  const biz = business || 'YardSync'
+  if (clientLang === 'es') {
+    const why = reason === 'weather' ? 'por el clima, ' : reason === 'emergency' ? 'por una emergencia, ' : ''
+    return `Hola ${name}, ${why}tuvimos que reprogramar su servicio de ${biz} del ${oldDate} al ${newDate} a las ${time}. Disculpe las molestias.`
+  }
+  const why = reason === 'weather' ? 'due to weather, ' : reason === 'emergency' ? 'due to an emergency, ' : ''
+  return `Hi ${name}, ${why}we've rescheduled your ${biz} service from ${oldDate} to ${newDate} at ${time}. Sorry for any inconvenience.`
 }
 
 function AddonSelector({ addonServices, lang, fixedAddons, setFixedAddons, variables, setVariables }) {
@@ -201,6 +219,15 @@ export default function CalendarPage() {
   const [deleteTarget,    setDeleteTarget]    = useState(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting,        setDeleting]        = useState(false)
+
+  // Reschedule — mode 'single' (one job) or 'day' (all pending jobs that day).
+  const [rescheduleMode,   setRescheduleMode]   = useState(null)
+  const [rescheduleJob,    setRescheduleJob]    = useState(null)
+  const [rescheduleDate,   setRescheduleDate]   = useState('')
+  const [rescheduleTime,   setRescheduleTime]   = useState('9:00 AM')
+  const [rescheduleReason, setRescheduleReason] = useState('generic')
+  const [rescheduleNotify, setRescheduleNotify] = useState(true)
+  const [rescheduleSaving, setRescheduleSaving] = useState(false)
   const [materialsTarget, setMaterialsTarget] = useState(null)
   const [materialsRows,   setMaterialsRows]   = useState([])
   const [materialsSaving, setMaterialsSaving] = useState(false)
@@ -776,6 +803,104 @@ export default function CalendarPage() {
     } catch { toast.error(translate('common', 'error')) }
   }
 
+  // ── Reschedule ──────────────────────────────────────────────────────────
+  function openReschedule(schedule) {
+    setExpandedId(null)
+    setRescheduleMode('single')
+    setRescheduleJob(schedule)
+    setRescheduleDate(schedule.serviceDate || '')
+    setRescheduleTime(schedule.time || '9:00 AM')
+    setRescheduleReason('generic')
+    setRescheduleNotify(true)
+  }
+
+  function openRescheduleDay() {
+    if (!selectedDay) return
+    setRescheduleMode('day')
+    setRescheduleJob(null)
+    setRescheduleDate(toDateStr(selectedDay))
+    setRescheduleReason('generic')
+    setRescheduleNotify(true)
+  }
+
+  function closeReschedule() {
+    setRescheduleMode(null)
+    setRescheduleJob(null)
+  }
+
+  // Jobs affected by a 'day' reschedule: every non-completed job on the day.
+  const pendingDayJobs = selectedDay
+    ? getSchedulesForDay(selectedDay).filter(s => s.status !== 'completed')
+    : []
+
+  async function handleRescheduleConfirm() {
+    if (!rescheduleDate) return
+    if (rescheduleDate < toDateStr(new Date())) {
+      toast.error(lang === 'es' ? 'No se puede reprogramar en el pasado' : "Can't reschedule to a past date")
+      return
+    }
+
+    const jobs = rescheduleMode === 'single'
+      ? (rescheduleJob ? [rescheduleJob] : [])
+      : pendingDayJobs
+    if (jobs.length === 0) { closeReschedule(); return }
+
+    setRescheduleSaving(true)
+    try {
+      // 1) Move the job(s). Single also takes a new time; bulk keeps each time.
+      await Promise.all(jobs.map(j => updateSchedule(j.id, {
+        serviceDate: rescheduleDate,
+        ...(rescheduleMode === 'single' ? { time: rescheduleTime } : {}),
+      })))
+
+      // 2) Optionally notify each client by SMS (A2P path appends STOP). Only
+      //    clients with a valid phone are texted; the rest are skipped.
+      let texted = 0, skipped = 0
+      if (rescheduleNotify) {
+        await Promise.all(jobs.map(async (j) => {
+          const c     = clientMap[j.clientId]
+          const phone = c?.phone || j.clientPhone
+          if (!phone || !validatePhone(phone)) { skipped++; return }
+          const clientLang = c?.language === 'es' ? 'es' : 'en'
+          const time = rescheduleMode === 'single' ? rescheduleTime : j.time
+          const message = buildRescheduleSms({
+            name:      c?.name || j.clientName || '',
+            business:  profile?.businessName || profile?.displayName || '',
+            oldDate:   formatDateLocalized(dateFromStr(j.serviceDate), 'EEE, MMM d', clientLang),
+            newDate:   formatDateLocalized(dateFromStr(rescheduleDate), 'EEE, MMM d', clientLang),
+            time,
+            reason:    rescheduleReason,
+            clientLang,
+          })
+          try {
+            const res = await fetch('/api/twilio/send', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                clientPhone: phone, message, language: clientLang,
+                gardenerUid: user?.uid, scheduleId: j.id, clientId: j.clientId || null,
+              }),
+            })
+            if (res.ok) texted++; else skipped++
+          } catch { skipped++ }
+        }))
+      }
+
+      if (rescheduleNotify && (texted || skipped)) {
+        toast.success(lang === 'es'
+          ? `Reprogramado · ${texted} avisado(s)${skipped ? `, ${skipped} sin avisar` : ''}`
+          : `Rescheduled · ${texted} notified${skipped ? `, ${skipped} skipped` : ''}`)
+      } else {
+        toast.success(lang === 'es' ? 'Reprogramado ✓' : 'Rescheduled ✓')
+      }
+      closeReschedule()
+      loadData()
+    } catch {
+      toast.error(translate('common', 'error'))
+    } finally {
+      setRescheduleSaving(false)
+    }
+  }
+
   function promptDelete(schedule) { setDeleteTarget(schedule); setShowDeleteModal(true) }
 
   async function handleDeleteOne() {
@@ -920,6 +1045,40 @@ export default function CalendarPage() {
   const selectedClientObj     = clients.find(c => c.id === selectedClient)
   const totalJobsThisMonth    = schedules.length
 
+  // ── Reschedule preview derivations ───────────────────────────────────────
+  // The set of jobs the current reschedule will move, how many clients will
+  // actually be texted (valid phone only), and a live preview of the exact
+  // message the FIRST affected client will receive (so the contractor never
+  // sends blind). Day mode can span multiple clients/languages, so the preview
+  // is labeled as a sample.
+  const rescheduleJobs = rescheduleMode === 'single'
+    ? (rescheduleJob ? [rescheduleJob] : [])
+    : pendingDayJobs
+  const reschedNotifyCount = rescheduleNotify
+    ? rescheduleJobs.filter(j => {
+        const phone = clientMap[j.clientId]?.phone || j.clientPhone
+        return phone && validatePhone(phone)
+      }).length
+    : 0
+  const reschedPreview = (() => {
+    const j = rescheduleJobs[0]
+    if (!j || !rescheduleDate) return null
+    const c         = clientMap[j.clientId]
+    const cLang     = c?.language === 'es' ? 'es' : 'en'
+    const time      = rescheduleMode === 'single' ? rescheduleTime : j.time
+    const body = buildRescheduleSms({
+      name:      c?.name || j.clientName || (cLang === 'es' ? 'Cliente' : 'Customer'),
+      business:  profile?.businessName || profile?.displayName || '',
+      oldDate:   formatDateLocalized(dateFromStr(j.serviceDate), 'EEE, MMM d', cLang),
+      newDate:   formatDateLocalized(dateFromStr(rescheduleDate), 'EEE, MMM d', cLang),
+      time,
+      reason:    rescheduleReason,
+      clientLang: cLang,
+    })
+    const stop = cLang === 'es' ? 'Responda STOP para cancelar. – YardSync' : 'Reply STOP to opt out. – YardSync'
+    return { text: `${body}\n${stop}`, lang: cLang, sample: rescheduleMode === 'day' && rescheduleJobs.length > 1 }
+  })()
+
   const walkInBase           = walkInInvoiceTarget?.basePrice || 0
   const walkInInvAddonTotal  = getAddonTotal(walkInInvAddons, walkInInvVariables)
   const walkInMaterialsList  = walkInInvoiceTarget?.materials || []
@@ -1027,6 +1186,19 @@ export default function CalendarPage() {
                 </p>
               )}
 
+              {!inRouteMode && pendingDayJobs.length > 0 && (
+                <div className="flex justify-end mb-2">
+                  <button
+                    type="button"
+                    onClick={openRescheduleDay}
+                    className="inline-flex items-center gap-1 text-[12px] font-medium text-brand-600 hover:text-brand-700"
+                  >
+                    <CalendarClock size={13} />
+                    {lang === 'es' ? 'Reprogramar el día' : 'Reschedule day'}
+                  </button>
+                </div>
+              )}
+
               {loading ? <Skeleton className="h-16" /> : selectedDaySchedules.length === 0 ? (
                 <Card className="text-center py-6">
                   <CalendarDays size={24} className="text-gray-300 mx-auto mb-2" />
@@ -1112,6 +1284,9 @@ export default function CalendarPage() {
                                   </Button>
                                   <Button icon={CheckCircle2} size="sm" variant="secondary" onClick={() => { setExpandedId(null); handleComplete(schedule) }}>
                                     {lang === 'es' ? 'Completar' : 'Mark complete'}
+                                  </Button>
+                                  <Button icon={CalendarClock} size="sm" variant="secondary" onClick={() => openReschedule(schedule)}>
+                                    {lang === 'es' ? 'Reprogramar' : 'Reschedule'}
                                   </Button>
                                   <Button icon={Plus} size="sm" variant="secondary" onClick={() => openExtraModal(schedule)}>
                                     {lang === 'es' ? 'Servicio extra' : 'Add extra service'}
@@ -1212,6 +1387,114 @@ export default function CalendarPage() {
           )}
           <div className="border-t border-gray-100 pt-3">
             <AddonSelector addonServices={addonServices} lang={lang} fixedAddons={selectedAddons} setFixedAddons={setSelectedAddons} variables={variableInputs} setVariables={setVariableInputs} />
+          </div>
+        </div>
+      </Modal>
+
+      {/* Reschedule modal (single job or whole day) */}
+      <Modal
+        open={rescheduleMode !== null}
+        onClose={closeReschedule}
+        title={rescheduleMode === 'day'
+          ? (lang === 'es' ? 'Reprogramar el día' : 'Reschedule the day')
+          : (lang === 'es' ? 'Reprogramar trabajo' : 'Reschedule job')}
+        footer={<>
+          <Button variant="secondary" fullWidth onClick={closeReschedule}>{translate('common', 'cancel')}</Button>
+          <Button fullWidth loading={rescheduleSaving} onClick={handleRescheduleConfirm}>
+            {reschedNotifyCount > 0
+              ? (lang === 'es' ? `Reprogramar y avisar a ${reschedNotifyCount}` : `Reschedule & text ${reschedNotifyCount}`)
+              : (lang === 'es' ? 'Reprogramar' : 'Reschedule')}
+          </Button>
+        </>}
+      >
+        <div className="space-y-4">
+          <p className="text-[13px] text-gray-600">
+            {rescheduleMode === 'day'
+              ? (lang === 'es'
+                  ? `Mover ${pendingDayJobs.length === 1 ? 'el trabajo' : `los ${pendingDayJobs.length} trabajos`}${selectedDay ? ` del ${fmt(selectedDay, 'MMM d')}` : ''} a una nueva fecha. Cada uno conserva su hora.`
+                  : `Move ${pendingDayJobs.length === 1 ? 'the job' : `all ${pendingDayJobs.length} jobs`}${selectedDay ? ` on ${fmt(selectedDay, 'MMM d')}` : ''} to a new date. Each keeps its time.`)
+              : (lang === 'es'
+                  ? `Mover el trabajo de ${rescheduleJob?.clientName || clientMap[rescheduleJob?.clientId]?.name || ''} a una nueva fecha y hora.`
+                  : `Move ${rescheduleJob?.clientName || clientMap[rescheduleJob?.clientId]?.name || ''}'s job to a new date and time.`)}
+          </p>
+
+          <Input
+            type="date"
+            label={lang === 'es' ? 'Nueva fecha' : 'New date'}
+            value={rescheduleDate}
+            min={toDateStr(new Date())}
+            onChange={e => setRescheduleDate(e.target.value)}
+          />
+
+          {rescheduleMode === 'single' && (
+            <Select
+              label={lang === 'es' ? 'Nueva hora' : 'New time'}
+              value={rescheduleTime}
+              onChange={e => setRescheduleTime(e.target.value)}
+            >
+              {TIMES.map(t => <option key={t} value={t}>{t}</option>)}
+            </Select>
+          )}
+
+          <div className="border-t border-gray-100 pt-3 space-y-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={rescheduleNotify}
+                onChange={e => setRescheduleNotify(e.target.checked)}
+                className="w-4 h-4 accent-brand-600"
+              />
+              <span className="text-[13px] text-gray-700">
+                {lang === 'es' ? 'Avisar a los clientes por SMS' : 'Notify clients by SMS'}
+              </span>
+            </label>
+
+            {rescheduleNotify && (
+              <>
+                <Select
+                  label={lang === 'es' ? 'Motivo (para el mensaje)' : 'Reason (for the message)'}
+                  value={rescheduleReason}
+                  onChange={e => setRescheduleReason(e.target.value)}
+                >
+                  <option value="generic">{lang === 'es' ? 'Cambio de programación' : 'Schedule change'}</option>
+                  <option value="weather">{lang === 'es' ? 'Por el clima' : 'Weather'}</option>
+                  <option value="emergency">{lang === 'es' ? 'Emergencia' : 'Emergency'}</option>
+                </Select>
+                {reschedNotifyCount > 0 && reschedPreview && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                        {lang === 'es' ? 'Vista previa del mensaje' : 'Message preview'}
+                      </p>
+                      {reschedPreview.sample && (
+                        <span className="text-[10px] text-gray-400">
+                          {lang === 'es' ? 'ejemplo · cada cliente en su idioma' : 'sample · each client in their language'}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[12px] text-gray-700 whitespace-pre-line leading-snug">{reschedPreview.text}</p>
+                    <p className="text-[10px] text-gray-400 mt-1.5">
+                      {reschedPreview.lang === 'es' ? 'También se incluye un enlace al calendario.' : 'A calendar link is also attached.'}
+                    </p>
+                  </div>
+                )}
+                {reschedNotifyCount > 0 ? (
+                  <p className="text-[11px] text-gray-400">
+                    {lang === 'es'
+                      ? 'Solo se envía a clientes con teléfono válido. Se agrega “Responda STOP para cancelar”.'
+                      : 'Sent only to clients with a valid phone. “Reply STOP to opt out” is added automatically.'}
+                  </p>
+                ) : (
+                  <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                    <p className="text-[12px] text-amber-700">
+                      {lang === 'es'
+                        ? 'Ningún cliente con teléfono válido — no se enviará ningún mensaje.'
+                        : 'No clients with a valid phone — no message will be sent.'}
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       </Modal>
