@@ -317,6 +317,9 @@ export default function ClientsPage() {
     if (['monthly', 'quarterly', 'annual', 'weekly'].includes(filter)) {
       list = list.filter(c => c.packageType === filter)
     }
+    // Apply status filter
+    if (filter === 'active')   list = list.filter(c => c.status === 'active')
+    if (filter === 'inactive') list = list.filter(c => c.status !== 'active')
     // Apply sort
     if (filter === 'recent') {
       list = [...list].sort((a, b) => {
@@ -331,6 +334,19 @@ export default function ClientsPage() {
   })()
   const activeCount   = nonLeadClients.filter(c => c.status === 'active').length
   const inactiveCount = nonLeadClients.filter(c => c.status !== 'active').length
+
+  // Counts shown on each filter chip (how many clients that chip would display).
+  // All/Recent show the full set (Recent is a re-sort, not a filter).
+  const chipCounts = {
+    all:       nonLeadClients.length,
+    recent:    nonLeadClients.length,
+    active:    activeCount,
+    inactive:  inactiveCount,
+    monthly:   nonLeadClients.filter(c => c.packageType === 'monthly').length,
+    quarterly: nonLeadClients.filter(c => c.packageType === 'quarterly').length,
+    annual:    nonLeadClients.filter(c => c.packageType === 'annual').length,
+    weekly:    nonLeadClients.filter(c => c.packageType === 'weekly').length,
+  }
 
   // ── Lead actions ───────────────────────────────────────────────────
   // Accept: graduate the lead to an active client. We REQUIRE a package to
@@ -478,12 +494,14 @@ export default function ClientsPage() {
               ...(pendingLeads.length > 0
                 ? [{ value: 'leads', label: lang === 'es' ? 'Nuevas solicitudes' : 'New leads', count: pendingLeads.length }]
                 : []),
-              { value: 'all',       label: lang === 'es' ? 'Todos (A-Z)' : 'All (A-Z)' },
-              { value: 'recent',    label: lang === 'es' ? 'Recientes' : 'Recent' },
-              { value: 'monthly',   label: lang === 'es' ? 'Mensual' : 'Monthly' },
-              { value: 'quarterly', label: lang === 'es' ? 'Trimestral' : 'Quarterly' },
-              { value: 'annual',    label: lang === 'es' ? 'Anual' : 'Annual' },
-              { value: 'weekly',    label: lang === 'es' ? 'Semanal' : 'Weekly' },
+              { value: 'all',       label: lang === 'es' ? 'Todos (A-Z)' : 'All (A-Z)', count: chipCounts.all },
+              { value: 'recent',    label: lang === 'es' ? 'Recientes' : 'Recent',      count: chipCounts.recent },
+              { value: 'active',    label: lang === 'es' ? 'Activos' : 'Active',        count: chipCounts.active },
+              { value: 'inactive',  label: lang === 'es' ? 'Inactivos' : 'Inactive',    count: chipCounts.inactive },
+              { value: 'monthly',   label: lang === 'es' ? 'Mensual' : 'Monthly',       count: chipCounts.monthly },
+              { value: 'quarterly', label: lang === 'es' ? 'Trimestral' : 'Quarterly',  count: chipCounts.quarterly },
+              { value: 'annual',    label: lang === 'es' ? 'Anual' : 'Annual',          count: chipCounts.annual },
+              { value: 'weekly',    label: lang === 'es' ? 'Semanal' : 'Weekly',        count: chipCounts.weekly },
             ].map(chip => {
               const isLeads  = chip.value === 'leads'
               const selected = filter === chip.value
@@ -502,7 +520,11 @@ export default function ClientsPage() {
                   {chip.label}
                   {chip.count != null && (
                     <span className={`text-[10px] font-semibold leading-none px-1.5 py-0.5 rounded-full ${
-                      selected ? 'bg-white/25 text-white' : 'bg-brand-600 text-white'
+                      selected
+                        ? 'bg-white/25 text-white'
+                        : isLeads
+                          ? 'bg-brand-600 text-white'
+                          : 'bg-gray-200 text-gray-500'
                     }`}>
                       {chip.count}
                     </span>
