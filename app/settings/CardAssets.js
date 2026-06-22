@@ -49,6 +49,11 @@ export default function CardAssets({
     setBusy(kind)
     try {
       const data = await buildData()
+      // Surface a silent image-load failure (e.g. proxy/CORS) so the contractor
+      // isn't surprised by an initials circle when they have a logo/headshot.
+      if ((logoUrl || headshotUrl) && !data.logoImg && !data.headshotImg) {
+        toast(lang === 'es' ? 'No se pudo cargar tu imagen — se usaron iniciales' : "Couldn't load your image — used initials", { icon: '⚠️' })
+      }
       const canvas = document.createElement('canvas')
       const dims = kind === 'story' ? { width: 1080, height: 1920 } : { width: 1080, height: 1080 }
       await composeSocial(canvas, { ...dims, data, qrUrl: cardUrl, lang })
