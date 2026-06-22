@@ -11,6 +11,7 @@ import { Card, Button, Input, Select } from '@/components/ui'
 import PhoneInput from '@/components/ui/PhoneInput'
 import LogoUpload from '@/components/ui/LogoUpload'
 import CardPreview from './CardPreview'
+import CardAssets from './CardAssets'
 import { saveGardenerProfile, getGardenerProfile, getInvoices } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { Bell, Globe, User, Clock, CreditCard, Link2, CheckCircle2, ArrowUpCircle, TrendingUp, Lock, Zap, LogOut, AlertTriangle } from 'lucide-react'
@@ -910,6 +911,18 @@ export default function SettingsPage() {
                       cardStatusBadge={form.cardStatusBadge}
                       offersFreeEstimate={form.offersFreeEstimate}
                       publicSlug={profile.publicSlug}
+                      lang={lang}
+                    />
+                    <CardAssets
+                      businessName={form.businessName}
+                      tagline={form.tagline}
+                      accentColor={form.accentColor}
+                      logoUrl={form.logoUrl}
+                      headshotUrl={form.headshotUrl}
+                      cardStatusBadge={form.cardStatusBadge}
+                      offersFreeEstimate={form.offersFreeEstimate}
+                      cardUrl={`${currentOrigin}/join/${profile.publicSlug}`}
+                      cardUrlLabel={`${displayHost}/join/${profile.publicSlug}`}
                       lang={lang}
                     />
                   </div>
