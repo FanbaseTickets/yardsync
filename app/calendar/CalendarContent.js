@@ -1045,6 +1045,40 @@ export default function CalendarPage() {
   const selectedClientObj     = clients.find(c => c.id === selectedClient)
   const totalJobsThisMonth    = schedules.length
 
+  // ── Reschedule preview derivations ───────────────────────────────────────
+  // The set of jobs the current reschedule will move, how many clients will
+  // actually be texted (valid phone only), and a live preview of the exact
+  // message the FIRST affected client will receive (so the contractor never
+  // sends blind). Day mode can span multiple clients/languages, so the preview
+  // is labeled as a sample.
+  const rescheduleJobs = rescheduleMode === 'single'
+    ? (rescheduleJob ? [rescheduleJob] : [])
+    : pendingDayJobs
+  const reschedNotifyCount = rescheduleNotify
+    ? rescheduleJobs.filter(j => {
+        const phone = clientMap[j.clientId]?.phone || j.clientPhone
+        return phone && validatePhone(phone)
+      }).length
+    : 0
+  const reschedPreview = (() => {
+    const j = rescheduleJobs[0]
+    if (!j || !rescheduleDate) return null
+    const c         = clientMap[j.clientId]
+    const cLang     = c?.language === 'es' ? 'es' : 'en'
+    const time      = rescheduleMode === 'single' ? rescheduleTime : j.time
+    const body = buildRescheduleSms({
+      name:      c?.name || j.clientName || (cLang === 'es' ? 'Cliente' : 'Customer'),
+      business:  profile?.businessName || profile?.displayName || '',
+      oldDate:   formatDateLocalized(dateFromStr(j.serviceDate), 'EEE, MMM d', cLang),
+      newDate:   formatDateLocalized(dateFromStr(rescheduleDate), 'EEE, MMM d', cLang),
+      time,
+      reason:    rescheduleReason,
+      clientLang: cLang,
+    })
+    const stop = cLang === 'es' ? 'Responda STOP para cancelar. – YardSync' : 'Reply STOP to opt out. – YardSync'
+    return { text: `${body}\n${stop}`, sample: rescheduleMode === 'day' && rescheduleJobs.length > 1 }
+  })()
+
   const walkInBase           = walkInInvoiceTarget?.basePrice || 0
   const walkInInvAddonTotal  = getAddonTotal(walkInInvAddons, walkInInvVariables)
   const walkInMaterialsList  = walkInInvoiceTarget?.materials || []
@@ -1367,7 +1401,9 @@ export default function CalendarPage() {
         footer={<>
           <Button variant="secondary" fullWidth onClick={closeReschedule}>{translate('common', 'cancel')}</Button>
           <Button fullWidth loading={rescheduleSaving} onClick={handleRescheduleConfirm}>
-            {lang === 'es' ? 'Reprogramar' : 'Reschedule'}
+            {reschedNotifyCount > 0
+              ? (lang === 'es' ? `Reprogramar y avisar a ${reschedNotifyCount}` : `Reschedule & text ${reschedNotifyCount}`)
+              : (lang === 'es' ? 'Reprogramar' : 'Reschedule')}
           </Button>
         </>}
       >
@@ -1375,8 +1411,8 @@ export default function CalendarPage() {
           <p className="text-[13px] text-gray-600">
             {rescheduleMode === 'day'
               ? (lang === 'es'
-                  ? `Mover los ${pendingDayJobs.length} trabajos${selectedDay ? ` del ${fmt(selectedDay, 'MMM d')}` : ''} a una nueva fecha. Cada uno conserva su hora.`
-                  : `Move all ${pendingDayJobs.length} jobs${selectedDay ? ` on ${fmt(selectedDay, 'MMM d')}` : ''} to a new date. Each keeps its time.`)
+                  ? `Mover ${pendingDayJobs.length === 1 ? 'el trabajo' : `los ${pendingDayJobs.length} trabajos`}${selectedDay ? ` del ${fmt(selectedDay, 'MMM d')}` : ''} a una nueva fecha. Cada uno conserva su hora.`
+                  : `Move ${pendingDayJobs.length === 1 ? 'the job' : `all ${pendingDayJobs.length} jobs`}${selectedDay ? ` on ${fmt(selectedDay, 'MMM d')}` : ''} to a new date. Each keeps its time.`)
               : (lang === 'es'
                   ? `Mover el trabajo de ${rescheduleJob?.clientName || clientMap[rescheduleJob?.clientId]?.name || ''} a una nueva fecha y hora.`
                   : `Move ${rescheduleJob?.clientName || clientMap[rescheduleJob?.clientId]?.name || ''}'s job to a new date and time.`)}
@@ -1424,6 +1460,24 @@ export default function CalendarPage() {
                   <option value="weather">{lang === 'es' ? 'Por el clima' : 'Weather'}</option>
                   <option value="emergency">{lang === 'es' ? 'Emergencia' : 'Emergency'}</option>
                 </Select>
+                {reschedPreview && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                        {lang === 'es' ? 'Vista previa del mensaje' : 'Message preview'}
+                      </p>
+                      {reschedPreview.sample && (
+                        <span className="text-[10px] text-gray-400">
+                          {lang === 'es' ? 'ejemplo · cada cliente en su idioma' : 'sample · each client in their language'}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[12px] text-gray-700 whitespace-pre-line leading-snug">{reschedPreview.text}</p>
+                    <p className="text-[10px] text-gray-400 mt-1.5">
+                      {lang === 'es' ? 'También se incluye un enlace al calendario.' : 'A calendar link is also attached.'}
+                    </p>
+                  </div>
+                )}
                 <p className="text-[11px] text-gray-400">
                   {lang === 'es'
                     ? 'Solo se envía a clientes con teléfono válido. Se agrega “Responda STOP para cancelar”.'
