@@ -93,7 +93,7 @@ function buildRescheduleSms({ name, business, oldDate, newDate, time, reason, cl
   const biz = business || 'YardSync'
   if (clientLang === 'es') {
     const why = reason === 'weather' ? 'por el clima, ' : reason === 'emergency' ? 'por una emergencia, ' : ''
-    return `Hola ${name}, ${why}tuvimos que reprogramar su servicio de ${biz} del ${oldDate} para el ${newDate} a las ${time}. Disculpe las molestias.`
+    return `Hola ${name}, ${why}tuvimos que reprogramar su servicio de ${biz} del ${oldDate} al ${newDate} a las ${time}. Disculpe las molestias.`
   }
   const why = reason === 'weather' ? 'due to weather, ' : reason === 'emergency' ? 'due to an emergency, ' : ''
   return `Hi ${name}, ${why}we've rescheduled your ${biz} service from ${oldDate} to ${newDate} at ${time}. Sorry for any inconvenience.`
@@ -1076,7 +1076,7 @@ export default function CalendarPage() {
       clientLang: cLang,
     })
     const stop = cLang === 'es' ? 'Responda STOP para cancelar. – YardSync' : 'Reply STOP to opt out. – YardSync'
-    return { text: `${body}\n${stop}`, sample: rescheduleMode === 'day' && rescheduleJobs.length > 1 }
+    return { text: `${body}\n${stop}`, lang: cLang, sample: rescheduleMode === 'day' && rescheduleJobs.length > 1 }
   })()
 
   const walkInBase           = walkInInvoiceTarget?.basePrice || 0
@@ -1460,7 +1460,7 @@ export default function CalendarPage() {
                   <option value="weather">{lang === 'es' ? 'Por el clima' : 'Weather'}</option>
                   <option value="emergency">{lang === 'es' ? 'Emergencia' : 'Emergency'}</option>
                 </Select>
-                {reschedPreview && (
+                {reschedNotifyCount > 0 && reschedPreview && (
                   <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
                     <div className="flex items-center justify-between mb-1.5">
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
@@ -1474,15 +1474,25 @@ export default function CalendarPage() {
                     </div>
                     <p className="text-[12px] text-gray-700 whitespace-pre-line leading-snug">{reschedPreview.text}</p>
                     <p className="text-[10px] text-gray-400 mt-1.5">
-                      {lang === 'es' ? 'También se incluye un enlace al calendario.' : 'A calendar link is also attached.'}
+                      {reschedPreview.lang === 'es' ? 'También se incluye un enlace al calendario.' : 'A calendar link is also attached.'}
                     </p>
                   </div>
                 )}
-                <p className="text-[11px] text-gray-400">
-                  {lang === 'es'
-                    ? 'Solo se envía a clientes con teléfono válido. Se agrega “Responda STOP para cancelar”.'
-                    : 'Sent only to clients with a valid phone. “Reply STOP to opt out” is added automatically.'}
-                </p>
+                {reschedNotifyCount > 0 ? (
+                  <p className="text-[11px] text-gray-400">
+                    {lang === 'es'
+                      ? 'Solo se envía a clientes con teléfono válido. Se agrega “Responda STOP para cancelar”.'
+                      : 'Sent only to clients with a valid phone. “Reply STOP to opt out” is added automatically.'}
+                  </p>
+                ) : (
+                  <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                    <p className="text-[12px] text-amber-700">
+                      {lang === 'es'
+                        ? 'Ningún cliente con teléfono válido — no se enviará ningún mensaje.'
+                        : 'No clients with a valid phone — no message will be sent.'}
+                    </p>
+                  </div>
+                )}
               </>
             )}
           </div>
