@@ -1,12 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { Leaf, CheckCircle2, AlertCircle } from 'lucide-react'
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
 
 function PayForm({ clientSecret, amount, description, clientName }) {
   const stripe = useStripe()
@@ -112,6 +110,18 @@ export default function PayContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  // Direct-charge PaymentIntents live on the connected account, so Stripe.js
+  // must be initialized with that account (stripeAccount) for confirmCardPayment
+  // to find the PI. Built once the details arrive. Legacy invoices (no
+  // connectedAccountId) load Stripe normally.
+  const stripePromise = useMemo(() => {
+    if (!details) return null
+    const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+    return details.connectedAccountId
+      ? loadStripe(pk, { stripeAccount: details.connectedAccountId })
+      : loadStripe(pk)
+  }, [details])
+
   useEffect(() => {
     if (!paymentIntentId) return
     ;(async () => {
@@ -160,7 +170,22 @@ export default function PayContent() {
           </div>
         )}
 
-        {details && !loading && (
+        {details && !loading && details.status === 'succeeded' && (
+          <div className="flex flex-col items-center gap-4 py-12">
+            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+              <CheckCircle2 size={32} className="text-green-600" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900">Already paid</h2>
+            <p className="text-lg font-semibold text-gray-700">
+              ${(details.amount / 100).toFixed(2)}
+            </p>
+            <p className="text-sm text-gray-500 text-center">
+              This invoice has already been paid. Thank you!
+            </p>
+          </div>
+        )}
+
+        {details && !loading && details.status !== 'succeeded' && (
           <Elements stripe={stripePromise} options={{ clientSecret: details.clientSecret }}>
             <PayForm
               clientSecret={details.clientSecret}

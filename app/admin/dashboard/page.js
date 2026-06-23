@@ -17,11 +17,14 @@ import toast from 'react-hot-toast'
 import { fmt as format } from '@/lib/date'
 
 function splitInvoice(inv) {
-  // Q11 (preferred): when the webhook has captured Stripe's processing fee,
-  // headline "fees" = net to platform (application fee minus processing fee).
+  // Direct charges (current model): the platform's take = netToPlatform, which
+  // the webhook now writes as the FULL application fee (Stripe's processing fee
+  // is borne by the contractor, not us). The contractor's net is the total
+  // minus our 5.5% AND minus the Stripe fee they pay. See
+  // docs/DIRECT_CHARGES_AND_RECEIPTS.md.
   if (typeof inv.netToPlatform === 'number' && typeof inv.totalCents === 'number') {
     const fees     = inv.netToPlatform
-    const gardener = (inv.totalCents || 0) - (inv.applicationFee || 0)
+    const gardener = (inv.totalCents || 0) - (inv.applicationFee || 0) - (inv.stripeProcessingFee || 0)
     return { fees, gardener }
   }
   // Modern destination-charge invoices (post 2026-04) write applicationFee

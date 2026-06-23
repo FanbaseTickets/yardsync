@@ -1758,7 +1758,10 @@ export default function CalendarPage() {
       >
         {invoicePreview && (() => {
           const fee = Math.round(invoicePreview.totalCents * 0.055)
-          const net = invoicePreview.totalCents - fee
+          // Direct charge: the contractor also pays Stripe's processing fee
+          // (≈2.9% + $0.30). Show it so "You receive" is never a surprise.
+          const stripeFee = Math.round(invoicePreview.totalCents * 0.029) + 30
+          const net = invoicePreview.totalCents - fee - stripeFee
           return (
             <div className="space-y-3">
               <p className="text-[12px] text-gray-500">
@@ -1798,6 +1801,10 @@ export default function CalendarPage() {
                 <div className="flex justify-between px-3 py-1.5 text-[11px] text-gray-500">
                   <span>{lang === 'es' ? 'Comisión YardSync (5.5%)' : 'YardSync fee (5.5%)'}</span>
                   <span>−{formatCents(fee)}</span>
+                </div>
+                <div className="flex justify-between px-3 py-1.5 text-[11px] text-gray-500">
+                  <span>{lang === 'es' ? 'Tarifa de procesamiento Stripe' : 'Stripe processing fee'}</span>
+                  <span>−{formatCents(stripeFee)}</span>
                 </div>
                 <div className="flex justify-between px-3 py-2 text-[13px] bg-brand-50">
                   <span className="text-brand-700 font-medium">{lang === 'es' ? 'Tú recibes' : 'You receive'}</span>

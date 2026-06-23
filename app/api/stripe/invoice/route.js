@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { createDocument } from '@/lib/firestoreRest'
+import { createDocument, getDocument } from '@/lib/firestoreRest'
 import { sendClientEmail } from '@/lib/email'
 import { getBaseUrl } from '@/lib/baseUrl'
 import { computeInvoiceType } from '@/lib/stripeHelpers'
@@ -75,7 +75,6 @@ function buildInvoiceEmail({ clientName, totalCents, paymentUrl, contractorName,
 export async function POST(req) {
   try {
     const {
-      stripeAccountId,
       totalCents,
       lineItems,
       clientName,
@@ -101,8 +100,22 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Forbidden', code: 'forbidden' }, { status: 403 })
     }
 
-    if (!stripeAccountId) {
-      return NextResponse.json({ error: 'Stripe Connect not completed', code: 'no_connect' }, { status: 400 })
+    // Derive the connected account from the VERIFIED gardener's profile — never
+    // trust a client-supplied account id, or a caller could mint a direct charge
+    // on someone else's account. Require charges enabled so we fail clearly
+    // instead of with a raw Stripe "card_payments not active" error.
+    const gardenerDoc     = await getDocument('users', gardenerUid)
+    const stripeAccountId = gardenerDoc?.data?.stripeAccountId
+    // Direct charges need card_payments ACTIVE. Block when charges aren't
+    // enabled, or when card_payments is explicitly inactive. (The field is
+    // populated by the account.updated webhook; treat absent as "rely on
+    // charges_enabled" so accounts that haven't re-synced since this change
+    // aren't falsely locked out — Stripe still rejects the charge if it's
+    // genuinely inactive.)
+    const chargesEnabled    = gardenerDoc?.data?.stripeChargesEnabled === true
+    const cardPaymentsActive = gardenerDoc?.data?.stripeCardPaymentsActive
+    if (!stripeAccountId || !chargesEnabled || cardPaymentsActive === false) {
+      return NextResponse.json({ error: 'Finish payment setup before sending invoices', code: 'no_connect' }, { status: 400 })
     }
 
     // Amount: when line items are provided, recompute the total server-side from
@@ -125,35 +138,40 @@ export async function POST(req) {
     }
 
     const applicationFeeAmount = Math.round(chargeCents * 0.055)
+    // Direct charge: the contractor also bears Stripe's processing fee
+    // (≈2.9% + $0.30), so their take is the total minus our 5.5% AND minus the
+    // Stripe fee. Estimated here for the "you receive" display at send time; the
+    // webhook overwrites contractorReceives with the same formula on payment.
+    const estStripeFee     = Math.round(chargeCents * 0.029) + 30
+    const contractorNet    = Math.max(0, chargeCents - applicationFeeAmount - estStripeFee)
 
-    // Step 1: Create Stripe PaymentIntent (destination charge).
+    // Step 1: Create Stripe PaymentIntent as a DIRECT CHARGE on the connected
+    // account (the `stripeAccount` request option). See
+    // docs/DIRECT_CHARGES_AND_RECEIPTS.md.
     //
-    // The platform (YardSync) is the merchant of record; funds settle to the
-    // platform and the contractor's share is routed via transfer_data.destination
-    // while the 5.5% application fee stays with the platform.
-    //
-    // NOTE: we intentionally do NOT set on_behalf_of. on_behalf_of makes the
-    // connected account the merchant of record, which Stripe only permits when
-    // that account has the `card_payments` capability. Our Connect accounts are
-    // onboarded with `transfers` only (see connect/create-account), so setting
-    // on_behalf_of fails every charge with "...connected account with `transfers`
-    // but without the `card_payments` capability enabled." Contractor-branded
-    // receipts would require requesting card_payments at onboarding + additional
-    // KYC on every account — tracked as a deliberate follow-up, not done here.
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: chargeCents,
-      currency: 'usd',
-      application_fee_amount: applicationFeeAmount,
-      transfer_data: { destination: stripeAccountId },
-      description: description || 'YardSync invoice',
-      receipt_email: clientEmail || undefined,
-      metadata: {
-        gardenerUid,
-        clientId,
-        clientName: clientName || '',
-        lineItemCount: String(lineItems?.length || 0),
+    // The CONTRACTOR (connected account) is the merchant of record: the charge
+    // settles on their account, the receipt + card statement are theirs, and
+    // refund/dispute liability falls on them (ToS §5). YardSync takes its 5.5%
+    // as application_fee_amount; Stripe's processing fee is borne by the
+    // connected account. Requires card_payments active on the account (gated at
+    // onboarding). NOTE: no transfer_data — that's for destination charges where
+    // the platform is merchant of record (the model we moved away from).
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
+        amount: chargeCents,
+        currency: 'usd',
+        application_fee_amount: applicationFeeAmount,
+        description: description || 'YardSync invoice',
+        receipt_email: clientEmail || undefined,
+        metadata: {
+          gardenerUid,
+          clientId,
+          clientName: clientName || '',
+          lineItemCount: String(lineItems?.length || 0),
+        },
       },
-    })
+      { stripeAccount: stripeAccountId }
+    )
 
     const paymentUrl = `${getBaseUrl(req)}/pay/${paymentIntent.id}`
 
@@ -171,9 +189,13 @@ export async function POST(req) {
         clientPhone:           clientPhone || '',
         totalCents:            chargeCents,
         stripePaymentIntentId: paymentIntent.id,
+        // The connected account the PaymentIntent lives on (direct charge). The
+        // pay page + webhook need this to retrieve the PI with the right
+        // Stripe-Account context.
+        stripeAccountId:       stripeAccountId,
         stripePaymentUrl:      paymentUrl,
         applicationFee:        applicationFeeAmount,
-        contractorReceives:    chargeCents - applicationFeeAmount,
+        contractorReceives:    contractorNet,
         status:                'sent',
         paymentPath:           'stripe',
         // Compute invoiceType from lineItem categories so a "recurring" client
@@ -229,7 +251,7 @@ export async function POST(req) {
       paymentUrl,
       amount: chargeCents,
       applicationFee: applicationFeeAmount,
-      contractorReceives: chargeCents - applicationFeeAmount,
+      contractorReceives: contractorNet,
       emailNotified: !!(emailChannel && clientEmail),
       smsRequested:  !!smsChannel,
     })
