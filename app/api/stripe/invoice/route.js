@@ -138,6 +138,12 @@ export async function POST(req) {
     }
 
     const applicationFeeAmount = Math.round(chargeCents * 0.055)
+    // Direct charge: the contractor also bears Stripe's processing fee
+    // (≈2.9% + $0.30), so their take is the total minus our 5.5% AND minus the
+    // Stripe fee. Estimated here for the "you receive" display at send time; the
+    // webhook overwrites contractorReceives with the same formula on payment.
+    const estStripeFee     = Math.round(chargeCents * 0.029) + 30
+    const contractorNet    = Math.max(0, chargeCents - applicationFeeAmount - estStripeFee)
 
     // Step 1: Create Stripe PaymentIntent as a DIRECT CHARGE on the connected
     // account (the `stripeAccount` request option). See
@@ -189,7 +195,7 @@ export async function POST(req) {
         stripeAccountId:       stripeAccountId,
         stripePaymentUrl:      paymentUrl,
         applicationFee:        applicationFeeAmount,
-        contractorReceives:    chargeCents - applicationFeeAmount,
+        contractorReceives:    contractorNet,
         status:                'sent',
         paymentPath:           'stripe',
         // Compute invoiceType from lineItem categories so a "recurring" client
@@ -245,7 +251,7 @@ export async function POST(req) {
       paymentUrl,
       amount: chargeCents,
       applicationFee: applicationFeeAmount,
-      contractorReceives: chargeCents - applicationFeeAmount,
+      contractorReceives: contractorNet,
       emailNotified: !!(emailChannel && clientEmail),
       smsRequested:  !!smsChannel,
     })

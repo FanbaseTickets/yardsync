@@ -170,7 +170,22 @@ export default function PayContent() {
           </div>
         )}
 
-        {details && !loading && (
+        {details && !loading && details.status === 'succeeded' && (
+          <div className="flex flex-col items-center gap-4 py-12">
+            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+              <CheckCircle2 size={32} className="text-green-600" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900">Already paid</h2>
+            <p className="text-lg font-semibold text-gray-700">
+              ${(details.amount / 100).toFixed(2)}
+            </p>
+            <p className="text-sm text-gray-500 text-center">
+              This invoice has already been paid. Thank you!
+            </p>
+          </div>
+        )}
+
+        {details && !loading && details.status !== 'succeeded' && (
           <Elements stripe={stripePromise} options={{ clientSecret: details.clientSecret }}>
             <PayForm
               clientSecret={details.clientSecret}

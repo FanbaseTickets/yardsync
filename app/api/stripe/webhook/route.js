@@ -437,6 +437,9 @@ export async function POST(request) {
             updatedAt:            new Date().toISOString(),
             stripeProcessingFee,
             netToPlatform,
+            // Direct charge: contractor's actual take = total − our fee − their
+            // Stripe fee. Overwrites the send-time estimate with the settled value.
+            contractorReceives:   Math.max(0, amountCents - applicationFee - stripeProcessingFee),
           })
           console.log(`Invoice ${invDoc.id} marked paid via PaymentIntent ${pi.id} — amount: ${amountCents}¢, appFee: ${applicationFee}¢, contractorStripeFee: ${stripeProcessingFee}¢, netToPlatform(full appFee): ${netToPlatform}¢`)
 
