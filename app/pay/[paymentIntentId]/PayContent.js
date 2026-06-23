@@ -1,12 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { Leaf, CheckCircle2, AlertCircle } from 'lucide-react'
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
 
 function PayForm({ clientSecret, amount, description, clientName }) {
   const stripe = useStripe()
@@ -111,6 +109,18 @@ export default function PayContent() {
   const [details, setDetails] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+
+  // Direct-charge PaymentIntents live on the connected account, so Stripe.js
+  // must be initialized with that account (stripeAccount) for confirmCardPayment
+  // to find the PI. Built once the details arrive. Legacy invoices (no
+  // connectedAccountId) load Stripe normally.
+  const stripePromise = useMemo(() => {
+    if (!details) return null
+    const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+    return details.connectedAccountId
+      ? loadStripe(pk, { stripeAccount: details.connectedAccountId })
+      : loadStripe(pk)
+  }, [details])
 
   useEffect(() => {
     if (!paymentIntentId) return

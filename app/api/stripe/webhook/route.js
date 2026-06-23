@@ -398,6 +398,10 @@ export async function POST(request) {
           stripeRequirementsDisabledReason:  reqs.disabled_reason || null,
           stripeChargesEnabled:              account.charges_enabled || false,
           stripePayoutsEnabled:              account.payouts_enabled || false,
+          // Direct charges require card_payments active (not just charges_enabled,
+          // which can be true off the transfers capability alone). The invoice
+          // route gates on this.
+          stripeCardPaymentsActive:          account.capabilities?.card_payments === 'active',
           stripeRequirementsUpdatedAt:       new Date().toISOString(),
           updatedAt:                         new Date().toISOString(),
         })
@@ -414,25 +418,18 @@ export async function POST(request) {
         console.log('Invoice query result – empty:', !invDoc, 'searching for:', pi.id)
 
         if (invDoc) {
-          // Compute Stripe processing fee from the standard US card formula:
-          // 2.9% of the amount + $0.30 (30¢) fixed. This is the rate Stripe
-          // charges on a destination charge, taken from the platform's portion
-          // (the application_fee_amount). The fee is stable and predictable
-          // across the common card types YardSync sees.
-          //
-          // Previously we tried to fetch `latest_charge.balance_transaction.fee`
-          // via stripe.paymentIntents.retrieve(), but for destination charges
-          // the balance_transaction lives on the connected account, not the
-          // platform — the retrieve returned null and the fields were never
-          // written. (Found via Phase G of the 2026-06-03 SMS sweep.)
-          //
-          // ALSO: queryCollection returns { id, name, data } — earlier code
-          // read invDoc.applicationFee directly (always undefined) instead of
-          // invDoc.data.applicationFee. That's now fixed.
+          // DIRECT CHARGE economics (see docs/DIRECT_CHARGES_AND_RECEIPTS.md):
+          // the connected account is the merchant of record, so Stripe's
+          // processing fee (≈2.9% + $0.30) is borne by the CONTRACTOR, not the
+          // platform. YardSync therefore nets the FULL 5.5% application fee.
+          //   netToPlatform   = applicationFee            (full, no fee subtracted)
+          //   stripeProcessingFee = the contractor's Stripe cost (recorded for
+          //                         the contractor's net display, not ours)
+          // (queryCollection returns { id, name, data } — read invDoc.data.*)
           const amountCents          = pi.amount || 0
           const applicationFee       = invDoc.data.applicationFee || pi.application_fee_amount || 0
-          const stripeProcessingFee  = Math.round(amountCents * 0.029) + 30
-          const netToPlatform        = applicationFee - stripeProcessingFee
+          const stripeProcessingFee  = Math.round(amountCents * 0.029) + 30 // contractor's cost
+          const netToPlatform        = applicationFee
 
           await updateDocument('invoices', invDoc.id, {
             status:               'paid',
@@ -441,7 +438,7 @@ export async function POST(request) {
             stripeProcessingFee,
             netToPlatform,
           })
-          console.log(`Invoice ${invDoc.id} marked paid via PaymentIntent ${pi.id} — amount: ${amountCents}¢, appFee: ${applicationFee}¢, stripeFee: ${stripeProcessingFee}¢, net: ${netToPlatform}¢`)
+          console.log(`Invoice ${invDoc.id} marked paid via PaymentIntent ${pi.id} — amount: ${amountCents}¢, appFee: ${applicationFee}¢, contractorStripeFee: ${stripeProcessingFee}¢, netToPlatform(full appFee): ${netToPlatform}¢`)
 
           // Trust-state mechanic (spec §6.3): a first paid invoice for an
           // intake-sourced upfront client increments completedJobsCount, which
