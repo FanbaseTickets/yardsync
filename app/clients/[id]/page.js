@@ -1268,9 +1268,13 @@ async function handleSendInvoice(channels = 'both') {
                   <span className="text-brand-600">{lang === 'es' ? 'Tarifa YardSync (5.5%)' : 'YardSync fee (5.5%)'}</span>
                   <span className="text-brand-600">-{formatCents(inv.applicationFee || 0)}</span>
                 </div>
+                <div className="flex justify-between text-[12px]">
+                  <span className="text-brand-600">{lang === 'es' ? 'Tarifa de procesamiento Stripe' : 'Stripe processing fee'}</span>
+                  <span className="text-brand-600">-{formatCents(inv.stripeProcessingFee || (Math.round((inv.totalCents || 0) * 0.029) + 30))}</span>
+                </div>
                 <div className="flex justify-between text-[13px] font-medium">
                   <span className="text-brand-800">{lang === 'es' ? 'Tú recibes' : 'You receive'}</span>
-                  <span className="text-brand-900">{formatCents(inv.contractorReceives || (inv.totalCents - (inv.applicationFee || 0)))}</span>
+                  <span className="text-brand-900">{formatCents(inv.contractorReceives ?? ((inv.totalCents || 0) - (inv.applicationFee || 0) - (inv.stripeProcessingFee || (Math.round((inv.totalCents || 0) * 0.029) + 30))))}</span>
                 </div>
               </div>
 
