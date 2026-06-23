@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { loadConnectAndInitialize } from '@stripe/connect-js'
 import { ConnectComponentsProvider, ConnectAccountOnboarding } from '@stripe/react-connect-js'
@@ -9,12 +9,32 @@ import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 
 export default function ConnectStripeContent() {
-  const { user } = useAuth()
+  const { user, profile, loading } = useAuth()
   const router = useRouter()
   const [stripeConnectInstance, setStripeConnectInstance] = useState(null)
+  const initedRef = useRef(false)
 
   useEffect(() => {
-    if (!user) return
+    if (loading) return
+    if (!user) { router.replace('/login'); return }
+
+    // Subscription gate: you pay the YardSync subscription BEFORE connecting a
+    // bank. This page isn't behind the AppShell sub-gate, so without this an
+    // un-subscribed user could reach the bank step (and create a Connect
+    // account) by URL — a free-rider hole. Allow the just-subscribed grace
+    // window (?subscribed=true) since the profile can lag the checkout webhook.
+    const justSubscribed = typeof window !== 'undefined' && window.location.search.includes('subscribed=true')
+    const status = profile?.subscriptionStatus
+    const subscribed = status === 'active' || status === 'trialing'
+    if (!subscribed && !justSubscribed) {
+      router.replace(status === 'canceled' || status === 'cancelled' ? '/reactivate' : '/subscribe')
+      return
+    }
+
+    // Create the Connect account at most once (the effect re-runs on profile
+    // changes, and create-account is not idempotent).
+    if (initedRef.current) return
+    initedRef.current = true
 
     const init = async () => {
       try {
@@ -50,7 +70,7 @@ export default function ConnectStripeContent() {
     }
 
     init()
-  }, [user])
+  }, [user, profile, loading])
 
   const handleComplete = async () => {
     await updateDoc(doc(db, 'users', user.uid), {

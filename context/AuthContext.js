@@ -57,6 +57,11 @@ export function AuthProvider({ children }) {
       email,
       language: language || 'en',
       subscriptionStatus: 'none',
+      // Record affirmative Terms acceptance at account creation (the signup form
+      // requires the checkbox). Evidence for the merchant-of-record / liability
+      // terms in ToS Section 5.
+      termsAcceptedAt: new Date().toISOString(),
+      termsVersion:    '2026-06-22',
       basePackages: {
         monthly:   { label: 'Monthly',   visits: 2,  basePriceCents: 6500  },
         quarterly: { label: 'Quarterly', visits: 6,  basePriceCents: 18500 },
@@ -109,6 +114,8 @@ export function AuthProvider({ children }) {
         businessName: '',
         email:        cred.user.email || '',
         subscriptionStatus: 'none',
+        termsAcceptedAt: new Date().toISOString(),
+        termsVersion:    '2026-06-22',
         smsTemplate:   'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! Reply STOP to opt out. – {business}',
         smsTemplateEs: 'Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! Responda STOP para cancelar. – {business}',
       }

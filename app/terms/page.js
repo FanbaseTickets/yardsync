@@ -2,7 +2,7 @@ export default function TermsPage() {
   return (
     <div className="max-w-2xl mx-auto px-6 py-12">
       <h1 className="text-3xl font-bold mb-2">Terms and Conditions</h1>
-      <p className="text-sm text-gray-500 mb-8">Last updated: June 20, 2026</p>
+      <p className="text-sm text-gray-500 mb-8">Last updated: June 22, 2026</p>
 
       <section className="space-y-6 text-gray-700 text-sm leading-relaxed">
 
@@ -32,7 +32,7 @@ export default function TermsPage() {
           <p>YardSync has two separate charges, both billed through Stripe:</p>
           <ul className="list-disc pl-5 mt-2 space-y-2">
             <li><strong>Subscription fee.</strong> $39 per month or $390 per year, billed in advance to the payment method on file. New accounts are charged a one-time $99 Pro Setup fee at signup. Subscriptions can be cancelled at any time and remain active through the end of the paid period. The $99 Pro Setup fee is non-refundable, including in the event of cancellation within the first 30 days.</li>
-            <li><strong>Per-invoice application fee.</strong> A flat 5.5% application fee is taken on every invoice you send to your clients through YardSync, deducted automatically at the time the client pays. The remaining balance is transferred to your connected Stripe account. This fee is shown on every invoice preview before you send it.</li>
+            <li><strong>Per-invoice application fee.</strong> A flat 5.5% application fee is taken on every invoice you send to your clients through YardSync, deducted automatically at the time the client pays. The remaining balance settles directly to your connected Stripe account. This fee is shown on every invoice preview before you send it.</li>
           </ul>
           <p className="mt-2"><strong>Volume rewards.</strong> Service providers who consistently process high invoice volume through YardSync earn automatic discounts on their subscription. Processing $1,500 or more in invoices in a month for two consecutive months reduces the subscription fee by 50%. Processing $3,000 or more in invoices in a month for two consecutive months waives the subscription fee entirely. Discounts persist as long as the qualifying volume is maintained and revert if volume drops below the threshold.</p>
           <p className="mt-2"><strong>Stripe&apos;s own processing fees are separate</strong> and are charged by Stripe directly against the payment, in addition to the YardSync application fee. YardSync does not control, collect, or rebate Stripe processing fees.</p>
@@ -42,7 +42,9 @@ export default function TermsPage() {
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">5. Stripe Payment Processing</h2>
           <p>Payment processing services for service providers on YardSync are provided by Stripe and are subject to the Stripe Connected Account Agreement, which includes the Stripe Terms of Service (collectively, the &quot;Stripe Services Agreement&quot;). By connecting a bank account and accepting payments through YardSync, you agree to be bound by the Stripe Services Agreement, as the same may be modified by Stripe from time to time. As a condition of YardSync enabling payment processing services through Stripe, you agree to provide YardSync accurate and complete information about you and your business, and you authorize YardSync to share it and transaction information related to your use of the payment processing services provided by Stripe.</p>
-          <p className="mt-2">YardSync uses destination charges. For each client payment processed through YardSync Pay, JNew Technologies is the merchant of record. The contractor (connected account) receives the payment net of the 5.5% application fee.</p>
+          <p className="mt-2">YardSync facilitates payments between service providers and their clients using Stripe Connect direct charges. <strong>The service provider (the connected Stripe account) is the merchant of record for each client payment.</strong> JNew Technologies acts solely as a technology platform and payment facilitator and is not the merchant of record, the seller, or the provider of the underlying field-service work, and is not a party to any agreement between a service provider and its client.</p>
+          <p className="mt-2"><strong>Refunds, chargebacks, and disputes.</strong> Because the service provider is the merchant of record, the service provider is solely responsible for all refunds, chargebacks, disputed charges, and any related fees arising from payments collected through YardSync Pay. Refunds are issued from the service provider&apos;s connected account, and the service provider authorizes Stripe and JNew Technologies to debit the connected account for the amount of any refund, chargeback, dispute, or associated fee. The service provider is responsible for maintaining a sufficient connected-account balance to cover these amounts and for any resulting negative balance. The 5.5% application fee is non-refundable and is retained by JNew Technologies even if a client payment is later refunded or disputed. JNew Technologies does not guarantee any client payment and is not liable for, or a party to, any dispute between a service provider and its client.</p>
+          <p className="mt-2">Stripe&apos;s own processing fees are charged by Stripe directly against each payment and are borne by the service provider&apos;s connected account, separate from and in addition to the 5.5% application fee.</p>
         </div>
 
         <div>

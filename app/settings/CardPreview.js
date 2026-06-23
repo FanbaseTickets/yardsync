@@ -184,6 +184,16 @@ export default function CardPreview({
             </div>
           )}
 
+          {/* When both exist, the logo rides as a small badge under the headshot
+              (mirrors the real /join card + the downloadable assets). */}
+          {headshotUrl && logoUrl && (
+            <img
+              src={logoUrl}
+              alt=""
+              className="mt-1.5 w-9 h-9 rounded-md object-contain bg-white border border-gray-200 p-1 shadow-sm"
+            />
+          )}
+
           {/* Name + tagline */}
           <h3
             className="mt-2 text-[15px] font-bold text-gray-900 text-center leading-tight"
