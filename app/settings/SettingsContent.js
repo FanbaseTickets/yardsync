@@ -13,6 +13,7 @@ import LogoUpload from '@/components/ui/LogoUpload'
 import CardPreview from './CardPreview'
 import CardAssets from './CardAssets'
 import DataExport from './DataExport'
+import { normalizeEsTemplate } from '@/lib/smsTemplate'
 import { saveGardenerProfile, getGardenerProfile, getInvoices } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { Bell, Globe, User, Clock, CreditCard, Link2, CheckCircle2, ArrowUpCircle, TrendingUp, Lock, Zap, LogOut, AlertTriangle } from 'lucide-react'
@@ -140,7 +141,7 @@ export default function SettingsPage() {
         reminderTiming: profile.reminderTiming || '48',
         language:       profile.language       || 'en',
         smsTemplate:    profile.smsTemplate    || 'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! Reply STOP to opt out. – {business}',
-        smsTemplateEs:  profile.smsTemplateEs  || '¡Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! Responda STOP para cancelar. – {business}',
+        smsTemplateEs:  normalizeEsTemplate(profile.smsTemplateEs),
         logoUrl:        profile.logoUrl        || '',
         headshotUrl:    profile.headshotUrl    || '',
         bio:                  profile.bio                  || '',
@@ -1396,7 +1397,7 @@ export default function SettingsPage() {
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">50% off</span>
-                        <p className="text-[12px] font-semibold text-gray-800">$19/{lang === 'es' ? 'mes' : 'mo'}</p>
+                        <p className="text-[12px] font-semibold text-gray-800">$19.50/{lang === 'es' ? 'mes' : 'mo'}</p>
                       </div>
                     </div>
                     <div className={`flex items-center justify-between rounded-xl px-3 py-2.5 ${tier === 3 ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-100'}`}>

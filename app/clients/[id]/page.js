@@ -366,7 +366,7 @@ async function handleSendInvoice(channels = 'both') {
         clientName: client.name,
         clientEmail: client.email || '',
         clientPhone: client.phone || '',
-        description: `YardSync invoice — ${client.name}`,
+        description: `${profile?.businessName || 'YardSync'} — invoice for ${client.name}`,
         gardenerUid: user.uid,
         clientId: id,
         // invoiceType is computed server-side from lineItem categories
