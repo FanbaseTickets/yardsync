@@ -979,6 +979,21 @@ async function handleSendInvoice(channels = 'both') {
               </span>
               <span className="font-bold text-brand-900">{formatCents(invoiceTotal)}</span>
             </div>
+            {/* What the contractor actually nets — shown BEFORE sending so the
+                fees (incl. the Stripe fee they bear on direct charges) are never
+                a surprise. */}
+            <div className="flex justify-between text-[11px] text-brand-600 pt-1">
+              <span>{lang === 'es' ? 'Comisión YardSync (5.5%)' : 'YardSync fee (5.5%)'}</span>
+              <span>−{formatCents(Math.round(invoiceTotal * 0.055))}</span>
+            </div>
+            <div className="flex justify-between text-[11px] text-brand-600">
+              <span>{lang === 'es' ? 'Tarifa de procesamiento Stripe' : 'Stripe processing fee'}</span>
+              <span>−{formatCents(Math.round(invoiceTotal * 0.029) + 30)}</span>
+            </div>
+            <div className="flex justify-between text-[14px] font-bold border-t border-brand-200 pt-2 mt-1">
+              <span className="text-brand-700">{lang === 'es' ? 'Tú recibes' : 'You receive'}</span>
+              <span className="text-brand-700">{formatCents(invoiceTotal - Math.round(invoiceTotal * 0.055) - (Math.round(invoiceTotal * 0.029) + 30))}</span>
+            </div>
           </div>
 
         </div>

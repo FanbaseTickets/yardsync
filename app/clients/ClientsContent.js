@@ -78,13 +78,25 @@ const DEFAULT_FORM = {
 // Sentinel serviceId for the inline "+ New package" option in the dropdown.
 const NEW_PACKAGE = '__new__'
 
+// Frequency options for the inline "+ New package" creator. These are VISIT
+// cadences (recurrence). Biweekly is the most common lawn-care cadence — its
+// absence made a contractor's "$45 every 2 weeks" package show as "monthly"
+// (wrong). packageType (billing/badge) is derived from this in resolvePackage.
 const PACKAGE_TYPE_OPTIONS = [
-  { value: 'weekly',    en: 'Weekly',    es: 'Semanal'    },
-  { value: 'monthly',   en: 'Monthly',   es: 'Mensual'    },
-  { value: 'quarterly', en: 'Quarterly', es: 'Trimestral' },
-  { value: 'annual',    en: 'Annual',    es: 'Anual'      },
-  { value: 'onetime',   en: 'One-time',  es: 'Una vez'    },
+  { value: 'weekly',    en: 'Every week',     es: 'Cada semana'    },
+  { value: 'biweekly',  en: 'Every 2 weeks',  es: 'Cada 2 semanas' },
+  { value: 'monthly',   en: 'Monthly',        es: 'Mensual'        },
+  { value: 'quarterly', en: 'Quarterly',      es: 'Trimestral'     },
+  { value: 'annual',    en: 'Annual',         es: 'Anual'          },
+  { value: 'onetime',   en: 'One-time',       es: 'Una vez'        },
 ]
+
+// Map a visit-cadence frequency → packageType (billing category / badge).
+// Biweekly + weekly visits bill monthly in the lawn-care model.
+function freqToPackageType(freq) {
+  if (freq === 'biweekly') return 'monthly'
+  return freq
+}
 
 export default function ClientsPage() {
   const { user }            = useAuth()
@@ -159,7 +171,7 @@ export default function ClientsPage() {
     if (isNewPackage) {
       return {
         serviceId:       '',
-        packageType:     form.newPkgType,
+        packageType:     freqToPackageType(form.newPkgType),
         basePriceCents:  Math.round(parseFloat(form.newPkgPrice || '0') * 100),
         packageLabel:    form.newPkgLabel.trim(),
         packageDesc:     '',
@@ -190,7 +202,7 @@ export default function ClientsPage() {
       await addService(user.uid, {
         serviceType: 'base',
         packageType: pkg.packageType,
-        recurrence:  pkg.packageType,
+        recurrence:  pkg.recurrence,
         label:       pkg.packageLabel,
         description: '',
         priceCents:  pkg.basePriceCents,
