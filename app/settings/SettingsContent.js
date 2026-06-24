@@ -12,6 +12,7 @@ import PhoneInput from '@/components/ui/PhoneInput'
 import LogoUpload from '@/components/ui/LogoUpload'
 import CardPreview from './CardPreview'
 import CardAssets from './CardAssets'
+import DataExport from './DataExport'
 import { saveGardenerProfile, getGardenerProfile, getInvoices } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { Bell, Globe, User, Clock, CreditCard, Link2, CheckCircle2, ArrowUpCircle, TrendingUp, Lock, Zap, LogOut, AlertTriangle } from 'lucide-react'
@@ -1501,6 +1502,13 @@ export default function SettingsPage() {
               </button>
             </div>
           )}
+
+          {/* Your data — CSV export (clients + invoice history). Data ownership
+              per ToS §7; reassures at signup without making churn easy (the
+              value layers — lead funnel, QR card, rewards — aren't portable). */}
+          <div className="pt-4 border-t border-gray-100 mt-4">
+            <DataExport lang={lang} />
+          </div>
           </>)}
 
           <div className="mt-8 pt-6 border-t border-gray-200">
