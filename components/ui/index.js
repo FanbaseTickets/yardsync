@@ -88,6 +88,7 @@ export function Select({ label, id, error, hint, className, containerClassName, 
 
 const BADGE_STYLES = {
   monthly:   'bg-emerald-50 text-emerald-800',
+  biweekly:  'bg-teal-50 text-teal-800',
   quarterly: 'bg-blue-50 text-blue-800',
   annual:    'bg-amber-50 text-amber-800',
   weekly:    'bg-purple-50 text-purple-800',
