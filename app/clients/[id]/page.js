@@ -700,6 +700,7 @@ async function handleSendInvoice(channels = 'both') {
           <AiReminderDrafter
             client={client}
             contractorName={profile?.businessName || profile?.displayName || user?.displayName || 'Your contractor'}
+            businessName={profile?.businessName || profile?.displayName || user?.displayName || 'Your contractor'}
             lang={lang}
             gardenerUid={user?.uid}
             onSent={() => { if (refreshProfile) refreshProfile().catch(() => {}) }}

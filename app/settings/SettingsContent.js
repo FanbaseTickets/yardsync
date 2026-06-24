@@ -139,7 +139,7 @@ export default function SettingsPage() {
         reminderTiming: profile.reminderTiming || '48',
         language:       profile.language       || 'en',
         smsTemplate:    profile.smsTemplate    || 'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! Reply STOP to opt out. – {business}',
-        smsTemplateEs:  profile.smsTemplateEs  || 'Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! Responda STOP para cancelar. – {business}',
+        smsTemplateEs:  profile.smsTemplateEs  || '¡Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! Responda STOP para cancelar. – {business}',
         logoUrl:        profile.logoUrl        || '',
         headshotUrl:    profile.headshotUrl    || '',
         bio:                  profile.bio                  || '',

@@ -34,6 +34,7 @@ const SAMPLES = [
       serviceType: 'lawn mowing',
       language: 'en',
       contractorName: "Jay's Lawn Care",
+      businessName: "Jay's Lawn Care",
     },
     firstName: 'Maria',
   },
@@ -46,6 +47,7 @@ const SAMPLES = [
       serviceType: 'mantenimiento de aire acondicionado',
       language: 'es',
       contractorName: 'Aire Pro San Antonio',
+      businessName: 'Aire Pro San Antonio',
       additionalNotes: 'Llevar cotización para reparación del compresor',
     },
     firstName: 'Carlos',
@@ -59,6 +61,7 @@ const SAMPLES = [
       serviceType: 'full property landscape redesign with irrigation inspection and tree trimming',
       language: 'en',
       contractorName: 'Greenline Landscaping & Irrigation Services LLC',
+      businessName: 'Greenline Landscaping & Irrigation Services LLC',
     },
     firstName: 'Maria',
   },
@@ -71,22 +74,24 @@ const SAMPLES = [
       serviceType: 'lawn mowing',
       language: 'en',
       contractorName: 'YardPro',
+      businessName: 'YardPro',
       additionalNotes: 'Heavy dew expected — wear boots if you walk the yard before we arrive',
     },
     firstName: 'Tom',
   },
   {
-    name: 'weekend appointment — English, repeat customer',
+    name: 'Spanish reminder — repeat customer, business name sign-off',
     input: {
-      clientName: 'Susan Patel',
+      clientName: 'Susana Patel',
       appointmentDate: saturday,
       appointmentTime: '10:00 AM',
-      serviceType: 'biweekly lawn service',
-      language: 'en',
-      contractorName: 'Greenline Lawn Care',
-      additionalNotes: 'Same crew as last visit',
+      serviceType: 'servicio de jardinería quincenal',
+      language: 'es',
+      contractorName: 'Jardines Verdes',
+      businessName: 'Jardines Verdes',
+      additionalNotes: 'El mismo equipo de la última visita',
     },
-    firstName: 'Susan',
+    firstName: 'Susana',
   },
 ]
 
@@ -101,6 +106,15 @@ const PLACEHOLDER_PATTERNS = [
 ]
 
 const SPANISH_HINTS = [/\bsu\b/i, /\bpara\b/i, /\bcita\b/i, /\bmañana\b/i, /\btarde\b/i, /\bnos vemos\b/i, /\brecordatorio\b/i]
+const ENGLISH_HINTS = [/\byour\b/i, /\bat\b/i, /\bsee you\b/i, /\bappointment\b/i, /\bscheduled\b/i, /\breminder\b/i, /\bservice\b/i]
+
+// Exact A2P opt-out wording per language. Mirrors lib/aiDraft.buildOptOutLine
+// and the default SMS templates.
+function expectedOptOut(businessName, language) {
+  return language === 'es'
+    ? `Responda STOP para cancelar. – ${businessName}`
+    : `Reply STOP to opt out. – ${businessName}`
+}
 
 function containsTime(draft, time) {
   if (draft.toLowerCase().includes(time.toLowerCase())) return true
@@ -116,19 +130,35 @@ function containsTime(draft, time) {
 function checkSample(sample, response) {
   const checks = []
   const draft = response?.draft
+  const isStr = typeof draft === 'string'
+  const { language, businessName } = sample.input
+  const optOut = expectedOptOut(businessName, language)
 
-  checks.push({ name: 'response is { draft, charCount }',     pass: typeof draft === 'string' && typeof response?.charCount === 'number' })
-  checks.push({ name: 'draft is non-empty',                   pass: typeof draft === 'string' && draft.trim().length > 0 })
-  checks.push({ name: 'draft length ≤ 320',                   pass: typeof draft === 'string' && draft.length <= 320 })
-  checks.push({ name: 'charCount matches actual length',      pass: typeof draft === 'string' && response?.charCount === draft.length })
-  checks.push({ name: `contains first name "${sample.firstName}"`, pass: typeof draft === 'string' && draft.toLowerCase().includes(sample.firstName.toLowerCase()) })
-  checks.push({ name: `contains time form "${sample.input.appointmentTime}"`, pass: typeof draft === 'string' && containsTime(draft, sample.input.appointmentTime) })
-  checks.push({ name: 'contains contractor business name',    pass: typeof draft === 'string' && draft.toLowerCase().includes(sample.input.contractorName.toLowerCase()) })
-  checks.push({ name: 'no placeholder tokens',                pass: typeof draft === 'string' && !PLACEHOLDER_PATTERNS.some(re => re.test(draft)) })
-  checks.push({ name: 'at most one exclamation mark',         pass: typeof draft === 'string' && (draft.match(/!/g) || []).length <= 1 })
+  checks.push({ name: 'response is { draft, charCount }',     pass: isStr && typeof response?.charCount === 'number' })
+  checks.push({ name: 'draft is non-empty',                   pass: isStr && draft.trim().length > 0 })
+  checks.push({ name: 'draft length ≤ 320',                   pass: isStr && draft.length <= 320 })
+  checks.push({ name: 'charCount matches actual length',      pass: isStr && response?.charCount === draft.length })
+  checks.push({ name: `contains first name "${sample.firstName}"`, pass: isStr && draft.toLowerCase().includes(sample.firstName.toLowerCase()) })
+  checks.push({ name: `contains time form "${sample.input.appointmentTime}"`, pass: isStr && containsTime(draft, sample.input.appointmentTime) })
+  checks.push({ name: 'contains contractor business name',    pass: isStr && draft.toLowerCase().includes(businessName.toLowerCase()) })
+  checks.push({ name: 'no placeholder tokens',                pass: isStr && !PLACEHOLDER_PATTERNS.some(re => re.test(draft)) })
+  checks.push({ name: 'at most one exclamation mark',         pass: isStr && (draft.match(/!/g) || []).length <= 1 })
 
-  if (sample.input.language === 'es') {
-    checks.push({ name: 'contains Spanish-distinctive word',  pass: typeof draft === 'string' && SPANISH_HINTS.some(re => re.test(draft)) })
+  // BUG 1 regression coverage ───────────────────────────────────────────────
+  // (a) opt-out line present, verbatim, in the message language
+  checks.push({ name: `opt-out line in ${language} ("${optOut}")`, pass: isStr && draft.includes(optOut) })
+  // (b) signed with the business name, NOT "YardSync"
+  const businessIsYardSync = /yardsync/i.test(businessName)
+  checks.push({ name: 'sign-off is NOT "YardSync"', pass: isStr && (businessIsYardSync || !/yardsync/i.test(draft)) })
+  // wrong-language opt-out must NOT appear
+  const wrongOptOutFragment = language === 'es' ? /Reply STOP to opt out/i : /Responda STOP para cancelar/i
+  checks.push({ name: 'no opposite-language opt-out line', pass: isStr && !wrongOptOutFragment.test(draft) })
+
+  // (c) message is in the requested language
+  if (language === 'es') {
+    checks.push({ name: 'message reads as Spanish',  pass: isStr && SPANISH_HINTS.some(re => re.test(draft)) })
+  } else {
+    checks.push({ name: 'message reads as English',  pass: isStr && ENGLISH_HINTS.some(re => re.test(draft)) })
   }
 
   return checks

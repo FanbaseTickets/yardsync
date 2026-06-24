@@ -8,7 +8,7 @@ const TWILIO_MSG_SVC = process.env.TWILIO_MESSAGING_SERVICE_SID
 
 export async function POST(request) {
   try {
-    const { scheduleId, clientId, clientPhone, message, language, gardenerUid } = await request.json()
+    const { scheduleId, clientId, clientPhone, message, language, gardenerUid, business } = await request.json()
 
     if (!TWILIO_SID || !TWILIO_TOKEN || !TWILIO_MSG_SVC) {
       return NextResponse.json(
@@ -59,11 +59,29 @@ export async function POST(request) {
     // generated it.
     const hasOptOut = /\bSTOP\s+to\s+opt\s+out\b/i.test(finalMessage) || /\bSTOP\s+para\s+cancelar\b/i.test(finalMessage)
     if (!hasOptOut) {
+      // Sign the opt-out with the contractor's business name (consistent with
+      // the AI drafter), falling back to "YardSync". A2P 10DLC is satisfied by
+      // the registered Messaging Service the send routes through — the visible
+      // opt-out brand can be the sending business. Caller may pass `business`
+      // directly; otherwise look it up from the contractor's user doc via
+      // gardenerUid. Either way, if resolution fails we fall back to YardSync —
+      // the STOP line is always appended.
+      let signOff = (typeof business === 'string' && business.trim()) || ''
+      if (!signOff && gardenerUid) {
+        try {
+          const gardenerDoc = await getDocument('users', gardenerUid)
+          signOff = (gardenerDoc?.data?.businessName || '').trim()
+        } catch (lookupErr) {
+          console.error('businessName lookup for STOP sign-off failed (non-fatal):', lookupErr.message)
+        }
+      }
+      if (!signOff) signOff = 'YardSync'
+
       const stopLine = language === 'es'
-        ? '\nResponda STOP para cancelar. – YardSync'
-        : '\nReply STOP to opt out. – YardSync'
+        ? `\nResponda STOP para cancelar. – ${signOff}`
+        : `\nReply STOP to opt out. – ${signOff}`
       finalMessage += stopLine
-      console.log('SMS route — appended STOP language (template was missing it)')
+      console.log('SMS route — appended STOP language (template was missing it), signed:', signOff)
     }
 
     // ── STEP 3: Send SMS via Twilio REST API ─────────────────────────────────
