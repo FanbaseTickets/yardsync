@@ -2,7 +2,7 @@ export default function PrivacyPage() {
   return (
     <div className="max-w-2xl mx-auto px-6 py-12">
       <h1 className="text-3xl font-bold mb-2">Privacy Policy</h1>
-      <p className="text-sm text-gray-500 mb-8">Last updated: June 20, 2026</p>
+      <p className="text-sm text-gray-500 mb-8">Last updated: June 24, 2026</p>
 
       <section className="space-y-6 text-gray-700 text-sm leading-relaxed">
 
@@ -63,8 +63,10 @@ export default function PrivacyPage() {
             <li>Access the personal information we hold about you</li>
             <li>Request correction of inaccurate information</li>
             <li>Request deletion of your personal information</li>
+            <li>Obtain a portable copy of certain personal information you have provided</li>
             <li>Opt out of certain data processing activities</li>
           </ul>
+          <p className="mt-2">Service providers may also export their own client and invoice records as CSV files at any time from Settings. These files are generated on your device and downloaded directly to it.</p>
           <p className="mt-2">Texas residents may exercise rights under the Texas Data Privacy and Security Act (TDPSA) by contacting us at <a href="mailto:support@yardsyncapp.com" className="text-green-700 underline">support@yardsyncapp.com</a>. We will respond to verified requests within 45 days.</p>
         </div>
 
@@ -86,6 +88,7 @@ export default function PrivacyPage() {
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">11. Data Security</h2>
           <p>We use industry-standard security measures to protect your data. All data is stored securely in Google Firebase and transmitted over encrypted connections.</p>
+          <p className="mt-2">When you export or download your data, the resulting file leaves YardSync&apos;s secured systems and is stored on your own device. You are responsible for safeguarding any exported files — which may contain client contact details and other personal information — and for handling that information in accordance with applicable law.</p>
         </div>
 
         <div>

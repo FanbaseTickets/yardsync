@@ -2,7 +2,7 @@ export default function TermsPage() {
   return (
     <div className="max-w-2xl mx-auto px-6 py-12">
       <h1 className="text-3xl font-bold mb-2">Terms and Conditions</h1>
-      <p className="text-sm text-gray-500 mb-8">Last updated: June 22, 2026</p>
+      <p className="text-sm text-gray-500 mb-8">Last updated: June 24, 2026</p>
 
       <section className="space-y-6 text-gray-700 text-sm leading-relaxed">
 
@@ -35,7 +35,7 @@ export default function TermsPage() {
             <li><strong>Per-invoice application fee.</strong> A flat 5.5% application fee is taken on every invoice you send to your clients through YardSync, deducted automatically at the time the client pays. The remaining balance settles directly to your connected Stripe account. This fee is shown on every invoice preview before you send it.</li>
           </ul>
           <p className="mt-2"><strong>Volume rewards.</strong> Service providers who consistently process high invoice volume through YardSync earn automatic discounts on their subscription. Processing $1,500 or more in invoices in a month for two consecutive months reduces the subscription fee by 50%. Processing $3,000 or more in invoices in a month for two consecutive months waives the subscription fee entirely. Discounts persist as long as the qualifying volume is maintained and revert if volume drops below the threshold.</p>
-          <p className="mt-2"><strong>Stripe&apos;s own processing fees are separate</strong> and are charged by Stripe directly against the payment, in addition to the YardSync application fee. YardSync does not control, collect, or rebate Stripe processing fees.</p>
+          <p className="mt-2"><strong>Stripe&apos;s own processing fees are separate.</strong> Stripe charges its own payment processing fees (approximately 2.9% plus $0.30 per transaction) directly against each client payment. Because the service provider is the merchant of record, these Stripe processing fees are borne by the service provider and are deducted from the amount that settles to the connected account, in addition to the YardSync 5.5% application fee. YardSync does not control, collect, or rebate Stripe processing fees.</p>
           <p className="mt-2">YardSync may adjust either the subscription fee or the application fee for new accounts at any time, with at least 30 days&apos; notice posted to this page. Existing accounts may be subject to the Early Adopter Pricing Lock described in Section 6.</p>
         </div>
 
@@ -97,6 +97,7 @@ export default function TermsPage() {
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">12. Limitation of Liability</h2>
           <p>JNew Technologies is not liable for indirect, incidental, or consequential damages arising from use of YardSync. The platform is provided as-is without warranties of any kind.</p>
+          <p className="mt-2">Without limiting Section 5, JNew Technologies is not liable for any client payment, refund, chargeback, or dispute, all of which are the sole responsibility of the service provider as merchant of record.</p>
         </div>
 
         <div>
