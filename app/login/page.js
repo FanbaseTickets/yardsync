@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { Input, Button } from '@/components/ui'
 import toast from 'react-hot-toast'
-import { Leaf, Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 
 export default function LoginPage() {
   const { user, loading, signIn, signUp, signInWithGoogle, resetPassword } = useAuth()
@@ -130,7 +130,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-brand-800 via-brand-700 to-brand-600 flex flex-col items-center justify-center px-5 py-10">
       <div className="flex flex-col items-center mb-8">
         <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center mb-3">
-          <Leaf size={30} className="text-white" />
+          <img src="/logo-mark-white.png" alt="YardSync" className="w-[30px] h-[30px]" />
         </div>
         <h1 className="text-3xl font-display text-white tracking-tight">YardSync</h1>
         <p className="text-brand-200 text-sm mt-1">
