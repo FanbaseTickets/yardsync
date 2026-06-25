@@ -56,7 +56,14 @@ export function AuthProvider({ children }) {
       businessName,
       email,
       language: language || 'en',
-      subscriptionStatus: 'none',
+      // Free-access model (docs/FREE_ACCESS_SPEC.md): new accounts start in
+      // 'free_until_paid' — full app access, no charge. The $39/mo subscription
+      // is created on their FIRST paid client invoice. The card on file is
+      // captured later, at the "get paid" setup step (Connect / first invoice).
+      subscriptionStatus: 'free_until_paid',
+      subscriptionPlan:   'monthly',
+      pmOnFile:           false,
+      freeUntilPaidSince: new Date().toISOString(),
       // Record affirmative Terms acceptance at account creation (the signup form
       // requires the checkbox). Evidence for the merchant-of-record / liability
       // terms in ToS Section 5.
@@ -113,7 +120,10 @@ export function AuthProvider({ children }) {
         name:         cred.user.displayName || '',
         businessName: '',
         email:        cred.user.email || '',
-        subscriptionStatus: 'none',
+        subscriptionStatus: 'free_until_paid',
+        subscriptionPlan:   'monthly',
+        pmOnFile:           false,
+        freeUntilPaidSince: new Date().toISOString(),
         termsAcceptedAt: new Date().toISOString(),
         termsVersion:    '2026-06-22',
         smsTemplate:   'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! Reply STOP to opt out. – {business}',

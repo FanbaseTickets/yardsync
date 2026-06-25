@@ -69,6 +69,36 @@ export async function POST(request) {
           break
         }
 
+        // ── Card-on-file capture (free-access model) ──────────────────
+        // A mode:'setup' session means the contractor saved a card with NO
+        // charge at the "get paid" setup step. Mark pmOnFile + store/default
+        // the payment method so the first-paid activation can bill it. Do NOT
+        // touch subscriptionStatus — it stays 'free_until_paid' until their
+        // first client invoice is paid. (See docs/FREE_ACCESS_SPEC.md §4.1.)
+        if (session.mode === 'setup') {
+          try {
+            const si  = session.setup_intent ? await stripe.setupIntents.retrieve(session.setup_intent) : null
+            const pmId = si?.payment_method || null
+            const cust = session.customer || null
+            if (pmId && cust) {
+              await stripe.customers.update(cust, {
+                invoice_settings: { default_payment_method: pmId },
+              })
+            }
+            await updateDocument('users', gardenerUid, {
+              stripeCustomerId:      cust,
+              stripePaymentMethodId: pmId,
+              pmOnFile:              true,
+              pmOnFileAt:            new Date().toISOString(),
+              updatedAt:             new Date().toISOString(),
+            })
+            console.log(`Card on file saved for ${gardenerUid} — pm ${pmId}`)
+          } catch (e) {
+            console.error('setup-mode checkout handling failed:', e.message)
+          }
+          break
+        }
+
         const subscriptionId = session.subscription
         const customerId     = session.customer
 
@@ -469,6 +499,63 @@ export async function POST(request) {
             } catch (trustErr) {
               console.error('[webhook] trust-state increment failed (non-fatal):', trustErr.message)
             }
+          }
+
+          // ── First-paid activation (free-access model) ──────────────────
+          // The contractor's FIRST paid client invoice creates + bills their
+          // $39/mo (or annual) subscription on the card captured at the "get
+          // paid" step. This is the activation trigger for the whole free
+          // model. Idempotent via firstPaidInvoiceId. The subscription bills
+          // on the PLATFORM account (no { stripeAccount }) — YardSync billing
+          // the contractor — using the platform customer + saved PM.
+          // (docs/FREE_ACCESS_SPEC.md §4.3.)
+          try {
+            const gUid     = invDoc.data.gardenerUid
+            const gardener = gUid ? await getDocument('users', gUid) : null
+            const g        = gardener?.data
+            if (g && g.subscriptionStatus === 'free_until_paid' && !g.firstPaidInvoiceId) {
+              if (!g.stripeCustomerId || !g.stripePaymentMethodId) {
+                console.error(`[webhook] first-paid activation BLOCKED for ${gUid}: missing customer/PM`, { cust: g.stripeCustomerId, pm: g.stripePaymentMethodId })
+              } else {
+                const plan    = g.subscriptionPlan === 'annual' ? 'annual' : 'monthly'
+                const priceId = plan === 'annual' ? process.env.STRIPE_PRICE_ANNUAL : process.env.STRIPE_PRICE_MONTHLY
+                const sub = await stripe.subscriptions.create({
+                  customer:               g.stripeCustomerId,
+                  items:                  [{ price: priceId }],
+                  default_payment_method: g.stripePaymentMethodId,
+                  metadata:               { gardenerUid: gUid, activatedByInvoice: invDoc.id },
+                })
+                const periodEnd = getSubscriptionPeriodEndISO(sub)
+                const activated = sub.status === 'active' || sub.status === 'trialing'
+                // Write the subscriptions doc too, so renewal handling
+                // (invoice.payment_succeeded looks it up by stripeSubscriptionId)
+                // and cancel/reactivate work for these accounts.
+                await setDocument('subscriptions', gUid, {
+                  gardenerUid:          gUid,
+                  stripeCustomerId:     g.stripeCustomerId,
+                  stripeSubscriptionId: sub.id,
+                  stripePriceId:        priceId,
+                  plan,
+                  status:               sub.status,
+                  currentPeriodEnd:     periodEnd,
+                  createdAt:            new Date().toISOString(),
+                  updatedAt:            new Date().toISOString(),
+                })
+                await updateDocument('users', gUid, {
+                  subscriptionStatus:   activated ? 'active' : 'past_due',
+                  subscriptionPlan:     plan,
+                  stripeSubscriptionId: sub.id,
+                  currentPeriodEnd:     periodEnd,
+                  firstPaidInvoiceId:   invDoc.id,
+                  firstPaidAt:          new Date().toISOString(),
+                  lastPaymentAt:        activated ? new Date().toISOString() : (g.lastPaymentAt || null),
+                  updatedAt:            new Date().toISOString(),
+                })
+                console.log(`[webhook] first-paid activation: ${gUid} sub ${sub.id} status=${sub.status} via invoice ${invDoc.id}`)
+              }
+            }
+          } catch (actErr) {
+            console.error('[webhook] first-paid activation failed (non-fatal):', actErr.message)
           }
         } else {
           console.log('No invoice found for PaymentIntent:', pi.id)

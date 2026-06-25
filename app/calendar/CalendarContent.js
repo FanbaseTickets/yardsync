@@ -15,6 +15,7 @@ import { formatCents } from '@/lib/fee'
 import { badgePackageType } from '@/lib/clientBadge'
 import { buildInvoiceSms } from '@/lib/invoiceSms'
 import { validatePhone, formatPhone } from '@/lib/phone'
+import { startCardCapture } from '@/lib/cardCapture'
 import PhoneInput from '@/components/ui/PhoneInput'
 import {
   ChevronLeft, ChevronRight, ChevronDown, Plus, CalendarDays,
@@ -471,6 +472,13 @@ export default function CalendarPage() {
       })
       const data = await res.json()
       if (!res.ok) {
+        if (data.code === 'card_required') {
+          toast.loading(lang === 'es'
+            ? 'Agrega una tarjeta para empezar a facturar…'
+            : 'Add a card to start invoicing…')
+          try { await startCardCapture(user) } catch (e) { toast.error(e.message || 'Error') }
+          return
+        }
         if (data.code === 'no_connect') {
           toast.error(lang === 'es'
             ? 'Completa la configuración de pagos en Ajustes antes de enviar facturas'
@@ -710,6 +718,13 @@ export default function CalendarPage() {
       })
       const data = await res.json()
       if (!res.ok) {
+        if (data.code === 'card_required') {
+          toast.loading(lang === 'es'
+            ? 'Agrega una tarjeta para empezar a facturar…'
+            : 'Add a card to start invoicing…')
+          try { await startCardCapture(user) } catch (e) { toast.error(e.message || 'Error') }
+          return
+        }
         if (data.code === 'no_connect') {
           toast.error(lang === 'es'
             ? 'Completa la configuración de pagos en Ajustes antes de enviar facturas'

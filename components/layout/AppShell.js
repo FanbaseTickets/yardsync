@@ -113,7 +113,26 @@ export default function AppShell({ children }) {
         const profile = await getGardenerProfile(user.uid)
         if (profile) {
           const status = profile.subscriptionStatus || 'none'
-          if (status === 'active' || status === 'canceling') {
+
+          // Free-access model (docs/FREE_ACCESS_SPEC.md): a 'free_until_paid'
+          // contractor has FULL app access with no charge — and we do NOT force
+          // Stripe Connect here. They explore + build their card + add clients
+          // freely; the card-on-file + Connect requirement is enforced at
+          // invoice-send time (that's the "get paid" setup step). The $39/mo
+          // subscription is created when their first client invoice is paid.
+          if (status === 'free_until_paid') {
+            clearTimeout(timeoutRef.current)
+            setSubStatus('active')
+            setSubLoading(false)
+            return
+          }
+
+          // 'past_due' = a charge failed (e.g. the first-paid activation or a
+          // renewal). Stripe Smart Retries run for ~2 weeks; keep the
+          // contractor in (grace period) rather than locking them out. If every
+          // retry fails Stripe cancels the sub → status 'canceled' → /reactivate.
+          // (docs/FREE_ACCESS_SPEC.md §4.4.)
+          if (status === 'active' || status === 'canceling' || status === 'past_due') {
             // Success — clear timeout immediately
             clearTimeout(timeoutRef.current)
 
