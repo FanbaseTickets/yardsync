@@ -18,6 +18,7 @@ const dmSerif = DM_Serif_Display({
 })
 
 export const metadata = {
+  metadataBase: new URL('https://yardsyncapp.com'),
   title: 'YardSync',
   description: 'Field service management for professionals',
   manifest: '/manifest.json',
@@ -27,6 +28,20 @@ export const metadata = {
     title: 'YardSync',
   },
   formatDetection: { telephone: false },
+  openGraph: {
+    type: 'website',
+    siteName: 'YardSync',
+    title: 'YardSync',
+    description: 'Field service management for professionals',
+    url: 'https://yardsyncapp.com',
+    images: [{ url: '/og-social.png', width: 1200, height: 630, alt: 'YardSync' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'YardSync',
+    description: 'Field service management for professionals',
+    images: ['/og-social.png'],
+  },
 }
 
 export const viewport = {
@@ -41,7 +56,8 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${dmSans.variable} ${dmSerif.variable}`}>
       <head>
-        <link rel="apple-touch-icon" href="/icon-192.png" />
+        {/* apple-touch-icon + favicon are emitted automatically from
+            app/apple-icon.png and app/icon.png (Next.js file conventions). */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
       </head>
