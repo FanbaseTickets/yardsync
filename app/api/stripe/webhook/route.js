@@ -475,6 +475,168 @@ export async function POST(request) {
         }
         break
       }
+
+      /* ── charge.refunded ────────────────────────── */
+      // Direct-charge refunds fire on the CONNECTED account. The contractor
+      // (merchant of record) issues the refund; we update the invoice so a
+      // fully-refunded charge drops out of paid-revenue sums (volume rewards +
+      // admin P&L). Partial refunds keep status 'paid' but record the refunded
+      // amount. NOTE: the volume/P&L calculators sum totalCents on status
+      // 'paid', so partial refunds are recorded but not yet netted out of
+      // volume — TODO: subtract refundedAmountCents in those calculators.
+      //
+      // FEE-LOSS RISK (TODO, enforce at refund-creation time, not here): our
+      // Terms say the 5.5% application fee is non-refundable. The API default
+      // (refund_application_fee omitted = false) preserves it — BUT if a
+      // contractor issues the refund from their own Stripe Express dashboard,
+      // Stripe refunds the full charge AND pulls back our application fee. The
+      // only reliable enforcement is an in-app "Refund" button that calls
+      // stripe.refunds.create({ charge, refund_application_fee: false }, { stripeAccount }).
+      // Until that exists, dashboard refunds silently cost us the 5.5%.
+      case 'charge.refunded': {
+        const charge = event.data.object
+        const piId   = charge.payment_intent
+        if (!piId) { console.log('charge.refunded: no payment_intent on charge', charge.id); break }
+
+        const invDoc = await queryCollection('invoices', 'stripePaymentIntentId', piId)
+        if (!invDoc) { console.log('charge.refunded: no invoice for PI', piId); break }
+
+        const amountCents   = charge.amount || 0
+        const refundedCents = charge.amount_refunded || 0
+        const fullyRefunded = charge.refunded === true || refundedCents >= amountCents
+
+        await updateDocument('invoices', invDoc.id, {
+          status:              fullyRefunded ? 'refunded' : 'paid',
+          refundedAmountCents: refundedCents,
+          partiallyRefunded:   !fullyRefunded && refundedCents > 0,
+          refundedAt:          new Date().toISOString(),
+          updatedAt:           new Date().toISOString(),
+        })
+        console.log(`Invoice ${invDoc.id} ${fullyRefunded ? 'REFUNDED' : 'partially refunded'} (${refundedCents}/${amountCents}¢) via charge ${charge.id}`)
+
+        // Reverse the trust-state increment on a FULL refund so the
+        // first-time→post-visit mechanic + completedJobsCount stay honest.
+        // Idempotent via the trustReversed flag.
+        if (fullyRefunded && invDoc.data.countedTowardTrust && !invDoc.data.trustReversed && invDoc.data.clientId) {
+          try {
+            const clientDoc = await getDocument('clients', invDoc.data.clientId)
+            if (clientDoc?.data) {
+              const prev = clientDoc.data.completedJobsCount || 0
+              await updateDocument('clients', invDoc.data.clientId, {
+                completedJobsCount: Math.max(0, prev - 1),
+                updatedAt:          new Date().toISOString(),
+              })
+              await updateDocument('invoices', invDoc.id, { trustReversed: true })
+              console.log(`Trust-state reversed: clients/${invDoc.data.clientId}.completedJobsCount ${prev} -> ${Math.max(0, prev - 1)}`)
+            }
+          } catch (e) {
+            console.error('[webhook] trust-state reversal failed (non-fatal):', e.message)
+          }
+        }
+        break
+      }
+
+      /* ── charge.dispute.created ─────────────────── */
+      // A client opened a dispute/chargeback on a direct charge. The contractor
+      // is merchant of record and owns the response; we flag the invoice
+      // 'disputed' (drops out of paid-revenue sums while contested) and alert
+      // admin so the contractor can be helped to submit evidence before the
+      // (tight) Stripe deadline.
+      case 'charge.dispute.created': {
+        const dispute = event.data.object
+        let piId = dispute.payment_intent
+        if (!piId && dispute.charge) {
+          try {
+            const ch = await stripe.charges.retrieve(dispute.charge, { stripeAccount: event.account })
+            piId = ch.payment_intent
+          } catch (e) { console.error('dispute.created: charge retrieve failed:', e.message) }
+        }
+        if (!piId) { console.log('dispute.created: could not resolve payment_intent', dispute.id); break }
+
+        const invDoc = await queryCollection('invoices', 'stripePaymentIntentId', piId)
+        if (!invDoc) { console.log('dispute.created: no invoice for PI', piId); break }
+
+        // Stripe can re-deliver dispute.created — only alert admin the first
+        // time we see this dispute id on the invoice.
+        const alreadyKnown = invDoc.data.disputeId === dispute.id
+
+        await updateDocument('invoices', invDoc.id, {
+          status:             'disputed',
+          disputeId:          dispute.id,
+          disputeReason:      dispute.reason || null,
+          disputeAmountCents: dispute.amount || 0,
+          disputeStatus:      dispute.status || null,
+          disputedAt:         new Date().toISOString(),
+          updatedAt:          new Date().toISOString(),
+        })
+        console.log(`Invoice ${invDoc.id} DISPUTED (${dispute.reason}) via dispute ${dispute.id}`)
+
+        // Urgent — alert admin (evidence deadlines are short). Skip on re-delivery.
+        if (!alreadyKnown) try {
+          const amt = ((dispute.amount || 0) / 100).toFixed(2)
+          const who = invDoc.data.clientName || 'a client'
+          await sendAdminEmail({
+            subject: `⚠️ Payment dispute opened — ${who}`,
+            text: `A dispute (${dispute.reason || 'unknown reason'}) was opened on invoice ${invDoc.id} for $${amt}. Contractor: ${invDoc.data.gardenerUid}. The contractor is merchant of record and must submit evidence before the Stripe deadline.`,
+            html: `<p>A <strong>dispute</strong> was opened on a YardSync invoice.</p><ul><li>Invoice: ${invDoc.id}</li><li>Client: ${who}</li><li>Amount: $${amt}</li><li>Reason: ${dispute.reason || '—'}</li><li>Contractor: ${invDoc.data.gardenerUid}</li></ul><p>The contractor is merchant of record and must submit evidence before the Stripe evidence deadline.</p>`,
+          })
+        } catch (e) { console.error('[webhook] dispute admin email failed (non-fatal):', e.message) }
+        break
+      }
+
+      /* ── charge.dispute.closed ──────────────────── */
+      // Dispute resolved. Won → restore the invoice to 'paid' (re-counts toward
+      // revenue). Lost → 'dispute_lost' (stays out of paid sums; the card
+      // network pulled the funds + dispute fee back from the contractor).
+      case 'charge.dispute.closed': {
+        const dispute = event.data.object
+        let piId = dispute.payment_intent
+        if (!piId && dispute.charge) {
+          try {
+            const ch = await stripe.charges.retrieve(dispute.charge, { stripeAccount: event.account })
+            piId = ch.payment_intent
+          } catch (e) { console.error('dispute.closed: charge retrieve failed:', e.message) }
+        }
+        if (!piId) { console.log('dispute.closed: could not resolve payment_intent', dispute.id); break }
+
+        const invDoc = await queryCollection('invoices', 'stripePaymentIntentId', piId)
+        if (!invDoc) { console.log('dispute.closed: no invoice for PI', piId); break }
+
+        // 'warning_closed' = an early-fraud-warning that expired without becoming
+        // a real dispute — money was never pulled, so treat it like a win.
+        const won = dispute.status === 'won' || dispute.status === 'warning_closed'
+        // The refund and dispute lifecycles are independent on the same charge.
+        // Only restore to 'paid' if the invoice is actually sitting in the
+        // 'disputed' state — never clobber a (partial/full) refund back to paid.
+        const currentStatus = invDoc.data.status
+        const nextStatus = won
+          ? (currentStatus === 'disputed' ? 'paid' : currentStatus)
+          : 'dispute_lost'
+        await updateDocument('invoices', invDoc.id, {
+          status:          nextStatus,
+          disputeStatus:   dispute.status || null,
+          disputeClosedAt: new Date().toISOString(),
+          updatedAt:       new Date().toISOString(),
+        })
+        console.log(`Invoice ${invDoc.id} dispute ${dispute.status} — status -> ${nextStatus}`)
+
+        // On a LOST dispute the payment was effectively clawed back — reverse
+        // the trust-state increment (idempotent via trustReversed).
+        if (!won && invDoc.data.countedTowardTrust && !invDoc.data.trustReversed && invDoc.data.clientId) {
+          try {
+            const clientDoc = await getDocument('clients', invDoc.data.clientId)
+            if (clientDoc?.data) {
+              const prev = clientDoc.data.completedJobsCount || 0
+              await updateDocument('clients', invDoc.data.clientId, {
+                completedJobsCount: Math.max(0, prev - 1),
+                updatedAt:          new Date().toISOString(),
+              })
+              await updateDocument('invoices', invDoc.id, { trustReversed: true })
+            }
+          } catch (e) { console.error('[webhook] trust reversal on lost dispute failed (non-fatal):', e.message) }
+        }
+        break
+      }
     }
   } catch (err) {
     console.error('Webhook handler error:', err.message, err.stack)
