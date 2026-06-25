@@ -1,8 +1,18 @@
 # Free Access — "Pay nothing until your first client pays you"
 
-> Status: **SPEC / not yet built.** Authored 2026-06-24. Owner: Jay.
+> Status: **BUILT 2026-06-25** (on `dev`, pending E2E + Jay's prod merge). Owner: Jay.
 > Supersedes the subscribe-first gate for new signups. This is the single
 > biggest funnel change since launch — read the whole doc before touching code.
+>
+> **Locked decisions at build time (differ from the original draft below):**
+> 1. **Card captured at the "get paid" setup step, NOT at signup** — signup asks
+>    for no card; the app gates invoice-send on `pmOnFile` (402 `card_required`)
+>    and launches a $0 SetupIntent Checkout at that moment (`lib/cardCapture.js`).
+> 2. **Default monthly**, annual is a later in-app upsell. 3. **Pro Setup** is a
+>    later in-app upsell, not in the free-start flow.
+> 4. Activation uses `payment_behavior:'error_if_incomplete'` + per-gardener
+>    idempotency key (a declined activation throws + retries on the next paid
+>    invoice; no double-sub). `past_due` keeps grace access (Stripe Smart Retries).
 
 ## 1. The pitch (and why it's scam-proof)
 
