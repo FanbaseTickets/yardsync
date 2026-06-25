@@ -432,7 +432,7 @@ export default function SettingsPage() {
       return
     }
     if (slugCheckState !== 'available') {
-      toast.error(lang === 'es' ? 'Verifique el slug antes de guardar' : 'Check the slug before saving')
+      toast.error(lang === 'es' ? 'Verifica el slug antes de guardar' : 'Check the slug before saving')
       return
     }
     setSlugSaving(true)
@@ -668,13 +668,13 @@ export default function SettingsPage() {
                   type="email"
                   value={form.email}
                   onChange={e => setField('email', e.target.value)}
-                  placeholder={lang === 'es' ? 'usted@ejemplo.com' : 'you@example.com'}
+                  placeholder={lang === 'es' ? 'tu@ejemplo.com' : 'you@example.com'}
                   autoComplete="email"
                   disabled={!settingsEditing}
                 />
                 <p className="text-[11px] text-gray-400 -mt-2">
                   {lang === 'es'
-                    ? 'Solo se muestra en su tarjeta si activa "Mostrar correo en la tarjeta" abajo.'
+                    ? 'Solo se muestra en tu tarjeta si activas "Mostrar correo en la tarjeta" abajo.'
                     : 'Only shown on your card if you turn on "Show email on card" below.'}
                 </p>
               </div>
@@ -729,7 +729,7 @@ export default function SettingsPage() {
                 <div className="text-center py-2">
                   <p className="text-[13px] text-gray-700 mb-3 leading-relaxed">
                     {lang === 'es'
-                      ? 'Cree su tarjeta digital — los clientes potenciales pueden escanear su código QR o tocar su enlace para solicitar servicio. Se agregan automáticamente como prospectos.'
+                      ? 'Crea tu tarjeta digital — los clientes potenciales pueden escanear tu código QR o tocar tu enlace para solicitar servicio. Se agregan automáticamente como prospectos.'
                       : 'Create your shareable digital card — prospects can scan your QR code or tap your link to request service. They get added to your leads automatically.'}
                   </p>
                   <Button onClick={handleGenerateSlug} loading={slugGenerating} fullWidth>
@@ -737,7 +737,7 @@ export default function SettingsPage() {
                   </Button>
                   <p className="text-[11px] text-gray-400 mt-2">
                     {lang === 'es'
-                      ? 'Se generará automáticamente desde el nombre de su negocio.'
+                      ? 'Se generará automáticamente desde el nombre de tu negocio.'
                       : 'Auto-generated from your business name.'}
                   </p>
                 </div>
@@ -748,7 +748,7 @@ export default function SettingsPage() {
                   <div className="bg-brand-50 border border-brand-100 rounded-lg p-3">
                     <p className="text-[12px] text-brand-800 leading-relaxed">
                       {lang === 'es'
-                        ? 'Esta es su tarjeta de presentación digital. Compártala o muestre su código QR — los clientes potenciales tocan o escanean para solicitar servicio y se agregan automáticamente como prospectos en Clientes. Es la forma más rápida de conseguir nuevos trabajos.'
+                        ? 'Esta es tu tarjeta de presentación digital. Compártela o muestra tu código QR — los clientes potenciales tocan o escanean para solicitar servicio y se agregan automáticamente como prospectos en Clientes. Es la forma más rápida de conseguir nuevos trabajos.'
                         : "This is your digital business card. Share it or show its QR code — prospects tap or scan to request service and are added automatically as leads in Clients. It's the fastest way to win new jobs."}
                     </p>
                   </div>
@@ -756,7 +756,7 @@ export default function SettingsPage() {
                   {!slugEditing ? (
                     <div>
                       <p className="text-[11px] text-gray-500 mb-1">
-                        {lang === 'es' ? 'URL de su tarjeta' : 'Your card URL'}
+                        {lang === 'es' ? 'URL de tu tarjeta' : 'Your card URL'}
                       </p>
                       <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 mb-2">
                         <a
@@ -828,7 +828,7 @@ export default function SettingsPage() {
                         </div>
                         <p className="text-[10px] text-gray-400">
                           {lang === 'es'
-                            ? 'Envíe este enlace a clientes que ya conocen su negocio — los lleva directo al formulario.'
+                            ? 'Envía este enlace a clientes que ya conocen tu negocio — los lleva directo al formulario.'
                             : 'Send this to clients who already know your business — it skips the card and goes straight to the form.'}
                         </p>
                       </div>
@@ -948,14 +948,14 @@ export default function SettingsPage() {
                         onChange={e => setField('bio', e.target.value)}
                         disabled={!settingsEditing}
                         placeholder={lang === 'es'
-                          ? '3 líneas sobre su negocio que los clientes verán en su tarjeta.'
+                          ? '3 líneas sobre tu negocio que los clientes verán en tu tarjeta.'
                           : 'A few lines about your business that clients will see on your card.'}
                         rows={3}
                         maxLength={300}
                         className="w-full rounded-xl border border-gray-200 bg-white text-[13px] px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
                       />
                       <p className="text-[10px] text-gray-400 mt-1">
-                        {(form.bio?.length || 0)}/300 · {lang === 'es' ? 'Escriba en su idioma.' : 'Write in your own language.'}
+                        {(form.bio?.length || 0)}/300 · {lang === 'es' ? 'Escribe en tu idioma.' : 'Write in your own language.'}
                       </p>
                     </div>
                     <Input
@@ -991,7 +991,7 @@ export default function SettingsPage() {
                         )}
                       </div>
                       <p className="text-[10px] text-gray-400 mt-1">
-                        {lang === 'es' ? 'Aparece en su tarjeta y publicaciones sociales.' : 'Shows on your card and social posts.'}
+                        {lang === 'es' ? 'Aparece en tu tarjeta y publicaciones sociales.' : 'Shows on your card and social posts.'}
                       </p>
                     </div>
 
@@ -1046,7 +1046,7 @@ export default function SettingsPage() {
                           {lang === 'es' ? 'Mostrar pastilla "Reservando ahora"' : 'Show "Now booking" badge'}
                           <span className="block text-[11px] text-gray-400 mt-0.5">
                             {lang === 'es'
-                              ? 'Apague cuando esté lleno o de vacaciones.'
+                              ? 'Apágala cuando estés lleno o de vacaciones.'
                               : 'Turn off when you\'re full or on vacation.'}
                           </span>
                         </span>
@@ -1092,7 +1092,7 @@ export default function SettingsPage() {
                 <div className="bg-brand-50 border border-brand-100 rounded-lg p-3">
                   <p className="text-[12px] text-brand-800 leading-relaxed">
                     {lang === 'es'
-                      ? 'Estos mensajes recuerdan automáticamente a sus clientes sus próximas visitas por SMS. Elija cuándo se envían y edite el texto en inglés y español. Cada mensaje termina con "Responda STOP para cancelar" para cumplir con las reglas de mensajería.'
+                      ? 'Estos mensajes recuerdan automáticamente a tus clientes sus próximas visitas por SMS. Elige cuándo se envían y edita el texto en inglés y español. Cada mensaje termina con "Responda STOP para cancelar" para cumplir con las reglas de mensajería.'
                       : 'These automatically remind your clients of upcoming visits by text. Choose when they send and edit the English + Spanish wording. Every message ends with "Reply STOP to opt out" to stay compliant.'}
                   </p>
                 </div>
@@ -1136,7 +1136,7 @@ export default function SettingsPage() {
                 <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 space-y-2.5">
                   <p className="text-[11px] text-amber-800 leading-relaxed">
                     {lang === 'es'
-                      ? '⚠️ Las variables {name} {date} {time} {business} se reemplazan automáticamente con los datos reales. Puede cambiar el texto, pero no escriba mal una variable o el mensaje saldrá incorrecto.'
+                      ? '⚠️ Las variables {name} {date} {time} {business} se reemplazan automáticamente con los datos reales. Puedes cambiar el texto, pero no escribas mal una variable o el mensaje saldrá incorrecto.'
                       : "⚠️ The variables {name} {date} {time} {business} are filled in automatically with real data. You can reword the text, but don't mistype a variable or the message will come out wrong."}
                   </p>
                   <div>
@@ -1281,7 +1281,7 @@ export default function SettingsPage() {
               <div className="bg-brand-50 border border-brand-100 rounded-lg p-3 mb-3">
                 <p className="text-[12px] text-brand-800 leading-relaxed">
                   {lang === 'es'
-                    ? 'Para clientes nuevos que pagan por adelantado, esto es cuánto tiempo tiene EL CLIENTE para pagar antes de que usted realice el servicio. No es un recordatorio para usted.'
+                    ? 'Para clientes nuevos que pagan por adelantado, esto es cuánto tiempo tiene EL CLIENTE para pagar antes de que tú realices el servicio. No es un recordatorio para ti.'
                     : "For first-time clients on upfront billing, this is how long THE CLIENT has to pay before you service them. It's not a reminder for you."}
                 </p>
               </div>
@@ -1312,7 +1312,7 @@ export default function SettingsPage() {
               </div>
               <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
                 {lang === 'es'
-                  ? 'Aplica a clientes nuevos en modo de facturación anticipada. Puede anular por cliente. Predeterminado: 24 horas. Máximo: 168 horas (7 días).'
+                  ? 'Aplica a clientes nuevos en modo de facturación anticipada. Puedes anularlo por cliente. Predeterminado: 24 horas. Máximo: 168 horas (7 días).'
                   : 'Applies to new clients with upfront billing. You can override per-client. Default: 24 hours. Max: 168 hours (7 days).'}
               </p>
             </Card>

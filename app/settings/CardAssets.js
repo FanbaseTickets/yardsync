@@ -88,7 +88,7 @@ export default function CardAssets({
       </div>
       <p className="text-[10px] text-gray-400 mt-1.5">
         {lang === 'es'
-          ? 'El código QR abre su tarjeta para que los clientes soliciten servicio.'
+          ? 'El código QR abre tu tarjeta para que los clientes soliciten servicio.'
           : 'The QR opens your card so clients can request service.'}
       </p>
     </div>
