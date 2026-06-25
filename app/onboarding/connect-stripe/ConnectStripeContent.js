@@ -86,7 +86,13 @@ export default function ConnectStripeContent() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ uid: user.uid }),
     }).catch(err => console.error('Save metadata failed (non-fatal):', err))
-    router.push('/dashboard?subscribed=true')
+    // Free-access model: connecting Stripe must NOT activate/charge the
+    // subscription. ?connected=true shows a "bank connected" toast only; the
+    // $39/mo subscription is created server-side on the first PAID client
+    // invoice. (Was ?subscribed=true, which the dashboard treated as a paid
+    // checkout and wrote subscriptionStatus:'active' — the bug that made Connect
+    // skip the card-on-file gate and pre-activate before any client paid.)
+    router.push('/dashboard?connected=true')
   }
 
 

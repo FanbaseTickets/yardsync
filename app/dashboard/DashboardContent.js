@@ -47,10 +47,25 @@ export default function DashboardPage() {
     ? profile.name.split(' ').find(w => w.length > 1) || profile.name.split(' ')[0]
     : 'there'
 
-  // Handle Stripe redirect back after successful payment
+  // Handle Stripe redirect back.
+  // Free-access model: connecting Stripe must NOT activate the subscription —
+  // activation happens ONLY on the first paid client invoice (server-side, in
+  // the webhook). ?connected=true = bank connected (toast only). ?subscribed=true
+  // = LEGACY paid-checkout confirmation; it must never activate a free account.
   useEffect(() => {
     if (!user) return
+    if (searchParams.get('connected') === 'true') {
+      toast.success(lang === 'es' ? 'Cuenta bancaria conectada ✓' : 'Bank account connected ✓')
+      router.replace('/dashboard')
+      return
+    }
     if (searchParams.get('subscribed') === 'true') {
+      // Defensive: never auto-activate a free-until-paid account from a client
+      // redirect. The webhook owns activation (first paid invoice).
+      if (profile?.subscriptionStatus === 'free_until_paid') {
+        router.replace('/dashboard')
+        return
+      }
       ;(async () => {
         try {
           await saveGardenerProfile(user.uid, {
@@ -77,7 +92,7 @@ export default function DashboardPage() {
       toast.success(lang === 'es' ? '¡Bienvenido de vuelta! Tu suscripción está activa.' : 'Welcome back! Your subscription is active.')
       router.replace('/dashboard')
     }
-  }, [user, searchParams])
+  }, [user, searchParams, profile?.subscriptionStatus])
 
   async function handleReactivate() {
     setReactivating(true)
