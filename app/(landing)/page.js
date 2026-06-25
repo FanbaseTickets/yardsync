@@ -8,7 +8,7 @@ export default function LandingPage() {
       {/* NAV */}
       <nav className="lp-nav">
         <a href="/" className="lp-logo">
-          <div className="lp-logo-b">YS</div>
+          <div className="lp-logo-b"><img src="/app-icon-master.png" alt="YardSync" /></div>
           <span>YardSync</span>
         </a>
         <div className="lp-nav-r">
@@ -336,7 +336,7 @@ export default function LandingPage() {
 
       {/* FOOTER */}
       <footer className="lp-footer">
-        <div className="lp-flogo"><div className="lp-fb">YS</div><span>YardSync</span></div>
+        <div className="lp-flogo"><div className="lp-fb"><img src="/app-icon-master.png" alt="YardSync" /></div><span>YardSync</span></div>
         <div className="lp-flinks">
           <a href="/privacy">Privacy Policy</a>
           <a href="/terms">Terms of Service</a>
