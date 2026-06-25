@@ -523,7 +523,19 @@ export async function POST(request) {
                   customer:               g.stripeCustomerId,
                   items:                  [{ price: priceId }],
                   default_payment_method: g.stripePaymentMethodId,
+                  // error_if_incomplete: a hard decline THROWS (caught below) rather
+                  // than silently returning an 'incomplete' sub that never retries and
+                  // expires in ~23h. On throw we do NOT write firstPaidInvoiceId, so the
+                  // contractor stays 'free_until_paid' and the NEXT paid invoice retries
+                  // activation (the SetupIntent card was valid, so declines are likely
+                  // transient) — strictly better than parking them in an un-retried state.
+                  payment_behavior:       'error_if_incomplete',
                   metadata:               { gardenerUid: gUid, activatedByInvoice: invDoc.id },
+                }, {
+                  // Per-gardener key: concurrent or re-delivered paid invoices can never
+                  // create a second subscription or double-charge — Stripe returns the
+                  // same sub for any repeat call.
+                  idempotencyKey: `activation_${gUid}`,
                 })
                 const periodEnd = getSubscriptionPeriodEndISO(sub)
                 const activated = sub.status === 'active' || sub.status === 'trialing'
