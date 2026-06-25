@@ -1405,7 +1405,7 @@ export default function SettingsPage() {
                         {tier >= 3 ? <Zap size={14} className="text-green-600" /> : <Lock size={14} className="text-gray-300" />}
                         <p className="text-[12px] text-gray-700">$3,000+/{lang === 'es' ? 'mes' : 'mo'}</p>
                       </div>
-                      <p className={`text-[12px] font-bold ${tier >= 3 ? 'text-green-600' : 'text-gray-800'}`}>$0/mo</p>
+                      <p className={`text-[12px] font-bold ${tier >= 3 ? 'text-green-600' : 'text-gray-800'}`}>$0/{lang === 'es' ? 'mes' : 'mo'}</p>
                     </div>
                   </div>
                   {/* Progress bar */}
