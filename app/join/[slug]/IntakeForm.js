@@ -22,7 +22,7 @@
  */
 
 import { useState } from 'react'
-import { Leaf, Phone, MessageSquare, BookmarkPlus } from 'lucide-react'
+import { Phone, MessageSquare, BookmarkPlus } from 'lucide-react'
 
 const STRINGS = {
   en: {
@@ -608,7 +608,7 @@ function Page({ slug, owner, lang, setLang, t, children, backLinkHref, allowCont
 
         {/* Powered-by mark */}
         <div className="mt-8 pt-6 border-t border-gray-200 flex items-center justify-center gap-1.5 text-xs text-gray-400">
-          <Leaf size={12} className="text-brand-600" />
+          <img src="/logo-mark-green.png" alt="" className="w-3 h-3" />
           <span>{t.poweredBy} <strong className="text-brand-600">YardSync</strong></span>
         </div>
       </div>

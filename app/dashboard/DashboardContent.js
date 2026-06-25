@@ -10,7 +10,7 @@ import { StatCard, Card, Badge, Button, Skeleton } from '@/components/ui'
 import { getClients, getTodaySchedules, getInvoices, getServices, getSchedules, updateSchedule, saveGardenerProfile } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { badgePackageType } from '@/lib/clientBadge'
-import { Users, CalendarCheck, DollarSign, MessageSquare, CheckCircle2, Clock, Leaf, LogOut, Settings, CreditCard, Link2, Package, UserPlus, CalendarPlus, X, Landmark, AlertTriangle } from 'lucide-react'
+import { Users, CalendarCheck, DollarSign, MessageSquare, CheckCircle2, Clock, LogOut, Settings, CreditCard, Link2, Package, UserPlus, CalendarPlus, X, Landmark, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -183,7 +183,7 @@ export default function DashboardPage() {
           <div className="flex items-start justify-between max-w-lg mx-auto">
             <div>
               <div className="flex items-center gap-2 mb-0.5">
-                <Leaf size={16} className="text-brand-200" />
+                <img src="/logo-mark-mint.png" alt="" className="w-4 h-4" />
                 <span className="text-brand-200 text-[12px] font-medium tracking-wide uppercase">
                   YardSync
                 </span>

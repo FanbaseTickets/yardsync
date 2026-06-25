@@ -9,7 +9,7 @@
  */
 
 import { useState } from 'react'
-import { Leaf, Share2, Copy, Calendar, MessageSquare, CreditCard, QrCode, Check } from 'lucide-react'
+import { Share2, Copy, Calendar, MessageSquare, CreditCard, QrCode, Check } from 'lucide-react'
 
 const STRINGS = {
   en: {
@@ -89,7 +89,7 @@ export default function GrowContent({ qrSvg, growUrl, homeUrl, initialLang, foun
         {/* Top row: brand + language toggle */}
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-1.5 font-bold text-brand-700">
-            <Leaf size={18} className="text-brand-600" />
+            <img src="/logo-mark-green.png" alt="" className="w-[18px] h-[18px]" />
             <span className="text-[17px]">YardSync</span>
           </div>
           <div className="inline-flex bg-white border border-gray-200 rounded-full p-0.5 text-xs">
@@ -176,7 +176,7 @@ export default function GrowContent({ qrSvg, growUrl, homeUrl, initialLang, foun
 
         {/* Powered-by mark */}
         <div className="mt-6 flex items-center justify-center gap-1.5 text-xs text-gray-400">
-          <Leaf size={12} className="text-brand-600" />
+          <img src="/logo-mark-green.png" alt="" className="w-3 h-3" />
           <span>{t.poweredBy} <strong className="text-brand-600">YardSync</strong></span>
         </div>
       </div>

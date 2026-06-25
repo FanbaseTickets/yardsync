@@ -14,7 +14,7 @@
  */
 
 import { useState } from 'react'
-import { Leaf, Phone, MessageSquare, BookmarkPlus, ArrowRight } from 'lucide-react'
+import { Phone, MessageSquare, BookmarkPlus, ArrowRight } from 'lucide-react'
 
 const STRINGS = {
   en: {
@@ -246,7 +246,7 @@ export default function CardActions({ slug, owner, services, qrSvg, initialLang 
 
         {/* ── Footer mark ─────────────────────────────────────────────── */}
         <div className="mt-8 pt-6 border-t border-gray-200 flex items-center justify-center gap-1.5 text-xs text-gray-400">
-          <Leaf size={12} className="text-brand-600" />
+          <img src="/logo-mark-green.png" alt="" className="w-3 h-3" />
           <span>
             {t.poweredBy}{' '}
             <a href="https://yardsyncapp.com" className="font-semibold text-brand-600 hover:text-brand-700">
