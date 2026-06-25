@@ -7,7 +7,7 @@ import { useLang } from '@/context/LangContext'
 import { doc, setDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { getClients, getInvoices } from '@/lib/db'
-import { Leaf, Check, Star } from 'lucide-react'
+import { Check, Star } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function ReactivateContent() {
@@ -96,7 +96,7 @@ export default function ReactivateContent() {
       {/* Header */}
       <div className="flex flex-col items-center mb-8">
         <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center mb-3">
-          <Leaf size={30} className="text-white" />
+          <img src="/logo-mark-white.png" alt="YardSync" className="w-[30px] h-[30px]" />
         </div>
         <h1 className="text-3xl font-display text-white tracking-tight">
           {es ? `Bienvenido de vuelta, ${firstName}` : `Welcome back, ${firstName}`}

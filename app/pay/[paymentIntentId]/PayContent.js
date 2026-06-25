@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js'
-import { Leaf, CheckCircle2, AlertCircle } from 'lucide-react'
+import { CheckCircle2, AlertCircle } from 'lucide-react'
 
 function PayForm({ clientSecret, amount, description, clientName }) {
   const stripe = useStripe()
@@ -144,7 +144,7 @@ export default function PayContent() {
       <div className="bg-[#0F6E56] px-5 pt-10 pb-5">
         <div className="flex items-center gap-3 justify-center">
           <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center">
-            <Leaf size={18} className="text-white" />
+            <img src="/logo-mark-white.png" alt="YardSync" className="w-[18px] h-[18px]" />
           </div>
           <span className="text-white text-lg font-semibold">YardSync</span>
         </div>

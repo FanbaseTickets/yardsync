@@ -9,7 +9,7 @@ import { useLang } from '@/context/LangContext'
 import { t } from '@/lib/i18n'
 import { doc, setDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import { Leaf, Check, Zap, Star } from 'lucide-react'
+import { Check, Zap, Star } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 function SubscribeInner() {
@@ -125,7 +125,7 @@ function SubscribeInner() {
       <div className="min-h-screen bg-gradient-to-br from-brand-800 via-brand-700 to-brand-600 flex flex-col items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center">
-            <Leaf size={30} className="text-white" />
+            <img src="/logo-mark-white.png" alt="YardSync" className="w-[30px] h-[30px]" />
           </div>
           <div className="w-8 h-8 rounded-full border-2 border-white/40 border-t-white animate-spin" />
           <p className="text-white/80 text-sm font-medium">
@@ -142,7 +142,7 @@ function SubscribeInner() {
       {/* Header */}
       <div className="flex flex-col items-center mb-8">
         <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center mb-3">
-          <Leaf size={30} className="text-white" />
+          <img src="/logo-mark-white.png" alt="YardSync" className="w-[30px] h-[30px]" />
         </div>
         <h1 className="text-3xl font-display text-white tracking-tight">YardSync</h1>
         <p className="text-brand-200 text-sm mt-1 text-center">
