@@ -1181,31 +1181,53 @@ export default function SettingsPage() {
               </p>
             </div>
             <Card className="bg-brand-50 border-brand-100">
-              <div className="flex items-center justify-between">
-                <p className="text-[13px] font-medium text-brand-800">
-                  YardSync — {lang === 'es' ? 'Activo' : 'Active'}
-                </p>
-                <span className="text-[11px] bg-brand-600 text-white px-2 py-0.5 rounded-full font-medium">
-                  {profile?.subscriptionPlan === 'annual'
-                    ? translate('settings', 'annual_plan')
-                    : translate('settings', 'monthly_plan')}
-                </span>
-              </div>
-              {profile?.lastPaymentAt && (
-                <p className="text-[12px] text-brand-700 mt-2">
-                  {lang === 'es' ? 'Último cobro' : 'Last charged'}:{' '}
-                  <span className="font-semibold">
-                    {new Date(profile.lastPaymentAt).toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                  </span>
-                </p>
-              )}
-              {profile?.currentPeriodEnd && (
-                <p className="text-[12px] text-brand-700 mt-1">
-                  {lang === 'es' ? 'Próxima facturación' : 'Next billing date'}:{' '}
-                  <span className="font-semibold">
-                    {new Date(profile.currentPeriodEnd).toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                  </span>
-                </p>
+              {profile?.subscriptionStatus === 'free_until_paid' ? (
+                /* Free-access model: no charge yet. Don't show "Active" or a
+                   billing date — the $39/mo plan begins on the first paid invoice. */
+                <>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[13px] font-medium text-brand-800">
+                      YardSync — {lang === 'es' ? 'Gratis' : 'Free'}
+                    </p>
+                    <span className="text-[11px] bg-green-600 text-white px-2 py-0.5 rounded-full font-medium">
+                      {lang === 'es' ? 'Sin cobro aún' : 'No charge yet'}
+                    </span>
+                  </div>
+                  <p className="text-[12px] text-brand-700 mt-2">
+                    {lang === 'es'
+                      ? 'No pagas nada hasta que tu primer cliente te pague. Tu plan de $39/mes empieza en ese momento.'
+                      : 'You pay nothing until your first client pays you. Your $39/mo plan starts then.'}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[13px] font-medium text-brand-800">
+                      YardSync — {lang === 'es' ? 'Activo' : 'Active'}
+                    </p>
+                    <span className="text-[11px] bg-brand-600 text-white px-2 py-0.5 rounded-full font-medium">
+                      {profile?.subscriptionPlan === 'annual'
+                        ? translate('settings', 'annual_plan')
+                        : translate('settings', 'monthly_plan')}
+                    </span>
+                  </div>
+                  {profile?.lastPaymentAt && (
+                    <p className="text-[12px] text-brand-700 mt-2">
+                      {lang === 'es' ? 'Último cobro' : 'Last charged'}:{' '}
+                      <span className="font-semibold">
+                        {new Date(profile.lastPaymentAt).toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                      </span>
+                    </p>
+                  )}
+                  {profile?.currentPeriodEnd && (
+                    <p className="text-[12px] text-brand-700 mt-1">
+                      {lang === 'es' ? 'Próxima facturación' : 'Next billing date'}:{' '}
+                      <span className="font-semibold">
+                        {new Date(profile.currentPeriodEnd).toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                      </span>
+                    </p>
+                  )}
+                </>
               )}
               {(() => {
                 const tier = profile?.rewardTier
