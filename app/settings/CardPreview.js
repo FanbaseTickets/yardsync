@@ -13,7 +13,7 @@
  * QR is server-generated on /join/{slug} — "Open full card" goes there.
  */
 
-import { Leaf, Phone, MessageSquare, BookmarkPlus, ArrowRight, ExternalLink } from 'lucide-react'
+import { Phone, MessageSquare, BookmarkPlus, ArrowRight, ExternalLink } from 'lucide-react'
 
 const DEFAULT_ACCENT = '#0F6E56'
 
@@ -284,7 +284,7 @@ export default function CardPreview({
 
           {/* Footer */}
           <div className="mt-3 pt-2 border-t border-gray-100 w-full flex items-center justify-center gap-1 text-[9px] text-gray-400">
-            <Leaf size={9} className="text-brand-600" />
+            <img src="/logo-mark-green.png" alt="" className="w-[9px] h-[9px]" />
             <span>{T.poweredBy} <span className="font-semibold text-brand-600">YardSync</span></span>
           </div>
         </div>
