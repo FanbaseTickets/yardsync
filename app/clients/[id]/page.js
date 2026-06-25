@@ -9,6 +9,7 @@ import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, Skeleton, Modal, Input, Select } from '@/components/ui'
 import { getClient, updateClient, deleteClient, getClientInvoices, getServices, saveInvoice, getMostRecentSchedule } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
+import { badgePackageType } from '@/lib/clientBadge'
 import { buildInvoiceSms } from '@/lib/invoiceSms'
 import { validatePhone } from '@/lib/phone'
 import { Phone, MapPin, Mail, CalendarDays, DollarSign, Pencil, FileText, CheckCircle2, RefreshCw, Clock, ShieldAlert, Sparkles, X } from 'lucide-react'
@@ -480,7 +481,7 @@ async function handleSendInvoice(channels = 'both') {
       <div className="page-content">
         <PageHeader
           title={client.name}
-          subtitle={`${client.packageType ? translate('packages', client.packageType) || client.packageType : (lang === 'es' ? 'Sin paquete' : 'No package')} · ${client.status || 'active'}`}
+          subtitle={`${client.packageType ? translate('packages', badgePackageType(client)) || badgePackageType(client) : (lang === 'es' ? 'Sin paquete' : 'No package')} · ${client.status || 'active'}`}
           back
           actions={
             <button
@@ -503,7 +504,7 @@ async function handleSendInvoice(channels = 'both') {
               <div>
                 <p className="text-[16px] font-semibold text-gray-900">{client.name}</p>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  <Badge label={translate('packages', client.packageType) || client.packageType} variant={client.packageType} />
+                  <Badge label={translate('packages', badgePackageType(client)) || badgePackageType(client)} variant={badgePackageType(client)} />
                   <Badge label={translate('status', client.status) || client.status} variant={client.status} />
                 </div>
               </div>

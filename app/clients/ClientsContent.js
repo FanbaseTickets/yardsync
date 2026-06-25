@@ -10,6 +10,7 @@ import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, EmptyState, Skeleton, Modal, Input, Select } from '@/components/ui'
 import { getClients, addClient, getServices, updateClient, addService } from '@/lib/db'
+import { badgePackageType } from '@/lib/clientBadge'
 import { formatCents } from '@/lib/fee'
 import { validatePhone, formatPhone } from '@/lib/phone'
 import { isValidEmail, suggestEmailCorrection } from '@/lib/emailHelpers'
@@ -685,7 +686,7 @@ export default function ClientsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="text-[14px] font-medium text-gray-900">{client.name}</p>
-                        <Badge label={translate('packages', client.packageType) || client.packageType} variant={client.packageType} />
+                        <Badge label={translate('packages', badgePackageType(client)) || badgePackageType(client)} variant={badgePackageType(client)} />
                       </div>
                       <div className="flex items-center gap-1 mt-0.5">
                         <MapPin size={10} className="text-gray-300 flex-shrink-0" />
