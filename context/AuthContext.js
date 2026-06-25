@@ -68,7 +68,7 @@ export function AuthProvider({ children }) {
         annual:    { label: 'Annual',    visits: 24, basePriceCents: 72000 },
       },
       smsTemplate:   'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! Reply STOP to opt out. – {business}',
-      smsTemplateEs: 'Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! Responda STOP para cancelar. – {business}',
+      smsTemplateEs: '¡Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! Responda STOP para cancelar. – {business}',
     }
     await saveGardenerProfile(cred.user.uid, profileData)
 
@@ -117,7 +117,7 @@ export function AuthProvider({ children }) {
         termsAcceptedAt: new Date().toISOString(),
         termsVersion:    '2026-06-22',
         smsTemplate:   'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! Reply STOP to opt out. – {business}',
-        smsTemplateEs: 'Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! Responda STOP para cancelar. – {business}',
+        smsTemplateEs: '¡Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! Responda STOP para cancelar. – {business}',
       }
       await saveGardenerProfile(cred.user.uid, profileData)
       setProfile(profileData)

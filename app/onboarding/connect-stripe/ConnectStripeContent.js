@@ -96,6 +96,20 @@ export default function ConnectStripeContent() {
       </div>
 
       <div style={{ padding: '24px 16px', maxWidth: '480px', margin: '0 auto' }}>
+        {/* Trust reassurance — persona testing (Marco + Riley) showed the bank/
+            KYC step is the #1 anxiety + "is this legit?" moment. Name-drop the
+            big brands on Stripe + clarify no LLC/EIN needed before the form. */}
+        <div style={{ background: '#EFF8F4', border: '1px solid #C9EADD', borderRadius: '12px', padding: '14px 16px', marginBottom: '18px' }}>
+          <div style={{ fontSize: '13px', color: '#0B5A46', fontWeight: 700, marginBottom: '5px' }}>
+            🔒 Powered by Stripe — trusted by Amazon, Uber, DoorDash &amp; Shopify
+          </div>
+          <p style={{ fontSize: '12px', color: '#3F6F60', margin: 0, lineHeight: 1.5 }}>
+            Stripe is the same secure payment system the big brands use. <strong>No LLC or business license needed</strong> — your SSN as a sole proprietor works. YardSync never sees your bank or card details.
+          </p>
+          <p style={{ fontSize: '12px', color: '#3F6F60', margin: '7px 0 0', lineHeight: 1.5 }}>
+            Stripe es el mismo sistema de pago seguro que usan grandes marcas como Amazon, Uber y DoorDash. <strong>No necesitas LLC ni licencia</strong> — tu Seguro Social como dueño único funciona. YardSync nunca ve tu información bancaria.
+          </p>
+        </div>
         {!stripeConnectInstance ? (
           <div style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>
             Setting up your account...

@@ -10,6 +10,7 @@ import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, EmptyState, Skeleton, Modal, Input, Select } from '@/components/ui'
 import { getClients, addClient, getServices, updateClient, addService } from '@/lib/db'
+import { badgePackageType } from '@/lib/clientBadge'
 import { formatCents } from '@/lib/fee'
 import { validatePhone, formatPhone } from '@/lib/phone'
 import { isValidEmail, suggestEmailCorrection } from '@/lib/emailHelpers'
@@ -78,12 +79,16 @@ const DEFAULT_FORM = {
 // Sentinel serviceId for the inline "+ New package" option in the dropdown.
 const NEW_PACKAGE = '__new__'
 
+// Frequency options for the inline "+ New package" creator (visit cadence).
+// Biweekly was missing, so a "$45 every 2 weeks" package wrongly showed as
+// monthly. It's a first-class packageType now so the badge + the cadence agree.
 const PACKAGE_TYPE_OPTIONS = [
-  { value: 'weekly',    en: 'Weekly',    es: 'Semanal'    },
-  { value: 'monthly',   en: 'Monthly',   es: 'Mensual'    },
-  { value: 'quarterly', en: 'Quarterly', es: 'Trimestral' },
-  { value: 'annual',    en: 'Annual',    es: 'Anual'      },
-  { value: 'onetime',   en: 'One-time',  es: 'Una vez'    },
+  { value: 'weekly',    en: 'Every week',     es: 'Cada semana'    },
+  { value: 'biweekly',  en: 'Every 2 weeks',  es: 'Cada 2 semanas' },
+  { value: 'monthly',   en: 'Monthly',        es: 'Mensual'        },
+  { value: 'quarterly', en: 'Quarterly',      es: 'Trimestral'     },
+  { value: 'annual',    en: 'Annual',         es: 'Anual'          },
+  { value: 'onetime',   en: 'One-time',       es: 'Una vez'        },
 ]
 
 export default function ClientsPage() {
@@ -190,7 +195,7 @@ export default function ClientsPage() {
       await addService(user.uid, {
         serviceType: 'base',
         packageType: pkg.packageType,
-        recurrence:  pkg.packageType,
+        recurrence:  pkg.recurrence,
         label:       pkg.packageLabel,
         description: '',
         priceCents:  pkg.basePriceCents,
@@ -681,7 +686,7 @@ export default function ClientsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="text-[14px] font-medium text-gray-900">{client.name}</p>
-                        <Badge label={translate('packages', client.packageType) || client.packageType} variant={client.packageType} />
+                        <Badge label={translate('packages', badgePackageType(client)) || badgePackageType(client)} variant={badgePackageType(client)} />
                       </div>
                       <div className="flex items-center gap-1 mt-0.5">
                         <MapPin size={10} className="text-gray-300 flex-shrink-0" />

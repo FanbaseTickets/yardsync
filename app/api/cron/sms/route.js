@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { formatDate } from '@/lib/date'
 import { formatDateForSMS } from '@/lib/i18n'
 import { listCollection, setDocument, updateDocument, getDocument } from '@/lib/firestoreRest'
+import { normalizeEsTemplate } from '@/lib/smsTemplate'
 
 const TWILIO_SID     = process.env.TWILIO_ACCOUNT_SID
 const TWILIO_TOKEN   = process.env.TWILIO_AUTH_TOKEN
@@ -61,7 +62,7 @@ export async function GET(request) {
       const timing   = gardener.reminderTiming || '48'
       const language = gardener.language || 'en'
       const template = language === 'es'
-        ? (gardener.smsTemplateEs || 'Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! Responda STOP para cancelar. – {business}')
+        ? normalizeEsTemplate(gardener.smsTemplateEs)
         : (gardener.smsTemplate   || 'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! Reply STOP to opt out. – {business}')
 
       // Determine target dates based on reminder timing

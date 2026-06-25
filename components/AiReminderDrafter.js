@@ -72,7 +72,10 @@ const T = {
   },
 }
 
-export default function AiReminderDrafter({ client, contractorName, lang = 'en', gardenerUid, onSent }) {
+export default function AiReminderDrafter({ client, contractorName, businessName, lang = 'en', gardenerUid, onSent }) {
+  // The contractor's business name drives the SMS sign-off and the A2P opt-out
+  // line. Fall back to contractorName so the drafter never signs as "YardSync".
+  const signOffName = businessName || contractorName
   const t = T[lang] || T.en
 
   const [date,        setDate]        = useState(tomorrowYmd())
@@ -118,7 +121,8 @@ export default function AiReminderDrafter({ client, contractorName, lang = 'en',
           appointmentTime: time.trim(),
           serviceType: serviceType.trim(),
           language,
-          contractorName: contractorName || 'Your contractor',
+          contractorName: signOffName || 'Your contractor',
+          businessName: signOffName || 'Your contractor',
           additionalNotes: notes.trim() || undefined,
         }),
       })

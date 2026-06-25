@@ -9,6 +9,7 @@ import AppShell from '@/components/layout/AppShell'
 import { StatCard, Card, Badge, Button, Skeleton } from '@/components/ui'
 import { getClients, getTodaySchedules, getInvoices, getServices, getSchedules, updateSchedule, saveGardenerProfile } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
+import { badgePackageType } from '@/lib/clientBadge'
 import { Users, CalendarCheck, DollarSign, MessageSquare, CheckCircle2, Clock, Leaf, LogOut, Settings, CreditCard, Link2, Package, UserPlus, CalendarPlus, X, Landmark, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
@@ -454,8 +455,8 @@ export default function DashboardPage() {
                           </p>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <Badge
-                              label={client?.packageType || 'monthly'}
-                              variant={client?.packageType || 'monthly'}
+                              label={translate('packages', badgePackageType(client)) || badgePackageType(client)}
+                              variant={badgePackageType(client)}
                             />
                             {job.smsSent && (
                               <span className="text-[11px] text-brand-600 font-medium">SMS ✓</span>

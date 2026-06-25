@@ -12,6 +12,7 @@ import { Card, Button, Badge, Modal, Select, EmptyState, Skeleton, Input } from 
 import { getClients, getSchedules, addSchedule, updateSchedule, deleteSchedule, getServices, updateScheduleMaterials, saveInvoice, getClientInvoices } from '@/lib/db'
 import { deleteAllClientSchedules } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
+import { badgePackageType } from '@/lib/clientBadge'
 import { buildInvoiceSms } from '@/lib/invoiceSms'
 import { validatePhone, formatPhone } from '@/lib/phone'
 import PhoneInput from '@/components/ui/PhoneInput'
@@ -459,7 +460,7 @@ export default function CalendarPage() {
           clientName,
           clientEmail,
           clientPhone,
-          description: `YardSync invoice — ${clientName}`,
+          description: `${profile?.businessName || 'YardSync'} — invoice for ${clientName}`,
           gardenerUid: user.uid,          clientId: schedule.clientId || null,
           // invoiceType is computed server-side from lineItem categories
           contractorName:  profile?.businessName || profile?.displayName || user?.displayName || '',
@@ -697,7 +698,7 @@ export default function CalendarPage() {
           clientName:  walkInInvoiceTarget.clientName,
           clientEmail: walkInInvoiceTarget.clientEmail || '',
           clientPhone: walkInInvoiceTarget.clientPhone || '',
-          description: 'YardSync walk-in service invoice',
+          description: `${profile?.businessName || 'YardSync'} — service`,
           gardenerUid: user.uid,
           clientId:    null,
           // invoiceType is computed server-side from lineItem categories
@@ -1244,7 +1245,7 @@ export default function CalendarPage() {
                             </p>
                             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                               <span className="text-[11px] text-gray-400">{schedule.time}</span>
-                              {!schedule.isWalkIn && <Badge label={translate('packages', client?.packageType || 'monthly') || client?.packageType || 'monthly'} variant={client?.packageType || 'monthly'} />}
+                              {!schedule.isWalkIn && <Badge label={translate('packages', badgePackageType(client)) || badgePackageType(client)} variant={badgePackageType(client)} />}
                               {schedule.isWalkIn && schedule.basePrice > 0 && <span className="text-[11px] text-brand-600 font-medium">{formatCents(schedule.basePrice)}</span>}
                               {schedule.isRecurring && (
                                 <div className="flex items-center gap-0.5">
@@ -1352,7 +1353,7 @@ export default function CalendarPage() {
           <Select label={translate('calendar', 'client')} value={selectedClient} onChange={e => handleClientSelect(e.target.value)}>
             {clients
               .filter(c => c.leadStatus !== 'new' && c.leadStatus !== 'dismissed')
-              .map(c => <option key={c.id} value={c.id}>{c.name} — {translate('packages', c.packageType) || c.packageType}</option>)}
+              .map(c => <option key={c.id} value={c.id}>{c.name} — {translate('packages', badgePackageType(c)) || badgePackageType(c)}</option>)}
           </Select>
           <Select label={translate('calendar', 'time')} value={selectedTime} onChange={e => setSelectedTime(e.target.value)}>
             {TIMES.map(t => <option key={t} value={t}>{t}</option>)}

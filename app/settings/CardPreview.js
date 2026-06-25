@@ -121,7 +121,7 @@ export default function CardPreview({
         poweredBy:      'Con tecnología de',
         scanToRequest:  'Escanee para solicitar',
         openFullCard:   'Abrir tarjeta completa',
-        liveHint:       'Se actualiza mientras edita — no es necesario guardar',
+        liveHint:       'Se actualiza mientras editas — no es necesario guardar',
         previewLabel:   'Vista previa',
       }
     : {
@@ -199,7 +199,7 @@ export default function CardPreview({
             className="mt-2 text-[15px] font-bold text-gray-900 text-center leading-tight"
             style={{ fontFamily: 'var(--font-dm-serif), "DM Serif Display", serif' }}
           >
-            {businessName || (lang === 'es' ? 'Su negocio' : 'Your business')}
+            {businessName || (lang === 'es' ? 'Tu negocio' : 'Your business')}
           </h3>
           {tagline && (
             <p className="text-[11px] text-center mt-0.5" style={{ color: accent }}>

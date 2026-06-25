@@ -9,6 +9,7 @@ import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, Skeleton, Modal, Input, Select } from '@/components/ui'
 import { getClient, updateClient, deleteClient, getClientInvoices, getServices, saveInvoice, getMostRecentSchedule } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
+import { badgePackageType } from '@/lib/clientBadge'
 import { buildInvoiceSms } from '@/lib/invoiceSms'
 import { validatePhone } from '@/lib/phone'
 import { Phone, MapPin, Mail, CalendarDays, DollarSign, Pencil, FileText, CheckCircle2, RefreshCw, Clock, ShieldAlert, Sparkles, X } from 'lucide-react'
@@ -366,7 +367,7 @@ async function handleSendInvoice(channels = 'both') {
         clientName: client.name,
         clientEmail: client.email || '',
         clientPhone: client.phone || '',
-        description: `YardSync invoice — ${client.name}`,
+        description: `${profile?.businessName || 'YardSync'} — invoice for ${client.name}`,
         gardenerUid: user.uid,
         clientId: id,
         // invoiceType is computed server-side from lineItem categories
@@ -480,7 +481,7 @@ async function handleSendInvoice(channels = 'both') {
       <div className="page-content">
         <PageHeader
           title={client.name}
-          subtitle={`${client.packageType ? translate('packages', client.packageType) || client.packageType : (lang === 'es' ? 'Sin paquete' : 'No package')} · ${client.status || 'active'}`}
+          subtitle={`${client.packageType ? translate('packages', badgePackageType(client)) || badgePackageType(client) : (lang === 'es' ? 'Sin paquete' : 'No package')} · ${client.status || 'active'}`}
           back
           actions={
             <button
@@ -503,7 +504,7 @@ async function handleSendInvoice(channels = 'both') {
               <div>
                 <p className="text-[16px] font-semibold text-gray-900">{client.name}</p>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  <Badge label={translate('packages', client.packageType) || client.packageType} variant={client.packageType} />
+                  <Badge label={translate('packages', badgePackageType(client)) || badgePackageType(client)} variant={badgePackageType(client)} />
                   <Badge label={translate('status', client.status) || client.status} variant={client.status} />
                 </div>
               </div>
@@ -700,6 +701,7 @@ async function handleSendInvoice(channels = 'both') {
           <AiReminderDrafter
             client={client}
             contractorName={profile?.businessName || profile?.displayName || user?.displayName || 'Your contractor'}
+            businessName={profile?.businessName || profile?.displayName || user?.displayName || 'Your contractor'}
             lang={lang}
             gardenerUid={user?.uid}
             onSent={() => { if (refreshProfile) refreshProfile().catch(() => {}) }}
@@ -978,6 +980,21 @@ async function handleSendInvoice(channels = 'both') {
                 {lang === 'es' ? 'Cliente paga' : 'Client pays'}
               </span>
               <span className="font-bold text-brand-900">{formatCents(invoiceTotal)}</span>
+            </div>
+            {/* What the contractor actually nets — shown BEFORE sending so the
+                fees (incl. the Stripe fee they bear on direct charges) are never
+                a surprise. */}
+            <div className="flex justify-between text-[11px] text-brand-600 pt-1">
+              <span>{lang === 'es' ? 'Comisión YardSync (5.5%)' : 'YardSync fee (5.5%)'}</span>
+              <span>−{formatCents(Math.round(invoiceTotal * 0.055))}</span>
+            </div>
+            <div className="flex justify-between text-[11px] text-brand-600">
+              <span>{lang === 'es' ? 'Tarifa de procesamiento Stripe' : 'Stripe processing fee'}</span>
+              <span>−{formatCents(Math.round(invoiceTotal * 0.029) + 30)}</span>
+            </div>
+            <div className="flex justify-between text-[14px] font-bold border-t border-brand-200 pt-2 mt-1">
+              <span className="text-brand-700">{lang === 'es' ? 'Tú recibes' : 'You receive'}</span>
+              <span className="text-brand-700">{formatCents(invoiceTotal - Math.round(invoiceTotal * 0.055) - (Math.round(invoiceTotal * 0.029) + 30))}</span>
             </div>
           </div>
 
