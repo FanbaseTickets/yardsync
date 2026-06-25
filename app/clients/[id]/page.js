@@ -12,7 +12,6 @@ import { formatCents } from '@/lib/fee'
 import { badgePackageType } from '@/lib/clientBadge'
 import { buildInvoiceSms } from '@/lib/invoiceSms'
 import { validatePhone } from '@/lib/phone'
-import { startCardCapture } from '@/lib/cardCapture'
 import { Phone, MapPin, Mail, CalendarDays, DollarSign, Pencil, FileText, CheckCircle2, RefreshCw, Clock, ShieldAlert, Sparkles, X } from 'lucide-react'
 import PhoneInput from '@/components/ui/PhoneInput'
 import AiReminderDrafter from '@/components/AiReminderDrafter'
@@ -381,12 +380,11 @@ async function handleSendInvoice(channels = 'both') {
     const data = await res.json()
     if (!res.ok) {
       if (data.code === 'card_required') {
-        // Free-access model: no card on file yet. Launch the $0 card-capture
-        // and return here (?card=saved) so they can retry sending.
-        toast.loading(lang === 'es'
-          ? 'Agrega una tarjeta para empezar a facturar…'
-          : 'Add a card to start invoicing…')
-        try { await startCardCapture(user) } catch (e) { toast.error(e.message || translate('common', 'error')) }
+        // Free-access model: no card on file yet. Send them to the billing-setup
+        // confirmation (plan choice + $0-today disclosure + card-on-file
+        // authorization), which launches the $0 card save and returns here so
+        // they can retry sending.
+        router.push(`/billing-setup?return=${encodeURIComponent(window.location.pathname)}`)
         return
       }
       if (data.code === 'no_connect') {
