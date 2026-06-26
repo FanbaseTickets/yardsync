@@ -15,6 +15,7 @@
 
 import { useState } from 'react'
 import { Phone, MessageSquare, BookmarkPlus, ArrowRight } from 'lucide-react'
+import VerifiedBadge from '@/components/VerifiedBadge'
 
 const STRINGS = {
   en: {
@@ -138,6 +139,15 @@ export default function CardActions({ slug, owner, services, qrSvg, initialLang 
         >
           {owner.businessName}
         </h1>
+        {owner.verified && (
+          <div className="flex justify-center mb-1.5">
+            <VerifiedBadge
+              label={lang === 'es' ? 'Negocio verificado' : 'Verified business'}
+              title={lang === 'es' ? 'Identidad y pagos verificados con Stripe' : 'Identity & payments verified through Stripe'}
+              className="text-brand-700 text-[12px]"
+            />
+          </div>
+        )}
         {owner.tagline && (
           <p className="text-sm text-center mb-4" style={{ color: accent }}>
             {owner.tagline}

@@ -10,6 +10,8 @@ import { StatCard, Card, Badge, Button, Skeleton } from '@/components/ui'
 import { getClients, getTodaySchedules, getInvoices, getServices, getSchedules, updateSchedule, saveGardenerProfile } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { badgePackageType } from '@/lib/clientBadge'
+import { isVerifiedBusiness } from '@/lib/verifiedBadge'
+import VerifiedBadge from '@/components/VerifiedBadge'
 import { Users, CalendarCheck, DollarSign, MessageSquare, CheckCircle2, Clock, LogOut, Settings, CreditCard, Link2, Package, UserPlus, CalendarPlus, X, Landmark, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
@@ -202,6 +204,15 @@ export default function DashboardPage() {
                 <span className="text-brand-200 text-[12px] font-medium tracking-wide uppercase">
                   YardSync
                 </span>
+                {isVerifiedBusiness(profile) && (
+                  <VerifiedBadge
+                    label={lang === 'es' ? 'Verificado' : 'Verified'}
+                    title={lang === 'es' ? 'Identidad y pagos verificados con Stripe' : 'Identity & payments verified through Stripe'}
+                    className="text-brand-100 text-[11px]"
+                    iconClassName="text-brand-200"
+                    size={13}
+                  />
+                )}
               </div>
               <h1 className="text-[22px] font-display text-white leading-tight">
                 {greeting}, {firstName}

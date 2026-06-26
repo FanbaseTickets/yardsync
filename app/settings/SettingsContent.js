@@ -14,6 +14,7 @@ import CardPreview from './CardPreview'
 import CardAssets from './CardAssets'
 import DataExport from './DataExport'
 import { normalizeEsTemplate } from '@/lib/smsTemplate'
+import { isVerifiedBusiness } from '@/lib/verifiedBadge'
 import { saveGardenerProfile, getGardenerProfile, getInvoices } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { Bell, Globe, User, Clock, CreditCard, Link2, CheckCircle2, ArrowUpCircle, TrendingUp, Lock, Zap, LogOut, AlertTriangle } from 'lucide-react'
@@ -913,6 +914,7 @@ export default function SettingsPage() {
                       cardStatusBadge={form.cardStatusBadge}
                       offersFreeEstimate={form.offersFreeEstimate}
                       publicSlug={profile.publicSlug}
+                      verified={isVerifiedBusiness(profile)}
                       lang={lang}
                     />
                     <CardAssets

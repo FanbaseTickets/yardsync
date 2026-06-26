@@ -14,6 +14,7 @@
  */
 
 import { Phone, MessageSquare, BookmarkPlus, ArrowRight, ExternalLink } from 'lucide-react'
+import VerifiedBadge from '@/components/VerifiedBadge'
 
 const DEFAULT_ACCENT = '#0F6E56'
 
@@ -99,6 +100,7 @@ export default function CardPreview({
   cardStatusBadge,
   offersFreeEstimate,
   publicSlug,
+  verified = false,
   lang = 'en',
 }) {
   const accent       = accentColor || DEFAULT_ACCENT
@@ -201,6 +203,15 @@ export default function CardPreview({
           >
             {businessName || (lang === 'es' ? 'Tu negocio' : 'Your business')}
           </h3>
+          {verified && (
+            <div className="flex justify-center mt-0.5">
+              <VerifiedBadge
+                label={lang === 'es' ? 'Negocio verificado' : 'Verified business'}
+                className="text-brand-700 text-[10px]"
+                size={11}
+              />
+            </div>
+          )}
           {tagline && (
             <p className="text-[11px] text-center mt-0.5" style={{ color: accent }}>
               {tagline}
