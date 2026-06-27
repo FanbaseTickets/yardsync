@@ -200,7 +200,9 @@ export default function SettingsPage() {
         if (inv.paymentPath !== 'stripe') return
         const d = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
         if (d >= monthStart && d <= monthEnd) {
-          total += inv.totalCents || 0
+          // Net out partial refunds (fully-refunded invoices are status
+          // 'refunded' and already excluded above).
+          total += (inv.totalCents || 0) - (inv.refundedAmountCents || 0)
         }
       })
       setMonthlyVolume(total)

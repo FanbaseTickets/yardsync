@@ -254,7 +254,9 @@ export async function GET(req) {
 
     const volume = charges.data
       .filter(c => c.paid && !c.refunded)
-      .reduce((sum, c) => sum + c.amount, 0)
+      // Net out partial refunds (fully-refunded charges are already excluded
+      // above) so volume rewards reflect what the contractor actually kept.
+      .reduce((sum, c) => sum + (c.amount - (c.amount_refunded || 0)), 0)
 
     const volumeDollars = volume / 100
 
