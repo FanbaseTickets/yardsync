@@ -24,7 +24,7 @@
   --accent: #9fe3d1;
 }
 
-.lp-page { background: var(--gl); color: var(--g9); min-height: 100vh; }
+.lp-page { background: var(--gl); color: var(--g9); min-height: 100vh; overflow-x: hidden; }
 
 /* ── REUSABLE PHONE FRAME ────────────────────────── */
 /* Wrap any raw app screenshot in <div class="lp-phone">
@@ -134,6 +134,9 @@
 }
 .lp-nav-cta:hover { background: var(--gd); }
 .lp-lang-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: none;
   border: 1px solid #cdd9d2;
   color: var(--g6);
@@ -143,9 +146,11 @@
   border-radius: 10px;
   cursor: pointer;
   font-family: inherit;
+  white-space: nowrap;
   transition: border-color 0.2s, color 0.2s;
 }
 .lp-lang-toggle:hover { border-color: var(--gp); color: var(--gp); }
+.lp-lang-flag { font-size: 15px; line-height: 1; }
 
 /* ── HERO ────────────────────────────────────────── */
 .lp-hero {
@@ -954,8 +959,12 @@
   .lp-fr.rev .lp-ftext, .lp-fr.rev .lp-fph { order: initial; }
   .lp-bili-in { grid-template-columns: 1fr; }
   .lp-nav { padding: 12px 20px; }
-  .lp-nav-r { gap: 14px; }
+  .lp-nav-r { gap: 10px; }
   .lp-nav-r a:not(.lp-nav-cta) { display: none; }
+  /* Toggle is a <button>, not an <a> — collapse it to just the flag so the
+     nav row fits a phone (otherwise it overflows and the page shifts off-screen) */
+  .lp-lang-word { display: none; }
+  .lp-lang-toggle { padding: 7px 9px; }
   .lp-stats { gap: 20px; }
   .lp-sv { font-size: 22px; }
   .lp-reality-box { flex-direction: column; text-align: center; }
