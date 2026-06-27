@@ -9,7 +9,10 @@ self.addEventListener('push', (event) => {
   const options = {
     body:  data.body || '',
     icon:  '/icon-192.png',
-    badge: '/icon-192.png',
+    // Status-bar badge is rendered as a white silhouette from the alpha channel,
+    // so it must be transparent (an opaque tile shows as a white square). The
+    // white YS monogram on transparent is exactly that.
+    badge: '/logo-mark-white.png',
     data:  { url: data.url || '/dashboard' },
     tag:   data.tag || undefined,
   }
