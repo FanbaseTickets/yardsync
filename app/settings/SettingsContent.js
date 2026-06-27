@@ -78,6 +78,32 @@ export default function SettingsPage() {
       setPushBusy(false)
     }
   }
+
+  // Diagnostic: send myself a test push + report why it can't (server keys vs
+  // no subscription).
+  async function handleTestPush() {
+    if (!user) return
+    try {
+      const idToken = await user.getIdToken()
+      const res = await fetch('/api/push/test', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body:    JSON.stringify({ gardenerUid: user.uid }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        toast.success(lang === 'es' ? 'Prueba enviada — revisa tus notificaciones' : 'Test sent — check your notifications')
+      } else if (!data.configured) {
+        toast.error(lang === 'es' ? 'Faltan las llaves del servidor (VAPID) en este entorno' : 'Server VAPID keys missing in this environment')
+      } else if (data.subscriptions === 0) {
+        toast.error(lang === 'es' ? 'Ningún dispositivo suscrito — activa las notificaciones primero' : 'No device subscribed — turn on notifications first')
+      } else {
+        toast.error(lang === 'es' ? 'No se pudo enviar la prueba' : 'Could not send test')
+      }
+    } catch (err) {
+      toast.error(err.message || (lang === 'es' ? 'Error' : 'Error'))
+    }
+  }
   const [activeTab, setActiveTab] = useState('profile')
 
   // Tab from ?tab= (read via window.location to avoid a Suspense boundary —
@@ -1206,6 +1232,15 @@ export default function SettingsPage() {
                     {pushEnabled ? (lang === 'es' ? 'Desactivar' : 'Turn off') : (lang === 'es' ? 'Activar' : 'Turn on')}
                   </Button>
                 </div>
+              )}
+              {pushEnabled && (
+                <button
+                  type="button"
+                  onClick={handleTestPush}
+                  className="text-[12px] text-brand-600 font-medium hover:text-brand-700 mt-2"
+                >
+                  {lang === 'es' ? 'Enviar notificación de prueba' : 'Send a test notification'}
+                </button>
               )}
               <p className="text-[11px] text-gray-400 mt-2">
                 {lang === 'es' ? 'Esto es adicional a los SMS — nunca los reemplaza.' : 'This is in addition to SMS — it never replaces it.'}
