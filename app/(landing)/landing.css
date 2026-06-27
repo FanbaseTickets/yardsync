@@ -947,9 +947,20 @@
 /* ── RESPONSIVE ──────────────────────────────────── */
 @media (max-width: 900px) {
   .lp-hero {
-    grid-template-columns: 1fr;
+    /* minmax(0,1fr) lets the track shrink below its widest child's min-content
+       — without it the 3 fixed-width phone mockups force the column ~692px wide
+       and the headline/paragraph overflow the phone screen */
+    grid-template-columns: minmax(0, 1fr);
     padding: 40px 20px 60px;
     gap: 40px;
+  }
+  .lp-hero h1 { font-size: clamp(32px, 8.5vw, 44px); }
+  /* Let the phone trio shrink to share the row instead of forcing it wide */
+  .lp-hero-phones-wrap { min-height: auto; gap: 8px; }
+  .lp-hero-phones-wrap .lp-phone {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 33%;
   }
   .lp-fr, .lp-fr.rev {
     grid-template-columns: 1fr;
