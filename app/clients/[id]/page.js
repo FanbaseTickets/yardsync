@@ -388,7 +388,9 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
         contractorEmail: user?.email || '',
         lang,
         channels,
-        coverFees,
+        // On a resume after billing-setup, use the choice captured at send time
+        // (the page remounted, so the live `coverFees` state is stale/default).
+        coverFees: opts.coverFees ?? coverFees,
       }),
     })
     const data = await res.json()
@@ -401,7 +403,7 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
         // send them to the billing-setup confirmation (plan choice + $0-today
         // disclosure + card-on-file authorization). On return (?card=saved) the
         // resume effect finishes the send automatically — no second tap.
-        try { sessionStorage.setItem('ys_resume_invoice', JSON.stringify({ clientId: id, channels })) } catch {}
+        try { sessionStorage.setItem('ys_resume_invoice', JSON.stringify({ clientId: id, channels, coverFees })) } catch {}
         router.push(`/billing-setup?return=${encodeURIComponent(window.location.pathname)}`)
         return
       }
@@ -466,10 +468,10 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
   // Auto-resume: after the card-on-file is saved (returning with ?card=saved),
   // finish sending the invoice the contractor was trying to send — no second
   // "Send" tap. Retries briefly to ride out the webhook that sets pmOnFile.
-  async function resumePendingInvoice(channels) {
+  async function resumePendingInvoice(channels, coverFeesChoice) {
     for (let attempt = 0; attempt < 5; attempt++) {
       if (attempt > 0) await new Promise(r => setTimeout(r, 1500))
-      const result = await handleSendInvoice(channels, { resuming: true })
+      const result = await handleSendInvoice(channels, { resuming: true, coverFees: coverFeesChoice })
       if (result !== 'card_required') return
     }
     toast(lang === 'es' ? 'Tarjeta guardada. Toca "Enviar" para terminar.' : 'Card saved. Tap "Send" to finish.')
@@ -487,7 +489,7 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
     // Clean the URL so a manual refresh can't re-trigger a send.
     window.history.replaceState({}, '', `/clients/${id}`)
     toast.loading(lang === 'es' ? 'Tarjeta guardada — enviando factura…' : 'Card saved — sending invoice…', { id: 'resume' })
-    resumePendingInvoice(stash.channels || 'both').finally(() => toast.dismiss('resume'))
+    resumePendingInvoice(stash.channels || 'both', stash.coverFees === true).finally(() => toast.dismiss('resume'))
   }, [client, user, id])
 
   // Refund a paid invoice in-app (keeps YardSync's 5.5% per Terms; the
