@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import BottomNav from './BottomNav'
 import RewardsIntroModal from '@/components/RewardsIntroModal'
-import { getGardenerProfile } from '@/lib/db'
+import { getGardenerProfile, saveGardenerProfile } from '@/lib/db'
 import { Leaf } from 'lucide-react'
 
 export default function AppShell({ children }) {
-  const { user, loading, signingUp } = useAuth()
+  const { user, loading, signingUp, refreshProfile } = useAuth()
   const router = useRouter()
 
   const [subStatus,  setSubStatus]  = useState(null)
@@ -122,6 +122,29 @@ export default function AppShell({ children }) {
           // subscription is created when their first client invoice is paid.
           if (status === 'free_until_paid') {
             clearTimeout(timeoutRef.current)
+            setSubStatus('active')
+            setSubLoading(false)
+            return
+          }
+
+          // Legacy accounts created before the free-access launch have status
+          // 'none' (or missing). The old /subscribe paywall is dead — migrate
+          // them into the free model and grant access (the card gate at
+          // invoice-send + first-paid activation take over, same as a new
+          // signup). Without this, pre-launch accounts hit the dead paywall.
+          if (status === 'none') {
+            clearTimeout(timeoutRef.current)
+            try {
+              await saveGardenerProfile(user.uid, {
+                subscriptionStatus: 'free_until_paid',
+                subscriptionPlan:   'monthly',
+                pmOnFile:           false,
+                freeUntilPaidSince: new Date().toISOString(),
+              })
+              await refreshProfile?.()
+            } catch (e) {
+              console.error('[AppShell] legacy free-access migration failed:', e)
+            }
             setSubStatus('active')
             setSubLoading(false)
             return
