@@ -4,6 +4,7 @@ import { createDocument, getDocument } from '@/lib/firestoreRest'
 import { sendClientEmail } from '@/lib/email'
 import { getBaseUrl } from '@/lib/baseUrl'
 import { computeInvoiceType } from '@/lib/stripeHelpers'
+import { grossUpForFees } from '@/lib/fee'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -88,6 +89,7 @@ export async function POST(req) {
       contractorEmail,
       lang,
       channels,
+      coverFees,
     } = await req.json()
 
     // Auth: require a valid Firebase ID token whose uid matches gardenerUid, so
@@ -147,13 +149,21 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Invalid client email', code: 'bad_email' }, { status: 400 })
     }
 
-    const applicationFeeAmount = Math.round(chargeCents * 0.055)
+    // Fee pass-through (price-baked): when the contractor opts to "cover fees",
+    // the amount they entered is their TARGET NET. Gross it up so that after our
+    // 5.5% AND Stripe's ~2.9%+30¢ they keep their listed price. The client just
+    // sees one inclusive total — no itemized surcharge. Trusting the client flag
+    // is safe: it only raises the charge (and our 5.5% of it), never lowers it.
+    const listedPriceCents = chargeCents
+    const billedCents      = coverFees === true ? grossUpForFees(listedPriceCents) : chargeCents
+
+    const applicationFeeAmount = Math.round(billedCents * 0.055)
     // Direct charge: the contractor also bears Stripe's processing fee
     // (≈2.9% + $0.30), so their take is the total minus our 5.5% AND minus the
     // Stripe fee. Estimated here for the "you receive" display at send time; the
     // webhook overwrites contractorReceives with the same formula on payment.
-    const estStripeFee     = Math.round(chargeCents * 0.029) + 30
-    const contractorNet    = Math.max(0, chargeCents - applicationFeeAmount - estStripeFee)
+    const estStripeFee     = Math.round(billedCents * 0.029) + 30
+    const contractorNet    = Math.max(0, billedCents - applicationFeeAmount - estStripeFee)
 
     // Step 1: Create Stripe PaymentIntent as a DIRECT CHARGE on the connected
     // account (the `stripeAccount` request option). See
@@ -168,7 +178,7 @@ export async function POST(req) {
     // the platform is merchant of record (the model we moved away from).
     const paymentIntent = await stripe.paymentIntents.create(
       {
-        amount: chargeCents,
+        amount: billedCents,
         currency: 'usd',
         application_fee_amount: applicationFeeAmount,
         description: description || 'YardSync invoice',
@@ -178,6 +188,7 @@ export async function POST(req) {
           clientId,
           clientName: clientName || '',
           lineItemCount: String(lineItems?.length || 0),
+          feesCovered: coverFees === true ? 'true' : 'false',
         },
       },
       { stripeAccount: stripeAccountId }
@@ -197,7 +208,12 @@ export async function POST(req) {
         clientName:            clientName || '',
         clientEmail:           clientEmail || '',
         clientPhone:           clientPhone || '',
-        totalCents:            chargeCents,
+        totalCents:            billedCents,
+        // Fee pass-through audit trail: when the contractor covered fees, record
+        // their listed price (their target net) alongside the grossed-up total
+        // the client actually paid, so receipts/history can show both.
+        feesCovered:           coverFees === true,
+        listedPriceCents:      listedPriceCents,
         stripePaymentIntentId: paymentIntent.id,
         // The connected account the PaymentIntent lives on (direct charge). The
         // pay page + webhook need this to retrieve the PI with the right
@@ -239,7 +255,7 @@ export async function POST(req) {
     if (emailChannel && clientEmail) {
       const tmpl = buildInvoiceEmail({
         clientName,
-        totalCents: chargeCents,
+        totalCents: billedCents,
         paymentUrl,
         contractorName,
         lang: lang === 'es' ? 'es' : 'en',
@@ -259,7 +275,9 @@ export async function POST(req) {
       paymentIntentId: paymentIntent.id,
       clientSecret: paymentIntent.client_secret,
       paymentUrl,
-      amount: chargeCents,
+      amount: billedCents,
+      listedPriceCents,
+      feesCovered: coverFees === true,
       applicationFee: applicationFeeAmount,
       contractorReceives: contractorNet,
       emailNotified: !!(emailChannel && clientEmail),

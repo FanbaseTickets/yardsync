@@ -8,7 +8,7 @@ import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, Skeleton, Modal, Input, Select } from '@/components/ui'
 import { getClient, updateClient, deleteClient, getClientInvoices, getServices, saveInvoice, getMostRecentSchedule } from '@/lib/db'
-import { formatCents } from '@/lib/fee'
+import { formatCents, grossUpForFees } from '@/lib/fee'
 import { badgePackageType } from '@/lib/clientBadge'
 import { buildInvoiceSms } from '@/lib/invoiceSms'
 import { validatePhone } from '@/lib/phone'
@@ -76,6 +76,10 @@ export default function ClientDetailPage() {
   const [saving,        setSaving]        = useState(false)
   const [deleting,      setDeleting]      = useState(false)
   const [invoicing,     setInvoicing]     = useState(false)
+  // Fee pass-through: per-invoice toggle, seeded from the contractor's global
+  // default (Settings → Billing). When on, the client is billed a grossed-up
+  // total so the contractor nets their listed price.
+  const [coverFees,     setCoverFees]     = useState(false)
   const invoiceInFlight = useRef(false)   // synchronous double-send guard
 
   // Add-on state for invoice modal
@@ -86,6 +90,13 @@ export default function ClientDetailPage() {
     if (!id || !user) return
     loadData()
   }, [id, user])
+
+  // Seed the per-invoice fee-pass-through toggle from the contractor's global
+  // default once the profile loads. Their per-invoice choice isn't clobbered
+  // afterward (profile.coverFees only changes from the Settings page).
+  useEffect(() => {
+    setCoverFees(profile?.coverFees === true)
+  }, [profile?.coverFees])
 
   // Auto-open invoice modal if ?openInvoice=true
   useEffect(() => {
@@ -377,6 +388,7 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
         contractorEmail: user?.email || '',
         lang,
         channels,
+        coverFees,
       }),
     })
     const data = await res.json()
@@ -412,7 +424,9 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
       const smsBody = buildInvoiceSms({
         client,
         contractor: profile,
-        totalCents: grandTotal,
+        // Use the server-returned amount (grossed up when fees are covered) so
+        // the texted figure matches what the client is actually charged.
+        totalCents: data.amount ?? grandTotal,
         paymentUrl: data.paymentUrl,
         lang,
       })
@@ -1042,27 +1056,56 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
                 </div>
               </>
             )}
-            <div className="flex justify-between text-[15px] border-t border-brand-200 pt-2 mt-1">
-              <span className="font-bold text-brand-900">
-                {lang === 'es' ? 'Cliente paga' : 'Client pays'}
+            {/* Fee pass-through toggle — when on, the client is billed a
+                grossed-up total so the contractor keeps their listed price. */}
+            <label className="flex items-start gap-2 cursor-pointer border-t border-brand-200 pt-2 mt-1">
+              <input
+                type="checkbox"
+                checked={coverFees}
+                onChange={(e) => setCoverFees(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+              />
+              <span className="text-[12px] leading-tight text-gray-700">
+                <span className="font-semibold text-gray-900">
+                  {lang === 'es' ? 'Cubrir mis comisiones' : 'Cover my fees'}
+                </span>
+                <br />
+                {lang === 'es'
+                  ? 'El cliente paga un poco más para que tú recibas tu precio completo.'
+                  : 'Client pays a bit more so you keep your full price.'}
               </span>
-              <span className="font-bold text-brand-900">{formatCents(invoiceTotal)}</span>
-            </div>
-            {/* What the contractor actually nets — shown BEFORE sending so the
-                fees (incl. the Stripe fee they bear on direct charges) are never
-                a surprise. */}
-            <div className="flex justify-between text-[11px] text-brand-600 pt-1">
-              <span>{lang === 'es' ? 'Comisión YardSync (5.5%)' : 'YardSync fee (5.5%)'}</span>
-              <span>−{formatCents(Math.round(invoiceTotal * 0.055))}</span>
-            </div>
-            <div className="flex justify-between text-[11px] text-brand-600">
-              <span>{lang === 'es' ? 'Tarifa de procesamiento Stripe' : 'Stripe processing fee'}</span>
-              <span>−{formatCents(Math.round(invoiceTotal * 0.029) + 30)}</span>
-            </div>
-            <div className="flex justify-between text-[14px] font-bold border-t border-brand-200 pt-2 mt-1">
-              <span className="text-brand-700">{lang === 'es' ? 'Tú recibes' : 'You receive'}</span>
-              <span className="text-brand-700">{formatCents(invoiceTotal - Math.round(invoiceTotal * 0.055) - (Math.round(invoiceTotal * 0.029) + 30))}</span>
-            </div>
+            </label>
+            {(() => {
+              const billed     = coverFees ? grossUpForFees(invoiceTotal) : invoiceTotal
+              const ysFee      = Math.round(billed * 0.055)
+              const stripeFee  = Math.round(billed * 0.029) + 30
+              const youReceive = billed - ysFee - stripeFee
+              return (
+                <>
+                  <div className="flex justify-between text-[15px] pt-2">
+                    <span className="font-bold text-brand-900">
+                      {lang === 'es' ? 'Cliente paga' : 'Client pays'}
+                    </span>
+                    <span className="font-bold text-brand-900">{formatCents(billed)}</span>
+                  </div>
+                  {/* What the contractor actually nets — shown BEFORE sending so the
+                      fees (incl. the Stripe fee they bear on direct charges) are never
+                      a surprise. */}
+                  <div className="flex justify-between text-[11px] text-brand-600 pt-1">
+                    <span>{lang === 'es' ? 'Comisión YardSync (5.5%)' : 'YardSync fee (5.5%)'}</span>
+                    <span>−{formatCents(ysFee)}</span>
+                  </div>
+                  <div className="flex justify-between text-[11px] text-brand-600">
+                    <span>{lang === 'es' ? 'Comisión de procesamiento de Stripe' : 'Stripe processing fee'}</span>
+                    <span>−{formatCents(stripeFee)}</span>
+                  </div>
+                  <div className="flex justify-between text-[14px] font-bold border-t border-brand-200 pt-2 mt-1">
+                    <span className="text-brand-700">{lang === 'es' ? 'Tú recibes' : 'You receive'}</span>
+                    <span className="text-brand-700">{formatCents(youReceive)}</span>
+                  </div>
+                </>
+              )
+            })()}
           </div>
 
         </div>

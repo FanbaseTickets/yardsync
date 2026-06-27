@@ -51,6 +51,7 @@ export default function SettingsPage() {
   const [retryingPayment,   setRetryingPayment]   = useState(false)
   const [pushEnabled,       setPushEnabled]       = useState(false)
   const [pushBusy,          setPushBusy]          = useState(false)
+  const [coverFeesBusy,     setCoverFeesBusy]     = useState(false)
 
   useEffect(() => { isPushEnabled().then(setPushEnabled) }, [])
 
@@ -76,6 +77,25 @@ export default function SettingsPage() {
       toast.error(msg)
     } finally {
       setPushBusy(false)
+    }
+  }
+
+  // Fee pass-through global default — persisted immediately (it's a toggle, not
+  // part of the Profile edit-lock form). Sets the per-invoice default; each
+  // invoice send screen can still override it.
+  async function handleToggleCoverFees(next) {
+    if (coverFeesBusy || !user) return
+    setCoverFeesBusy(true)
+    try {
+      await saveGardenerProfile(user.uid, { coverFees: next })
+      await refreshProfile?.()
+      toast.success(next
+        ? (lang === 'es' ? 'Cubrirás tus comisiones por defecto' : "You'll cover your fees by default")
+        : (lang === 'es' ? 'Ya no cubrirás tus comisiones' : 'Fee pass-through turned off'))
+    } catch (err) {
+      toast.error(lang === 'es' ? 'No se pudo guardar' : 'Could not save')
+    } finally {
+      setCoverFeesBusy(false)
     }
   }
 
@@ -1510,6 +1530,46 @@ export default function SettingsPage() {
                 </div>
               </Card>
             )}
+          </section>
+
+          {/* Fee pass-through — global default for "cover my fees" on invoices */}
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <CreditCard size={14} className="text-brand-600" />
+              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                {lang === 'es' ? 'Comisiones de factura' : 'Invoice fees'}
+              </p>
+            </div>
+            <Card>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <p className="text-[13px] font-medium text-gray-800">
+                    {lang === 'es' ? 'Cubrir mis comisiones por defecto' : 'Cover my fees by default'}
+                  </p>
+                  <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">
+                    {lang === 'es'
+                      ? 'El cliente paga un poco más para que tú recibas tu precio completo (se cubre la comisión de 5.5% de YardSync y la de Stripe). Lo puedes anular en cada factura.'
+                      : "The client pays a bit more so you keep your full price (covers YardSync's 5.5% and Stripe's fee). You can override it on each invoice."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={profile?.coverFees === true}
+                  disabled={coverFeesBusy}
+                  onClick={() => handleToggleCoverFees(!(profile?.coverFees === true))}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+                    profile?.coverFees === true ? 'bg-brand-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      profile?.coverFees === true ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </Card>
           </section>
 
           {/* Payment Reminders — global upfront-billing deadline default */}
