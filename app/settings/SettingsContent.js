@@ -16,6 +16,7 @@ import DataExport from './DataExport'
 import { normalizeEsTemplate } from '@/lib/smsTemplate'
 import { isVerifiedBusiness } from '@/lib/verifiedBadge'
 import { startCardCapture } from '@/lib/cardCapture'
+import { pushSupported, isPushEnabled, enablePush, disablePush } from '@/lib/pushClient'
 import { saveGardenerProfile, getGardenerProfile, getInvoices } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { Bell, Globe, User, Clock, CreditCard, Link2, CheckCircle2, ArrowUpCircle, TrendingUp, Lock, Zap, LogOut, AlertTriangle } from 'lucide-react'
@@ -48,6 +49,61 @@ export default function SettingsPage() {
   const [stripeRemediating, setStripeRemediating] = useState(false)
   const [updatingCard,      setUpdatingCard]      = useState(false)
   const [retryingPayment,   setRetryingPayment]   = useState(false)
+  const [pushEnabled,       setPushEnabled]       = useState(false)
+  const [pushBusy,          setPushBusy]          = useState(false)
+
+  useEffect(() => { isPushEnabled().then(setPushEnabled) }, [])
+
+  async function handleTogglePush() {
+    if (pushBusy || !user) return
+    setPushBusy(true)
+    try {
+      if (pushEnabled) {
+        await disablePush(user)
+        setPushEnabled(false)
+        toast.success(lang === 'es' ? 'Notificaciones desactivadas' : 'Notifications turned off')
+      } else {
+        await enablePush(user)
+        setPushEnabled(true)
+        toast.success(lang === 'es' ? '¡Notificaciones activadas!' : 'Notifications turned on!')
+      }
+    } catch (err) {
+      const msg = err.message === 'denied'
+        ? (lang === 'es' ? 'Permiso denegado. Actívalo en los ajustes del navegador.' : 'Permission denied. Enable it in your browser settings.')
+        : err.message === 'not_supported'
+        ? (lang === 'es' ? 'Instala YardSync en tu teléfono primero.' : 'Install YardSync on your phone first.')
+        : (lang === 'es' ? 'No se pudieron activar las notificaciones.' : 'Could not enable notifications.')
+      toast.error(msg)
+    } finally {
+      setPushBusy(false)
+    }
+  }
+
+  // Diagnostic: send myself a test push + report why it can't (server keys vs
+  // no subscription).
+  async function handleTestPush() {
+    if (!user) return
+    try {
+      const idToken = await user.getIdToken()
+      const res = await fetch('/api/push/test', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body:    JSON.stringify({ gardenerUid: user.uid }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        toast.success(lang === 'es' ? 'Prueba enviada — revisa tus notificaciones' : 'Test sent — check your notifications')
+      } else if (!data.configured) {
+        toast.error(lang === 'es' ? 'Faltan las llaves del servidor (VAPID) en este entorno' : 'Server VAPID keys missing in this environment')
+      } else if (data.subscriptions === 0) {
+        toast.error(lang === 'es' ? 'Ningún dispositivo suscrito — activa las notificaciones primero' : 'No device subscribed — turn on notifications first')
+      } else {
+        toast.error(lang === 'es' ? 'No se pudo enviar la prueba' : 'Could not send test')
+      }
+    } catch (err) {
+      toast.error(err.message || (lang === 'es' ? 'Error' : 'Error'))
+    }
+  }
   const [activeTab, setActiveTab] = useState('profile')
 
   // Tab from ?tab= (read via window.location to avoid a Suspense boundary —
@@ -1145,6 +1201,53 @@ export default function SettingsPage() {
 
           {/* ── SMS tab ── */}
           {activeTab === 'sms' && (<>
+          {/* Phone push notifications — secondary to SMS, never a replacement */}
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <Bell size={14} className="text-brand-600" />
+              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                {lang === 'es' ? 'Notificaciones en el teléfono' : 'Phone notifications'}
+              </p>
+            </div>
+            <Card>
+              <p className="text-[13px] text-gray-700">
+                {lang === 'es'
+                  ? 'Recibe avisos instantáneos en este teléfono (nuevos prospectos, pagos, resumen del día) además de tus SMS y correos de siempre.'
+                  : 'Get instant alerts on this phone (new leads, payments, daily summary) — in addition to your usual texts and emails.'}
+              </p>
+              {!pushSupported() ? (
+                <p className="text-[12px] text-amber-700 mt-3">
+                  {lang === 'es'
+                    ? 'Para activarlas, instala YardSync en tu teléfono (en iPhone: Compartir → Agregar a inicio) y vuelve aquí.'
+                    : 'To turn these on, install YardSync on your phone (on iPhone: Share → Add to Home Screen) and come back here.'}
+                </p>
+              ) : (
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-[13px] font-medium text-gray-700">
+                    {pushEnabled
+                      ? (lang === 'es' ? '✅ Activadas en este dispositivo' : '✅ On for this device')
+                      : (lang === 'es' ? 'Desactivadas' : 'Off')}
+                  </span>
+                  <Button size="sm" loading={pushBusy} onClick={handleTogglePush}>
+                    {pushEnabled ? (lang === 'es' ? 'Desactivar' : 'Turn off') : (lang === 'es' ? 'Activar' : 'Turn on')}
+                  </Button>
+                </div>
+              )}
+              {pushEnabled && (
+                <button
+                  type="button"
+                  onClick={handleTestPush}
+                  className="text-[12px] text-brand-600 font-medium hover:text-brand-700 mt-2"
+                >
+                  {lang === 'es' ? 'Enviar notificación de prueba' : 'Send a test notification'}
+                </button>
+              )}
+              <p className="text-[11px] text-gray-400 mt-2">
+                {lang === 'es' ? 'Esto es adicional a los SMS — nunca los reemplaza.' : 'This is in addition to SMS — it never replaces it.'}
+              </p>
+            </Card>
+          </section>
+
           {/* SMS Reminders */}
           <section>
             <div className="flex items-center gap-2 mb-3">

@@ -108,7 +108,10 @@ export default async function CardPage({ params }) {
     })
     services = res
       .map(d => d.data)
-      .filter(s => s.label || s.name)
+      // Only packages the contractor marked visible appear on the public card +
+      // intake. Default (undefined) = visible, so existing services aren't
+      // hidden; a contractor can flip custom/internal packages to private.
+      .filter(s => (s.label || s.name) && s.publicVisible !== false)
   } catch (err) {
     console.error('[join/page] services fetch failed:', err.message)
   }

@@ -16,6 +16,7 @@ import toast from 'react-hot-toast'
 
 const DEFAULT_FORM = {
   serviceType:   'base',
+  publicVisible: true,
   packageType:   'monthly',
   recurrence:    'biweekly',
   preferredDay:  '',
@@ -119,6 +120,7 @@ export default function ServicesPage() {
       pricingType:  service.pricingType  || 'fixed',
       priceCents:   service.pricingType === 'fixed' && service.priceCents
         ? (service.priceCents / 100).toString() : '',
+      publicVisible: service.publicVisible !== false,
     })
     setErrors({})
     setShowModal(true)
@@ -153,6 +155,8 @@ export default function ServicesPage() {
         pricingType:   form.serviceType === 'base' ? 'fixed' : form.pricingType,
         priceCents:    (form.serviceType === 'base' || form.pricingType === 'fixed')
           ? dollarsToCents(form.priceCents) : null,
+        // Whether this package shows on the public /join card + intake dropdown.
+        publicVisible: form.publicVisible !== false,
       }
       if (editing) {
         await updateService(editing.id, data)
@@ -484,6 +488,25 @@ export default function ServicesPage() {
               )}
             </>
           )}
+
+          {/* Public visibility — whether this package shows on the public /join
+              card + intake dropdown. Lets contractors hide custom/internal ones. */}
+          <label className="flex items-start gap-3 cursor-pointer pt-1">
+            <input
+              type="checkbox"
+              checked={form.publicVisible !== false}
+              onChange={e => setField('publicVisible', e.target.checked)}
+              className="mt-0.5 w-4 h-4 accent-brand-600"
+            />
+            <span className="text-[13px] text-gray-700 flex-1">
+              {lang === 'es' ? 'Mostrar en mi tarjeta pública' : 'Show on my public card'}
+              <span className="block text-[11px] text-gray-400 mt-0.5">
+                {lang === 'es'
+                  ? 'Apágalo para paquetes personalizados o internos que no quieres que vean los prospectos.'
+                  : 'Turn off for custom or internal packages you don’t want prospects to see.'}
+              </span>
+            </span>
+          </label>
         </div>
       </Modal>
     </AppShell>

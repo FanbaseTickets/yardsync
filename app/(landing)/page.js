@@ -228,7 +228,8 @@ export default function LandingPage() {
             className="lp-lang-toggle"
             aria-label={es ? 'Switch to English' : 'Cambiar a Español'}
           >
-            {es ? '🇺🇸 English' : '🇲🇽 Español'}
+            <span className="lp-lang-flag">{es ? '🇺🇸' : '🇲🇽'}</span>
+            <span className="lp-lang-word">{es ? 'English' : 'Español'}</span>
           </button>
           <a href="/login" className="lp-nav-cta">{t.nav.signin}</a>
         </div>

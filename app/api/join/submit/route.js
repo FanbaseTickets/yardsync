@@ -29,6 +29,7 @@ import {
 } from '@/lib/firestoreRest'
 import { sendSms } from '@/lib/sms'
 import { sendClientEmail } from '@/lib/email'
+import { sendPush } from '@/lib/push'
 import { getBaseUrl } from '@/lib/baseUrl'
 
 const RATE_LIMIT_WINDOW_MS  = 60 * 60 * 1000 // 1 hour
@@ -333,6 +334,14 @@ export async function POST(request) {
         console.error('[join/submit] contractor SMS failed (non-fatal):', notifyErr.message)
       }
     }
+
+    // Secondary push alert to the contractor's installed devices — additive to
+    // the email/SMS above; a silent no-op if they haven't enabled push.
+    await sendPush(ownerUid, {
+      title: 'New YardSync lead',
+      body:  `${name} (${phoneNormalized}) requested service`,
+      url:   '/clients',
+    })
 
     // ── 8. Optional thank-you SMS to the client (gated by consent) ─────
     if (smsConsent) {
