@@ -278,6 +278,63 @@ export default function CalendarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clients, searchParams])
 
+  // Auto-resume (free-access): after the card-on-file is saved at billing-setup,
+  // the contractor returns here with ?card=saved — finish sending the invoice
+  // they were trying to send, no second tap. Re-POSTs the stashed body (safe:
+  // the card_required gate returns before creating any invoice) with a short
+  // retry to ride out the pmOnFile webhook, then notifies the client.
+  const calResumeTriedRef = useRef(false)
+  useEffect(() => {
+    if (calResumeTriedRef.current || !user || !profile) return
+    if (new URLSearchParams(window.location.search).get('card') !== 'saved') return
+    let stash = null
+    try { stash = JSON.parse(sessionStorage.getItem('ys_resume_invoice') || 'null') } catch {}
+    if (!stash || stash.kind !== 'calendar' || !stash.body) return
+    calResumeTriedRef.current = true
+    sessionStorage.removeItem('ys_resume_invoice')
+    window.history.replaceState({}, '', '/calendar')
+    ;(async () => {
+      toast.loading(lang === 'es' ? 'Tarjeta guardada — enviando factura…' : 'Card saved — sending invoice…', { id: 'resume' })
+      let data = null
+      for (let attempt = 0; attempt < 5; attempt++) {
+        if (attempt > 0) await new Promise(r => setTimeout(r, 1500))
+        try {
+          const idToken = await user.getIdToken()
+          const res = await fetch('/api/stripe/invoice', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+            body: JSON.stringify(stash.body),
+          })
+          const d = await res.json()
+          if (res.ok) { data = d; break }
+          if (d.code === 'card_required') continue   // webhook still settling — retry
+          throw new Error(d.error || 'Invoice failed')
+        } catch (e) {
+          toast.dismiss('resume')
+          toast.error(e.message || (lang === 'es' ? 'Error al enviar' : 'Failed to send'))
+          return
+        }
+      }
+      toast.dismiss('resume')
+      if (!data) {
+        toast(lang === 'es' ? 'Tarjeta guardada. Toca "Enviar" para terminar.' : 'Card saved. Tap "Send" to finish.')
+        return
+      }
+      if (data.smsRequested && stash.clientPhone && data.paymentUrl) {
+        try {
+          const smsBody = buildInvoiceSms({ client: { name: stash.clientName }, contractor: profile, totalCents: stash.totalCents, paymentUrl: data.paymentUrl, lang })
+          await fetch('/api/twilio/send', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clientPhone: stash.clientPhone, message: smsBody, gardenerUid: user.uid }),
+          })
+        } catch (e) { console.error('Resume SMS failed (non-fatal):', e) }
+      }
+      toast.success(lang === 'es' ? 'Factura enviada ✓' : 'Invoice sent ✓')
+      loadData()
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, profile])
+
   async function loadData() {
     setLoading(true)
     try {
@@ -450,27 +507,36 @@ export default function CalendarPage() {
     setSendingInvoiceId(schedule.id)
     try {
       const idToken = await user.getIdToken()
+      const body = {
+        stripeAccountId: profile.stripeAccountId,
+        totalCents,
+        lineItems,
+        clientName,
+        clientEmail,
+        clientPhone,
+        description: `${profile?.businessName || 'YardSync'} — invoice for ${clientName}`,
+        gardenerUid: user.uid,
+        clientId: schedule.clientId || null,
+        // invoiceType is computed server-side from lineItem categories
+        contractorName:  profile?.businessName || profile?.displayName || user?.displayName || '',
+        contractorEmail: user?.email || '',
+        lang,
+        channels,
+      }
       const res = await fetch('/api/stripe/invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({
-          stripeAccountId: profile.stripeAccountId,
-          totalCents,
-          lineItems,
-          clientName,
-          clientEmail,
-          clientPhone,
-          description: `${profile?.businessName || 'YardSync'} — invoice for ${clientName}`,
-          gardenerUid: user.uid,          clientId: schedule.clientId || null,
-          // invoiceType is computed server-side from lineItem categories
-          contractorName:  profile?.businessName || profile?.displayName || user?.displayName || '',
-          contractorEmail: user?.email || '',
-          lang,
-          channels,
-        }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
       if (!res.ok) {
+        if (data.code === 'card_required') {
+          // Free-access: stash the send intent, go to billing-setup; on return
+          // the resume effect finishes the send automatically (no second tap).
+          try { sessionStorage.setItem('ys_resume_invoice', JSON.stringify({ kind: 'calendar', body, clientPhone, clientName, totalCents })) } catch {}
+          router.push(`/billing-setup?return=${encodeURIComponent(window.location.pathname)}`)
+          return
+        }
         if (data.code === 'no_connect') {
           toast.error(lang === 'es'
             ? 'Completa la configuración de pagos en Ajustes antes de enviar facturas'
@@ -689,27 +755,35 @@ export default function CalendarPage() {
       ]
       const totalCents = basePrice + finalAddons.reduce((s, a) => s + a.amountCents, 0) + materialsTotalCents
       const idToken = await user.getIdToken()
+      const body = {
+        stripeAccountId: profile?.stripeAccountId,
+        totalCents,
+        lineItems,
+        clientName:  walkInInvoiceTarget.clientName,
+        clientEmail: walkInInvoiceTarget.clientEmail || '',
+        clientPhone: walkInInvoiceTarget.clientPhone || '',
+        description: `${profile?.businessName || 'YardSync'} — service`,
+        gardenerUid: user.uid,
+        clientId:    null,
+        // invoiceType is computed server-side from lineItem categories
+        contractorName:  profile?.businessName || profile?.displayName || user?.displayName || '',
+        contractorEmail: user?.email || '',
+        lang,
+        channels,
+      }
       const res = await fetch('/api/stripe/invoice', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({
-          stripeAccountId: profile?.stripeAccountId,
-          totalCents,
-          lineItems,
-          clientName:  walkInInvoiceTarget.clientName,
-          clientEmail: walkInInvoiceTarget.clientEmail || '',
-          clientPhone: walkInInvoiceTarget.clientPhone || '',
-          description: `${profile?.businessName || 'YardSync'} — service`,
-          gardenerUid: user.uid,
-          clientId:    null,
-          // invoiceType is computed server-side from lineItem categories
-          contractorName:  profile?.businessName || profile?.displayName || user?.displayName || '',
-          contractorEmail: user?.email || '',
-          lang,
-          channels,
-        }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
       if (!res.ok) {
+        if (data.code === 'card_required') {
+          // Free-access: stash the send intent, go to billing-setup; on return
+          // the resume effect finishes the send automatically (no second tap).
+          try { sessionStorage.setItem('ys_resume_invoice', JSON.stringify({ kind: 'calendar', body, clientPhone: walkInInvoiceTarget.clientPhone || '', clientName: walkInInvoiceTarget.clientName, totalCents })) } catch {}
+          router.push(`/billing-setup?return=${encodeURIComponent(window.location.pathname)}`)
+          return
+        }
         if (data.code === 'no_connect') {
           toast.error(lang === 'es'
             ? 'Completa la configuración de pagos en Ajustes antes de enviar facturas'

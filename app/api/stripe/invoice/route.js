@@ -118,6 +118,16 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Finish payment setup before sending invoices', code: 'no_connect' }, { status: 400 })
     }
 
+    // Free-access model (docs/FREE_ACCESS_SPEC.md): a 'free_until_paid'
+    // contractor must have a card on file before sending their first invoice.
+    // This guarantees we can create + bill the $39/mo subscription when that
+    // invoice is paid (the activation trigger). Already-active subscribers are
+    // past this gate and skip it.
+    const subStatus = gardenerDoc?.data?.subscriptionStatus
+    if (subStatus === 'free_until_paid' && gardenerDoc?.data?.pmOnFile !== true) {
+      return NextResponse.json({ error: 'Add a card on file to start invoicing', code: 'card_required' }, { status: 402 })
+    }
+
     // Amount: when line items are provided, recompute the total server-side from
     // them (don't trust the client's total) and charge that; otherwise fall back
     // to the provided totalCents. Require a whole number of cents at/above

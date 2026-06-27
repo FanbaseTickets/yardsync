@@ -18,15 +18,18 @@ export default function ConnectStripeContent() {
     if (loading) return
     if (!user) { router.replace('/login'); return }
 
-    // Subscription gate: you pay the YardSync subscription BEFORE connecting a
-    // bank. This page isn't behind the AppShell sub-gate, so without this an
-    // un-subscribed user could reach the bank step (and create a Connect
-    // account) by URL — a free-rider hole. Allow the just-subscribed grace
-    // window (?subscribed=true) since the profile can lag the checkout webhook.
+    // Access gate. Free-access model (docs/FREE_ACCESS_SPEC.md): connecting
+    // Stripe is FREE and is the whole funnel, so 'free_until_paid' (and the
+    // grace 'past_due') must be allowed here — the anti-abuse mechanism is the
+    // card-on-file gate at invoice-send, NOT a subscription. Only bounce
+    // genuinely locked-out states (canceled → /reactivate, none → /subscribe).
+    // Allow the just-subscribed grace window (?subscribed=true) since the
+    // profile can lag the checkout webhook.
     const justSubscribed = typeof window !== 'undefined' && window.location.search.includes('subscribed=true')
     const status = profile?.subscriptionStatus
-    const subscribed = status === 'active' || status === 'trialing'
-    if (!subscribed && !justSubscribed) {
+    const allowed = status === 'active' || status === 'trialing'
+      || status === 'free_until_paid' || status === 'past_due'
+    if (!allowed && !justSubscribed) {
       router.replace(status === 'canceled' || status === 'cancelled' ? '/reactivate' : '/subscribe')
       return
     }
@@ -83,7 +86,13 @@ export default function ConnectStripeContent() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ uid: user.uid }),
     }).catch(err => console.error('Save metadata failed (non-fatal):', err))
-    router.push('/dashboard?subscribed=true')
+    // Free-access model: connecting Stripe must NOT activate/charge the
+    // subscription. ?connected=true shows a "bank connected" toast only; the
+    // $39/mo subscription is created server-side on the first PAID client
+    // invoice. (Was ?subscribed=true, which the dashboard treated as a paid
+    // checkout and wrote subscriptionStatus:'active' — the bug that made Connect
+    // skip the card-on-file gate and pre-activate before any client paid.)
+    router.push('/dashboard?connected=true')
   }
 
 

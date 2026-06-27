@@ -15,9 +15,9 @@ const STRINGS = {
   en: {
     sharedBy:     'Shared by a YardSync partner',
     headline:     'Run your whole field-service business from your phone',
-    sub:          'Schedule jobs, send Stripe invoices, get paid, and text bilingual reminders — built for lawn care, landscaping, pressure washing, and more.',
+    sub:          'Start free — you pay nothing until your first client pays you. Schedule jobs, send Stripe invoices, get paid, and text bilingual reminders — built for lawn care, landscaping, pressure washing, and more.',
     p1:           'Bilingual app & text reminders — English and Spanish',
-    p2:           '$39/mo — or earn it free as your invoice volume grows',
+    p2:           '$39/mo — free until your first client pays, then free for good as your volume grows',
     p3:           '5.5% per invoice. No quarterly bills, no hidden fees.',
     p4:           'Your own free digital business card with a QR code',
     cta:          'Get started free',
@@ -30,9 +30,9 @@ const STRINGS = {
   es: {
     sharedBy:     'Compartido por un socio de YardSync',
     headline:     'Maneje todo su negocio de servicios desde su teléfono',
-    sub:          'Programe trabajos, envíe facturas con Stripe, reciba pagos y mande recordatorios bilingües por mensaje — para jardinería, paisajismo, lavado a presión y más.',
+    sub:          'Empiece gratis — no paga nada hasta que su primer cliente le pague. Programe trabajos, envíe facturas con Stripe, reciba pagos y mande recordatorios bilingües por mensaje — para jardinería, paisajismo, lavado a presión y más.',
     p1:           'App y recordatorios por mensaje bilingües — inglés y español',
-    p2:           '$39/mes — o gánelo gratis al crecer su volumen de facturas',
+    p2:           '$39/mes — gratis hasta que su primer cliente le pague, y gratis para siempre al crecer su volumen',
     p3:           '5.5% por factura. Sin cobros trimestrales ni cargos ocultos.',
     p4:           'Su propia tarjeta de presentación digital gratis con código QR',
     cta:          'Empieza gratis',

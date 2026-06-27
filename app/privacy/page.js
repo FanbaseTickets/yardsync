@@ -2,7 +2,7 @@ export default function PrivacyPage() {
   return (
     <div className="max-w-2xl mx-auto px-6 py-12">
       <h1 className="text-3xl font-bold mb-2">Privacy Policy</h1>
-      <p className="text-sm text-gray-500 mb-8">Last updated: June 24, 2026</p>
+      <p className="text-sm text-gray-500 mb-8">Last updated: June 25, 2026</p>
 
       <section className="space-y-6 text-gray-700 text-sm leading-relaxed">
 
@@ -23,6 +23,7 @@ export default function PrivacyPage() {
             <li>Public business-card profile content set by service providers (business name, tagline, bio, service area, brand color, and the contact details they choose to display)</li>
             <li>Information submitted by prospective clients through a service provider&apos;s public intake form, including name, phone number, email address, service address, service interest, notes, and SMS consent</li>
             <li>Usage data including IP address, browser type, device type, and pages visited</li>
+            <li>Subscription billing information. When you set up payments, you may save a card on file for your YardSync subscription. Your card is collected and stored by Stripe, our payment processor; YardSync never receives or stores your full card number. We retain only a Stripe customer identifier and a payment-method reference token that let us bill your subscription through Stripe.</li>
             <li>Communications sent through the platform</li>
           </ul>
         </div>
@@ -37,6 +38,7 @@ export default function PrivacyPage() {
             <li>To power AI-assisted message drafting features using Anthropic&apos;s Claude API</li>
             <li>To store and display contractor logos, headshots, and business-card profiles on client-facing payment pages and public digital business cards</li>
             <li>To host each service provider&apos;s public digital business card and to capture service requests from prospective clients as leads for that provider</li>
+            <li>To bill your YardSync subscription through Stripe using your saved card on file, including initiating the subscription charge when your first client invoice is paid</li>
           </ul>
         </div>
 
@@ -52,7 +54,7 @@ export default function PrivacyPage() {
 
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">6. Data Sharing</h2>
-          <p>We do not sell your personal information. Mobile opt-in data and phone numbers collected for SMS communications will never be shared with third parties or affiliates for marketing or promotional purposes. We share data only with trusted service providers necessary to operate the platform (Firebase, Stripe, Twilio, Anthropic). We do not share data with third parties for marketing purposes.</p>
+          <p>We do not sell your personal information. Mobile opt-in data and phone numbers collected for SMS communications will never be shared with third parties or affiliates for marketing or promotional purposes. We share data only with trusted service providers necessary to operate the platform (Firebase, Stripe, Twilio, Anthropic). We do not share data with third parties for marketing purposes. Card details for your subscription are stored by Stripe under Stripe&apos;s terms; YardSync stores only a customer identifier and a payment-method token, not your card number.</p>
           <p className="mt-2">We retain your data for as long as your account is active. If you cancel your account, your data is preserved in read-only format to allow reactivation. You may request permanent deletion of your data by contacting <a href="mailto:support@yardsyncapp.com" className="text-green-700 underline">support@yardsyncapp.com</a>.</p>
         </div>
 

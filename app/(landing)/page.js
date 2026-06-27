@@ -23,10 +23,10 @@ export default function LandingPage() {
       {/* HERO */}
       <section className="lp-hero">
         <div className="lp-hero-text">
-          <div className="lp-eyebrow">📱 Field Service Business Platform</div>
+          <div className="lp-eyebrow">🌱 Start free — pay nothing until your first client pays you</div>
           <h1>Software that works like <em>you</em> do.</h1>
-          <p className="lp-sub-en">Drag-and-drop routes, one-tap Stripe invoices, SMS reminders in English or Spanish, materials tracked per job. No desks, no laptops, no hidden fees.</p>
-          <p className="lp-sub-es">Rutas con arrastrar y soltar, facturas con un toque, recordatorios en inglés o español, materiales por trabajo. Sin escritorios, sin portátiles, sin sorpresas.</p>
+          <p className="lp-sub-en">Start free — build your card, send invoices, get paid. You pay $0 until money lands in your account; then it&apos;s $39/mo. Drag-and-drop routes, one-tap Stripe invoices, bilingual SMS reminders. No upfront cost, no hidden fees.</p>
+          <p className="lp-sub-es">Empieza gratis — crea tu tarjeta, envía facturas y cobra. Pagas $0 hasta que el dinero llegue a tu cuenta; después son $39/mes. Rutas con arrastrar y soltar, facturas con un toque, recordatorios en inglés o español. Sin costo inicial, sin sorpresas.</p>
           <div className="lp-btns">
             <a href="/signup" className="lp-btn-y">Get Started →</a>
             <a href="#who" className="lp-btn-gh">See who uses it ↓</a>
@@ -257,12 +257,12 @@ export default function LandingPage() {
         <div style={{maxWidth:'1100px',margin:'0 auto'}}>
           <div className="sec-lbl">Pricing | Precios</div>
           <h2 className="sec-h">Simple pricing. Serious results.</h2>
-          <p style={{fontSize:'15px',color:'var(--g6)'}}>$39/mo subscription + 5.5% per invoice. No contracts. Cancel anytime. Volume rewards drop your subscription to <strong>$0</strong> at $3k+/mo invoiced. The 5.5% per-invoice fee always applies.</p>
+          <p style={{fontSize:'15px',color:'var(--g6)'}}>Start free — you pay <strong>nothing</strong> until your first client pays you. Then it&apos;s $39/mo + 5.5% per invoice. No contracts, no upfront cost, cancel anytime. Volume rewards drop your subscription to <strong>$0</strong> at $3k+/mo invoiced. The 5.5% per-invoice fee always applies.</p>
           <div className="lp-pg">
             <div className="lp-pc">
               <div className="lp-pn">Monthly</div><div className="lp-pne">Mensual</div>
               <div className="lp-pa">$39</div><div className="lp-pp">per month + 5.5% per invoice</div>
-              <ul className="lp-pf"><li>Unlimited clients</li><li>Auto SMS reminders</li><li>Stripe invoicing (5.5% per invoice)</li><li>$0 subscription at $3k+/mo</li><li>English &amp; Spanish</li><li>Cancel anytime</li></ul>
+              <ul className="lp-pf"><li><strong>Free until your first client pays</strong></li><li>Unlimited clients</li><li>Auto SMS reminders</li><li>Stripe invoicing (5.5% per invoice)</li><li>$0 subscription at $3k+/mo</li><li>English &amp; Spanish</li><li>Cancel anytime</li></ul>
               <a href="/signup" className="lp-pcta">Start Monthly →</a>
             </div>
             <div className="lp-pc featured">
@@ -325,12 +325,12 @@ export default function LandingPage() {
       <section className="lp-cta-section">
         <div className="lp-cin">
           <h2>Start growing your business <em>today</em></h2>
-          <p>Sign up in minutes. Cancel anytime.</p>
-          <p className="lp-es-cta">Regístrate en minutos. Cancela cuando quieras.</p>
+          <p>Start free. Pay nothing until your first client pays you.</p>
+          <p className="lp-es-cta">Empieza gratis. No pagas nada hasta que tu primer cliente te pague.</p>
           <div style={{display:'flex',justifyContent:'center'}}>
             <a href="/signup" className="lp-btn-y" style={{fontSize:'17px',padding:'14px 36px'}}>Get Started →</a>
           </div>
-          <p className="lp-cta-note">$39/mo + 5.5% per invoice · $0 subscription at $3k+/mo invoiced · 5.5% per invoice always applies · Cancel anytime · English &amp; Español</p>
+          <p className="lp-cta-note">Free to start · $39/mo once your first client pays + 5.5% per invoice · $0 subscription at $3k+/mo invoiced · Cancel anytime · English &amp; Español</p>
         </div>
       </section>
 

@@ -25,6 +25,7 @@ import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import QRCode from 'qrcode'
 import { getDocument, listCollection } from '@/lib/firestoreRest'
+import { isVerifiedBusiness } from '@/lib/verifiedBadge'
 import CardActions from './CardActions'
 
 export const dynamic = 'force-dynamic'
@@ -140,6 +141,7 @@ export default async function CardPage({ params }) {
         showContactEmail:  owner.showContactEmail === true,
         cardStatusBadge:   owner.cardStatusBadge  || 'booking',
         offersFreeEstimate: owner.offersFreeEstimate === true,
+        verified:          isVerifiedBusiness(owner),
       }}
       services={services}
       qrSvg={qrSvg}
