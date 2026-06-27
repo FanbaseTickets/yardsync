@@ -4,6 +4,7 @@ import { queryCollection, getDocument, setDocument, updateDocument } from '@/lib
 import { sendAdminEmail } from '@/lib/email'
 import { getSubscriptionPeriodEndISO } from '@/lib/stripeHelpers'
 import { getBaseUrl } from '@/lib/baseUrl'
+import { sendPush } from '@/lib/push'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -493,6 +494,16 @@ export async function POST(request) {
             contractorReceives:   Math.max(0, amountCents - applicationFee - stripeProcessingFee),
           })
           console.log(`Invoice ${invDoc.id} marked paid via PaymentIntent ${pi.id} — amount: ${amountCents}¢, appFee: ${applicationFee}¢, contractorStripeFee: ${stripeProcessingFee}¢, netToPlatform(full appFee): ${netToPlatform}¢`)
+
+          // Secondary push: alert the contractor that a client paid (additive;
+          // no-op if they haven't enabled push).
+          if (invDoc.data.gardenerUid) {
+            await sendPush(invDoc.data.gardenerUid, {
+              title: 'Payment received 💸',
+              body:  `${invDoc.data.clientName || 'A client'} paid $${(amountCents / 100).toFixed(2)}`,
+              url:   '/dashboard',
+            })
+          }
 
           // Trust-state mechanic (spec §6.3): a first paid invoice for an
           // intake-sourced upfront client increments completedJobsCount, which
