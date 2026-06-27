@@ -337,7 +337,7 @@ export default function ClientDetailPage() {
     }
   }
 
-async function handleSendInvoice(channels = 'both') {
+async function handleSendInvoice(channels = 'both', opts = {}) {
   // Synchronous in-flight guard — a fast double-tap (or tapping two channel
   // buttons) would otherwise fire two POSTs and create two PaymentIntents
   // before the `invoicing` state disables the buttons.
@@ -380,10 +380,14 @@ async function handleSendInvoice(channels = 'both') {
     const data = await res.json()
     if (!res.ok) {
       if (data.code === 'card_required') {
-        // Free-access model: no card on file yet. Send them to the billing-setup
-        // confirmation (plan choice + $0-today disclosure + card-on-file
-        // authorization), which launches the $0 card save and returns here so
-        // they can retry sending.
+        // During an auto-resume, just report it so the resume loop can retry
+        // while the pmOnFile webhook lands — don't bounce back to billing-setup.
+        if (opts.resuming) return 'card_required'
+        // Free-access model: no card on file yet. Stash the send intent, then
+        // send them to the billing-setup confirmation (plan choice + $0-today
+        // disclosure + card-on-file authorization). On return (?card=saved) the
+        // resume effect finishes the send automatically — no second tap.
+        try { sessionStorage.setItem('ys_resume_invoice', JSON.stringify({ clientId: id, channels })) } catch {}
         router.push(`/billing-setup?return=${encodeURIComponent(window.location.pathname)}`)
         return
       }
@@ -434,6 +438,7 @@ async function handleSendInvoice(channels = 'both') {
     )
     setShowInvoice(false)
     loadData()
+    return 'sent'
   } catch (err) {
     toast.error(err.message || translate('common', 'error'))
   } finally {
@@ -441,6 +446,33 @@ async function handleSendInvoice(channels = 'both') {
     invoiceInFlight.current = false
   }
 }
+
+  // Auto-resume: after the card-on-file is saved (returning with ?card=saved),
+  // finish sending the invoice the contractor was trying to send — no second
+  // "Send" tap. Retries briefly to ride out the webhook that sets pmOnFile.
+  async function resumePendingInvoice(channels) {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      if (attempt > 0) await new Promise(r => setTimeout(r, 1500))
+      const result = await handleSendInvoice(channels, { resuming: true })
+      if (result !== 'card_required') return
+    }
+    toast(lang === 'es' ? 'Tarjeta guardada. Toca "Enviar" para terminar.' : 'Card saved. Tap "Send" to finish.')
+  }
+
+  const resumeTriedRef = useRef(false)
+  useEffect(() => {
+    if (resumeTriedRef.current || !client || !user) return
+    if (new URLSearchParams(window.location.search).get('card') !== 'saved') return
+    let stash = null
+    try { stash = JSON.parse(sessionStorage.getItem('ys_resume_invoice') || 'null') } catch {}
+    if (!stash || stash.clientId !== id) return
+    resumeTriedRef.current = true
+    sessionStorage.removeItem('ys_resume_invoice')
+    // Clean the URL so a manual refresh can't re-trigger a send.
+    window.history.replaceState({}, '', `/clients/${id}`)
+    toast.loading(lang === 'es' ? 'Tarjeta guardada — enviando factura…' : 'Card saved — sending invoice…', { id: 'resume' })
+    resumePendingInvoice(stash.channels || 'both').finally(() => toast.dismiss('resume'))
+  }, [client, user, id])
   if (loading) {
     return (
       <AppShell>
