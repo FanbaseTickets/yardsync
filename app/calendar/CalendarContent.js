@@ -11,7 +11,7 @@ import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Badge, Modal, Select, EmptyState, Skeleton, Input } from '@/components/ui'
 import { getClients, getSchedules, addSchedule, updateSchedule, deleteSchedule, getServices, updateScheduleMaterials, saveInvoice, getClientInvoices } from '@/lib/db'
 import { deleteAllClientSchedules } from '@/lib/db'
-import { formatCents, grossUpForFees } from '@/lib/fee'
+import { formatCents, grossUpForFees, calcApplicationFee } from '@/lib/fee'
 import { badgePackageType } from '@/lib/clientBadge'
 import { buildInvoiceSms } from '@/lib/invoiceSms'
 import { validatePhone, formatPhone } from '@/lib/phone'
@@ -1869,7 +1869,7 @@ export default function CalendarPage() {
           // Fee pass-through: when on, the client is billed a grossed-up total
           // so the contractor nets their listed price.
           const billed = coverFees ? grossUpForFees(invoicePreview.totalCents) : invoicePreview.totalCents
-          const fee = Math.round(billed * 0.055)
+          const fee = calcApplicationFee(billed)
           // Direct charge: the contractor also pays Stripe's processing fee
           // (≈2.9% + $0.30). Show it so "You receive" is never a surprise.
           const stripeFee = Math.round(billed * 0.029) + 30

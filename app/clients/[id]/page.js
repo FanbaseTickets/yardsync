@@ -8,7 +8,7 @@ import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, Skeleton, Modal, Input, Select } from '@/components/ui'
 import { getClient, updateClient, deleteClient, getClientInvoices, getServices, saveInvoice, getMostRecentSchedule } from '@/lib/db'
-import { formatCents, grossUpForFees } from '@/lib/fee'
+import { formatCents, grossUpForFees, calcApplicationFee } from '@/lib/fee'
 import { badgePackageType } from '@/lib/clientBadge'
 import { buildInvoiceSms } from '@/lib/invoiceSms'
 import { validatePhone } from '@/lib/phone'
@@ -1079,7 +1079,7 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
             </label>
             {(() => {
               const billed     = coverFees ? grossUpForFees(invoiceTotal) : invoiceTotal
-              const ysFee      = Math.round(billed * 0.055)
+              const ysFee      = calcApplicationFee(billed)
               const stripeFee  = Math.round(billed * 0.029) + 30
               const youReceive = billed - ysFee - stripeFee
               return (

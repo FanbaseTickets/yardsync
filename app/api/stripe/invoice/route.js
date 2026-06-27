@@ -4,7 +4,7 @@ import { createDocument, getDocument } from '@/lib/firestoreRest'
 import { sendClientEmail } from '@/lib/email'
 import { getBaseUrl } from '@/lib/baseUrl'
 import { computeInvoiceType } from '@/lib/stripeHelpers'
-import { grossUpForFees } from '@/lib/fee'
+import { grossUpForFees, calcApplicationFee } from '@/lib/fee'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -157,7 +157,8 @@ export async function POST(req) {
     const listedPriceCents = chargeCents
     const billedCents      = coverFees === true ? grossUpForFees(listedPriceCents) : chargeCents
 
-    const applicationFeeAmount = Math.round(billedCents * 0.055)
+    // 5.5%, capped at FEE_CAP_CENTS when a cap is configured (lib/fee.js).
+    const applicationFeeAmount = calcApplicationFee(billedCents)
     // Direct charge: the contractor also bears Stripe's processing fee
     // (≈2.9% + $0.30), so their take is the total minus our 5.5% AND minus the
     // Stripe fee. Estimated here for the "you receive" display at send time; the
