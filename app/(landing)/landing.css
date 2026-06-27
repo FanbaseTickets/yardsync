@@ -133,6 +133,19 @@
   font-weight: 600 !important;
 }
 .lp-nav-cta:hover { background: var(--gd); }
+.lp-lang-toggle {
+  background: none;
+  border: 1px solid #cdd9d2;
+  color: var(--g6);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.2s, color 0.2s;
+}
+.lp-lang-toggle:hover { border-color: var(--gp); color: var(--gp); }
 
 /* ── HERO ────────────────────────────────────────── */
 .lp-hero {
