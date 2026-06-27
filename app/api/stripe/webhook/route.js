@@ -77,22 +77,43 @@ export async function POST(request) {
         // first client invoice is paid. (See docs/FREE_ACCESS_SPEC.md §4.1.)
         if (session.mode === 'setup') {
           try {
-            const si  = session.setup_intent ? await stripe.setupIntents.retrieve(session.setup_intent) : null
-            const pmId = si?.payment_method || null
+            // Expand the payment method so we can store the brand + last4 for
+            // the "card on file" display + the Update-card flow.
+            const si = session.setup_intent
+              ? await stripe.setupIntents.retrieve(session.setup_intent, { expand: ['payment_method'] })
+              : null
+            const pm   = si?.payment_method || null
+            const pmId = (pm && typeof pm === 'object') ? pm.id : (pm || null)
             const cust = session.customer || null
             if (pmId && cust) {
+              // Set as the customer's default PM — this REPLACES any prior card,
+              // which is exactly what the Update-card-on-file flow needs.
               await stripe.customers.update(cust, {
                 invoice_settings: { default_payment_method: pmId },
               })
+              // CRITICAL: our subscriptions are created with a SUBSCRIPTION-level
+              // default_payment_method (at first-paid activation), which takes
+              // precedence over the customer default. So an existing subscriber
+              // updating their card must also have the SUBSCRIPTION default
+              // updated, or the new card would never actually be charged.
+              try {
+                const u = await getDocument('users', gardenerUid)
+                const subId = u?.data?.stripeSubscriptionId
+                if (subId) await stripe.subscriptions.update(subId, { default_payment_method: pmId })
+              } catch (e) {
+                console.error('subscription default PM update failed (non-fatal):', e.message)
+              }
             }
             await updateDocument('users', gardenerUid, {
               stripeCustomerId:      cust,
               stripePaymentMethodId: pmId,
+              cardBrand:             pm?.card?.brand || null,
+              cardLast4:             pm?.card?.last4 || null,
               pmOnFile:              true,
               pmOnFileAt:            new Date().toISOString(),
               updatedAt:             new Date().toISOString(),
             })
-            console.log(`Card on file saved for ${gardenerUid} — pm ${pmId}`)
+            console.log(`Card on file saved for ${gardenerUid} — pm ${pmId} (${pm?.card?.brand} ****${pm?.card?.last4})`)
           } catch (e) {
             console.error('setup-mode checkout handling failed:', e.message)
           }

@@ -15,6 +15,7 @@ import CardAssets from './CardAssets'
 import DataExport from './DataExport'
 import { normalizeEsTemplate } from '@/lib/smsTemplate'
 import { isVerifiedBusiness } from '@/lib/verifiedBadge'
+import { startCardCapture } from '@/lib/cardCapture'
 import { saveGardenerProfile, getGardenerProfile, getInvoices } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { Bell, Globe, User, Clock, CreditCard, Link2, CheckCircle2, ArrowUpCircle, TrendingUp, Lock, Zap, LogOut, AlertTriangle } from 'lucide-react'
@@ -45,6 +46,8 @@ export default function SettingsPage() {
   const [canceling,        setCanceling]        = useState(false)
   const [reactivating,     setReactivating]     = useState(false)
   const [stripeRemediating, setStripeRemediating] = useState(false)
+  const [updatingCard,      setUpdatingCard]      = useState(false)
+  const [retryingPayment,   setRetryingPayment]   = useState(false)
   const [activeTab, setActiveTab] = useState('profile')
 
   // Tab from ?tab= (read via window.location to avoid a Suspense boundary —
@@ -53,6 +56,21 @@ export default function SettingsPage() {
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get('tab')
     if (['profile', 'card', 'sms', 'billing'].includes(t)) setActiveTab(t)
+  }, [])
+
+  // Returning from an "Update card on file" → confirm + refresh so the new card
+  // (brand/last4, set by the setup-mode webhook) shows once it lands.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (new URLSearchParams(window.location.search).get('card') !== 'saved') return
+    toast.success(lang === 'es' ? 'Tarjeta actualizada ✓' : 'Card updated ✓')
+    const t1 = setTimeout(() => refreshProfile?.(), 1500)
+    const t2 = setTimeout(() => refreshProfile?.(), 4000)
+    const url = new URL(window.location.href)
+    url.searchParams.delete('card')
+    window.history.replaceState({}, '', url)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function selectTab(t) {
@@ -182,7 +200,9 @@ export default function SettingsPage() {
         if (inv.paymentPath !== 'stripe') return
         const d = inv.createdAt?.toDate?.() || new Date(inv.createdAt)
         if (d >= monthStart && d <= monthEnd) {
-          total += inv.totalCents || 0
+          // Net out partial refunds (fully-refunded invoices are status
+          // 'refunded' and already excluded above).
+          total += (inv.totalCents || 0) - (inv.refundedAmountCents || 0)
         }
       })
       setMonthlyVolume(total)
@@ -329,6 +349,50 @@ export default function SettingsPage() {
     } catch (err) {
       toast.error(err.message || (lang === 'es' ? 'No se pudo abrir Stripe' : 'Could not open Stripe'))
       setStripeRemediating(false)
+    }
+  }
+
+  // Update / replace the card on file. Reuses the $0 setup-card flow — saving a
+  // new card sets it as the customer's default PM (replacing the old one), so a
+  // declined activation/renewal can recover. Returns to Settings → Billing.
+  async function handleUpdateCard() {
+    if (!user || updatingCard) return
+    setUpdatingCard(true)
+    try {
+      await startCardCapture(user, '/settings?tab=billing')
+    } catch (err) {
+      toast.error(err.message || (lang === 'es' ? 'No se pudo abrir' : 'Could not open card update'))
+      setUpdatingCard(false)
+    }
+  }
+
+  // Retry a failed subscription payment (past_due) with the card now on file.
+  async function handleRetryPayment() {
+    if (!user || retryingPayment) return
+    setRetryingPayment(true)
+    try {
+      const idToken = await user.getIdToken()
+      const res = await fetch('/api/stripe/retry-subscription', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body:    JSON.stringify({ gardenerUid: user.uid }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'retry_failed')
+      if (data.ok) {
+        // Optimistic — the invoice.payment_succeeded webhook is canonical.
+        await saveGardenerProfile(user.uid, { subscriptionStatus: 'active' })
+        await refreshProfile()
+        toast.success(lang === 'es' ? '¡Pago exitoso! Tu cuenta está activa.' : 'Payment successful — your account is active.')
+      } else {
+        toast(lang === 'es' ? 'No había ningún pago pendiente.' : 'No pending payment to retry.')
+      }
+    } catch (err) {
+      toast.error(lang === 'es'
+        ? 'El pago falló de nuevo. Actualiza tu tarjeta e inténtalo otra vez.'
+        : 'Payment failed again. Update your card and try once more.')
+    } finally {
+      setRetryingPayment(false)
     }
   }
 
@@ -1261,6 +1325,58 @@ export default function SettingsPage() {
                 return null
               })()}
             </Card>
+
+            {/* Card on file — shown once a card is saved. Lets the contractor
+                update/replace the card we charge the subscription to (recovery
+                for a declined activation/renewal). Prominent on past_due. */}
+            {profile?.pmOnFile && (
+              <Card className={`mt-3 ${profile?.subscriptionStatus === 'past_due' ? 'border-amber-300 bg-amber-50' : ''}`}>
+                {profile?.subscriptionStatus === 'past_due' && (
+                  <div className="flex items-start gap-2 mb-3">
+                    <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-[12px] text-amber-800 font-medium">
+                      {lang === 'es'
+                        ? 'Tu último pago falló. Actualiza tu tarjeta para mantener tu cuenta activa.'
+                        : 'Your last payment failed. Update your card to keep your account active.'}
+                    </p>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CreditCard size={16} className="text-gray-500" />
+                    <span className="text-[13px] text-gray-700">
+                      {profile?.cardBrand && profile?.cardLast4
+                        ? `${profile.cardBrand.charAt(0).toUpperCase()}${profile.cardBrand.slice(1)} •••• ${profile.cardLast4}`
+                        : (lang === 'es' ? 'Tarjeta guardada' : 'Card on file')}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleUpdateCard}
+                    disabled={updatingCard}
+                    className="text-[13px] text-brand-600 font-medium hover:text-brand-700 disabled:opacity-50"
+                  >
+                    {updatingCard ? '…' : (lang === 'es' ? 'Actualizar' : 'Update')}
+                  </button>
+                </div>
+                <p className="text-[11px] text-gray-400 mt-2">
+                  {lang === 'es'
+                    ? 'Es la tarjeta que se cobra por tu suscripción de YardSync.'
+                    : 'This is the card charged for your YardSync subscription.'}
+                </p>
+                {profile?.subscriptionStatus === 'past_due' && (
+                  <Button
+                    fullWidth
+                    size="sm"
+                    className="mt-3"
+                    loading={retryingPayment}
+                    onClick={handleRetryPayment}
+                  >
+                    {lang === 'es' ? 'Reintentar pago ahora' : 'Retry payment now'}
+                  </Button>
+                )}
+              </Card>
+            )}
 
             {/* Upgrade prompt — only show for monthly subscribers WITHOUT an active
                 reward. The annual math ("Save \$78/year") assumes full \$39/mo pricing,

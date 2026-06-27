@@ -68,6 +68,8 @@ export default function ClientDetailPage() {
   const [showDelete,    setShowDelete]    = useState(false)
   const [showInvoice,   setShowInvoice]   = useState(false)
   const [viewInvoice,   setViewInvoice]   = useState(null)
+  const [refunding,     setRefunding]     = useState(false)
+  const [refundConfirm, setRefundConfirm] = useState(false)
   const [duplicateWarn, setDuplicateWarn] = useState(null)
   const [jobMaterials,  setJobMaterials]  = useState([])
   const [form,          setForm]          = useState({})
@@ -473,6 +475,31 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
     toast.loading(lang === 'es' ? 'Tarjeta guardada — enviando factura…' : 'Card saved — sending invoice…', { id: 'resume' })
     resumePendingInvoice(stash.channels || 'both').finally(() => toast.dismiss('resume'))
   }, [client, user, id])
+
+  // Refund a paid invoice in-app (keeps YardSync's 5.5% per Terms; the
+  // charge.refunded webhook flips status + reverses trust-state).
+  async function handleRefund(inv) {
+    if (!inv || refunding) return
+    setRefunding(true)
+    try {
+      const idToken = await user.getIdToken()
+      const res = await fetch('/api/stripe/refund', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body:    JSON.stringify({ gardenerUid: user.uid, invoiceId: inv.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Refund failed')
+      toast.success(lang === 'es' ? 'Reembolso emitido ✓' : 'Refund issued ✓')
+      setRefundConfirm(false)
+      setViewInvoice(null)
+      loadData()
+    } catch (err) {
+      toast.error(err.message || translate('common', 'error'))
+    } finally {
+      setRefunding(false)
+    }
+  }
   if (loading) {
     return (
       <AppShell>
@@ -1230,7 +1257,7 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
         return (
           <Modal
             open={true}
-            onClose={() => setViewInvoice(null)}
+            onClose={() => { setRefundConfirm(false); setViewInvoice(null) }}
             title={lang === 'es' ? 'Detalle de factura' : 'Invoice details'}
             footer={
               <>
@@ -1239,7 +1266,18 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
                     {lang === 'es' ? 'Copiar link de pago' : 'Copy payment link'}
                   </Button>
                 )}
-                <Button variant="secondary" fullWidth onClick={() => setViewInvoice(null)}>
+                {inv.status === 'paid' && (
+                  refundConfirm ? (
+                    <Button variant="danger" fullWidth loading={refunding} onClick={() => handleRefund(inv)}>
+                      {lang === 'es' ? `Confirmar reembolso de ${formatCents(inv.totalCents || 0)}` : `Confirm refund of ${formatCents(inv.totalCents || 0)}`}
+                    </Button>
+                  ) : (
+                    <Button variant="secondary" fullWidth onClick={() => setRefundConfirm(true)}>
+                      {lang === 'es' ? 'Reembolsar al cliente' : 'Refund client'}
+                    </Button>
+                  )
+                )}
+                <Button variant="secondary" fullWidth onClick={() => { if (refundConfirm) setRefundConfirm(false); else setViewInvoice(null) }}>
                   {translate('common', 'cancel')}
                 </Button>
               </>
@@ -1250,10 +1288,24 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
               <div className="flex items-center justify-between">
                 <p className="text-[20px] font-bold text-gray-900">{formatCents(inv.totalCents || 0)}</p>
                 <Badge
-                  label={inv.status === 'paid' ? (lang === 'es' ? 'Pagado' : 'Paid') : inv.status === 'sent' ? (lang === 'es' ? 'Enviado' : 'Sent') : inv.status || 'sent'}
+                  label={
+                    inv.status === 'paid' ? (lang === 'es' ? 'Pagado' : 'Paid')
+                    : inv.status === 'sent' ? (lang === 'es' ? 'Enviado' : 'Sent')
+                    : inv.status === 'refunded' ? (lang === 'es' ? 'Reembolsado' : 'Refunded')
+                    : (inv.status === 'disputed' || inv.status === 'dispute_lost') ? (lang === 'es' ? 'En disputa' : 'Disputed')
+                    : inv.status || 'sent'
+                  }
                   variant={inv.status === 'paid' ? 'active' : inv.status === 'sent' ? 'scheduled' : 'default'}
                 />
               </div>
+
+              {refundConfirm && inv.status === 'paid' && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-[12px] text-amber-800">
+                  {lang === 'es'
+                    ? `Esto reembolsa ${formatCents(inv.totalCents || 0)} al cliente. La tarifa del 5.5% de YardSync no es reembolsable.`
+                    : `This refunds ${formatCents(inv.totalCents || 0)} to the client. YardSync's 5.5% fee is non-refundable.`}
+                </div>
+              )}
 
               {/* Dates */}
               <div className="bg-gray-50 rounded-xl p-3 space-y-1.5">
