@@ -3,14 +3,18 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
+import { useLang } from '@/context/LangContext'
 import BottomNav from './BottomNav'
 import RewardsIntroModal from '@/components/RewardsIntroModal'
-import { getGardenerProfile } from '@/lib/db'
+import { getGardenerProfile, saveGardenerProfile } from '@/lib/db'
 import { Leaf } from 'lucide-react'
 
 export default function AppShell({ children }) {
-  const { user, loading, signingUp } = useAuth()
+  const { user, loading, signingUp, refreshProfile } = useAuth()
+  const { lang } = useLang()
   const router = useRouter()
+
+  const [pastDue, setPastDue] = useState(false)
 
   const [subStatus,  setSubStatus]  = useState(null)
   const [subLoading, setSubLoading] = useState(true)
@@ -127,6 +131,29 @@ export default function AppShell({ children }) {
             return
           }
 
+          // Legacy accounts created before the free-access launch have status
+          // 'none' (or missing). The old /subscribe paywall is dead — migrate
+          // them into the free model and grant access (the card gate at
+          // invoice-send + first-paid activation take over, same as a new
+          // signup). Without this, pre-launch accounts hit the dead paywall.
+          if (status === 'none') {
+            clearTimeout(timeoutRef.current)
+            try {
+              await saveGardenerProfile(user.uid, {
+                subscriptionStatus: 'free_until_paid',
+                subscriptionPlan:   'monthly',
+                pmOnFile:           false,
+                freeUntilPaidSince: new Date().toISOString(),
+              })
+              await refreshProfile?.()
+            } catch (e) {
+              console.error('[AppShell] legacy free-access migration failed:', e)
+            }
+            setSubStatus('active')
+            setSubLoading(false)
+            return
+          }
+
           // 'past_due' = a charge failed (e.g. the first-paid activation or a
           // renewal). Stripe Smart Retries run for ~2 weeks; keep the
           // contractor in (grace period) rather than locking them out. If every
@@ -135,6 +162,7 @@ export default function AppShell({ children }) {
           if (status === 'active' || status === 'canceling' || status === 'past_due') {
             // Success — clear timeout immediately
             clearTimeout(timeoutRef.current)
+            setPastDue(status === 'past_due')
 
             // Stripe-only: check if bank account setup is complete
             const onOnboardingRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/onboarding')
@@ -210,6 +238,17 @@ export default function AppShell({ children }) {
   return (
     <div className="min-h-screen bg-gray-100 flex items-start justify-center">
       <div className="flex flex-col h-screen w-full max-w-lg bg-white shadow-xl relative">
+        {pastDue && (
+          <button
+            type="button"
+            onClick={() => router.push('/settings?tab=billing')}
+            className="w-full bg-amber-500 hover:bg-amber-600 text-white text-[12px] font-medium py-2 px-3 text-center transition-colors"
+          >
+            {lang === 'es'
+              ? '⚠ Tu último pago falló — toca para actualizar tu tarjeta'
+              : '⚠ Your last payment failed — tap to update your card'}
+          </button>
+        )}
         <main className="flex-1 overflow-hidden pb-14">{children}</main>
         <BottomNav />
         <RewardsIntroModal />
