@@ -94,7 +94,7 @@ const STRINGS = {
       getStarted: 'Get Started →',
       note: 'Free to start · $39/mo once your first client pays + 5.5% per invoice · $0 subscription at $3k+/mo invoiced · Cancel anytime · English & Español',
     },
-    footer: { privacy: 'Privacy Policy', terms: 'Terms of Service', sms: 'SMS Policy', signin: 'Sign In' },
+    footer: { privacy: 'Privacy Policy', terms: 'Terms of Service', sms: 'SMS Policy', signin: 'Sign In', rights: 'All rights reserved.' },
   },
   es: {
     nav: { who: 'Para quién es', features: 'Funciones', pricing: 'Precios', sms: 'Política SMS', signin: 'Iniciar sesión →' },
@@ -186,7 +186,7 @@ const STRINGS = {
       getStarted: 'Empieza ahora →',
       note: 'Gratis para empezar · $39/mes cuando tu primer cliente te pague + 5.5% por factura · Suscripción $0 con $3k+/mes facturado · Cancela cuando quieras · Inglés y Español',
     },
-    footer: { privacy: 'Política de Privacidad', terms: 'Términos de Servicio', sms: 'Política SMS', signin: 'Iniciar sesión' },
+    footer: { privacy: 'Política de Privacidad', terms: 'Términos de Servicio', sms: 'Política SMS', signin: 'Iniciar sesión', rights: 'Todos los derechos reservados.' },
   },
 }
 
@@ -517,7 +517,7 @@ export default function LandingPage() {
           <a href="#sms-consent">{t.footer.sms}</a>
           <a href="/login">{t.footer.signin}</a>
         </div>
-        <p className="lp-fcopy">YardSync by JNew Technologies, LLC · San Antonio, TX · <a href="mailto:support@yardsyncapp.com">support@yardsyncapp.com</a><br />© 2026 JNew Technologies, LLC. All rights reserved.</p>
+        <p className="lp-fcopy">YardSync by JNew Technologies, LLC · San Antonio, TX · <a href="mailto:support@yardsyncapp.com">support@yardsyncapp.com</a><br />© 2026 JNew Technologies, LLC. {t.footer.rights}</p>
       </footer>
     </div>
   )
