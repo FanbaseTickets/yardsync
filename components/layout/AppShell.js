@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { useLang } from '@/context/LangContext'
 import BottomNav from './BottomNav'
-import RewardsIntroModal from '@/components/RewardsIntroModal'
+import WelcomeModal from '@/components/WelcomeModal'
 import { getGardenerProfile, saveGardenerProfile } from '@/lib/db'
 import { Leaf } from 'lucide-react'
 
@@ -81,11 +81,12 @@ export default function AppShell({ children }) {
           return
         }
         if (subLoading && !redirectedRef.current) {
-          console.log('[AppShell] 4s timeout — redirecting to /subscribe. subStatus was:', subStatus, 'user:', user?.uid)
+          // Fail OPEN into the free model rather than the dead /subscribe paywall —
+          // a hung profile read must not strand a free-access contractor.
+          console.log('[AppShell] 4s timeout — failing open to free_until_paid. subStatus was:', subStatus, 'user:', user?.uid)
           redirectedRef.current = true
-          setSubStatus('none')
+          setSubStatus('free_until_paid')
           setSubLoading(false)
-          router.replace('/subscribe')
         }
       }, 4000)
     }
@@ -182,11 +183,18 @@ export default function AppShell({ children }) {
           // Not active
           if (!isPostPayment) {
             clearTimeout(timeoutRef.current)
-            setSubStatus(status)
+            if (status === 'canceled' || status === 'cancelled') {
+              setSubStatus(status)
+              setSubLoading(false)
+              redirectedRef.current = true
+              router.replace('/reactivate')
+              return
+            }
+            // Any other/unknown status — fail OPEN into the free model rather than
+            // the dead /subscribe paywall (a stale/odd status must not lock out a
+            // free-access contractor).
+            setSubStatus('free_until_paid')
             setSubLoading(false)
-            redirectedRef.current = true
-            const dest = (status === 'canceled' || status === 'cancelled') ? '/reactivate' : '/subscribe'
-            router.replace(dest)
             return
           }
           // Post-payment but not active yet — keep retrying
@@ -208,10 +216,9 @@ export default function AppShell({ children }) {
         setSubStatus('active')
         setSubLoading(false)
       } else {
-        redirectedRef.current = true
-        setSubStatus('none')
+        // Fail OPEN into the free model rather than the dead /subscribe paywall.
+        setSubStatus('free_until_paid')
         setSubLoading(false)
-        router.replace('/subscribe')
       }
     }
   }
@@ -251,7 +258,7 @@ export default function AppShell({ children }) {
         )}
         <main className="flex-1 overflow-hidden pb-14">{children}</main>
         <BottomNav />
-        <RewardsIntroModal />
+        <WelcomeModal />
       </div>
     </div>
   )

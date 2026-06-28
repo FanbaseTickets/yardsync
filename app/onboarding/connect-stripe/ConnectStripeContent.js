@@ -30,7 +30,10 @@ export default function ConnectStripeContent() {
     const allowed = status === 'active' || status === 'trialing'
       || status === 'free_until_paid' || status === 'past_due'
     if (!allowed && !justSubscribed) {
-      router.replace(status === 'canceled' || status === 'cancelled' ? '/reactivate' : '/subscribe')
+      // Canceled → reactivate. Any other/unknown status (legacy 'none', or a lag
+      // during profile hydration) → /dashboard, where AppShell migrates it into
+      // the free model — never the dead /subscribe paywall.
+      router.replace(status === 'canceled' || status === 'cancelled' ? '/reactivate' : '/dashboard')
       return
     }
 
