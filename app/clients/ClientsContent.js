@@ -319,7 +319,7 @@ export default function ClientsPage() {
       c.address?.toLowerCase().includes(search.toLowerCase())
     )
     // Apply package filter
-    if (['monthly', 'quarterly', 'annual', 'weekly'].includes(filter)) {
+    if (['weekly', 'biweekly', 'monthly', 'quarterly', 'annual'].includes(filter)) {
       list = list.filter(c => c.packageType === filter)
     }
     // Apply status filter
@@ -347,10 +347,11 @@ export default function ClientsPage() {
     recent:    nonLeadClients.length,
     active:    activeCount,
     inactive:  inactiveCount,
+    weekly:    nonLeadClients.filter(c => c.packageType === 'weekly').length,
+    biweekly:  nonLeadClients.filter(c => c.packageType === 'biweekly').length,
     monthly:   nonLeadClients.filter(c => c.packageType === 'monthly').length,
     quarterly: nonLeadClients.filter(c => c.packageType === 'quarterly').length,
     annual:    nonLeadClients.filter(c => c.packageType === 'annual').length,
-    weekly:    nonLeadClients.filter(c => c.packageType === 'weekly').length,
   }
 
   // ── Lead actions ───────────────────────────────────────────────────
@@ -507,6 +508,7 @@ export default function ClientsPage() {
               { value: 'quarterly', label: lang === 'es' ? 'Trimestral' : 'Quarterly',  count: chipCounts.quarterly },
               { value: 'annual',    label: lang === 'es' ? 'Anual' : 'Annual',          count: chipCounts.annual },
               { value: 'weekly',    label: lang === 'es' ? 'Semanal' : 'Weekly',        count: chipCounts.weekly },
+              { value: 'biweekly',  label: lang === 'es' ? 'Quincenal' : 'Biweekly',   count: chipCounts.biweekly },
             ].map(chip => {
               const isLeads  = chip.value === 'leads'
               const selected = filter === chip.value

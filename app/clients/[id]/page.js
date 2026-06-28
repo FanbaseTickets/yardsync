@@ -542,11 +542,15 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
         else window.open(data.url, '_blank')
         try { await navigator.clipboard.writeText(data.url) } catch {}
         toast.success(lang === 'es' ? 'Enlace abierto y copiado — compártelo con tu cliente' : 'Link opened & copied — share it with your client')
+      } else if (data?.code === 'no_connect') {
+        // The contractor hasn't connected their bank yet — don't dead-end; send
+        // them to Connect onboarding so there's a clear path to enable this.
+        if (win) win.close()
+        toast(lang === 'es' ? 'Conecta tu banco para activar el cobro automático' : 'Connect your bank to enable auto-billing')
+        router.push('/onboarding/connect-stripe')
       } else {
         if (win) win.close()
-        toast.error(data?.code === 'no_connect'
-          ? (lang === 'es' ? 'Completa la configuración de pagos primero' : 'Finish payment setup first')
-          : (data?.error || (lang === 'es' ? `No se pudo crear el enlace (${res.status})` : `Could not create the link (${res.status})`)))
+        toast.error(data?.error || (lang === 'es' ? `No se pudo crear el enlace (${res.status})` : `Could not create the link (${res.status})`))
       }
     } catch {
       if (win) win.close()
@@ -824,6 +828,14 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
               {translate('client_detail', 'billing')}
             </p>
             <div className="space-y-2">
+              <div className="flex justify-between text-[13px]">
+                <span className="text-gray-500">{lang === 'es' ? 'Cuándo se factura' : 'When billed'}</span>
+                <span className="font-medium text-gray-900">
+                  {client.billingMode === 'postvisit'
+                    ? (lang === 'es' ? 'Después de cada visita' : 'After each visit')
+                    : (lang === 'es' ? 'Antes de cada visita' : 'Before each visit')}
+                </span>
+              </div>
               <div className="flex justify-between text-[13px]">
                 <span className="text-gray-500">{translate('client_detail', 'base_price')}</span>
                 <span className="font-medium text-gray-900">{formatCents(baseCents)}</span>
