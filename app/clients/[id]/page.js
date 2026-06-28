@@ -70,6 +70,7 @@ export default function ClientDetailPage() {
   const [viewInvoice,   setViewInvoice]   = useState(null)
   const [refunding,     setRefunding]     = useState(false)
   const [refundConfirm, setRefundConfirm] = useState(false)
+  const [respondingDispute, setRespondingDispute] = useState(false)
   const [duplicateWarn, setDuplicateWarn] = useState(null)
   const [jobMaterials,  setJobMaterials]  = useState([])
   const [form,          setForm]          = useState({})
@@ -516,6 +517,37 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
       setRefunding(false)
     }
   }
+
+  // Open the contractor's Stripe Express dashboard (one-time login link) to
+  // respond to a dispute — submitting evidence is the best way to NOT lose it.
+  async function openStripeDispute() {
+    if (respondingDispute) return
+    setRespondingDispute(true)
+    // Open the tab synchronously within the click gesture so mobile browsers
+    // don't block it as a non-user-gesture popup; redirect it once we have the
+    // URL (login links are one-time, so we can't pre-build it).
+    const win = window.open('', '_blank')
+    try {
+      const idToken = await user.getIdToken()
+      const res = await fetch('/api/stripe/connect/login-link', {
+        method: 'POST', headers: { Authorization: `Bearer ${idToken}` },
+      })
+      const data = await res.json()
+      if (res.ok && data.url) {
+        if (win) win.location = data.url
+        else window.open(data.url, '_blank')
+      } else {
+        if (win) win.close()
+        toast.error(lang === 'es' ? 'No se pudo abrir Stripe' : 'Could not open Stripe')
+      }
+    } catch {
+      if (win) win.close()
+      toast.error(lang === 'es' ? 'No se pudo abrir Stripe' : 'Could not open Stripe')
+    } finally {
+      setRespondingDispute(false)
+    }
+  }
+
   if (loading) {
     return (
       <AppShell>
@@ -845,8 +877,20 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
                               )}
                             </div>
                             <Badge
-                              label={inv.status === 'paid' ? (lang === 'es' ? 'Pagado' : 'Paid') : inv.status === 'sent' ? (lang === 'es' ? 'Enviado' : 'Sent') : inv.status || 'sent'}
-                              variant={inv.status === 'paid' ? 'active' : inv.status === 'sent' ? 'scheduled' : 'default'}
+                              label={
+                                inv.status === 'paid' ? (lang === 'es' ? 'Pagado' : 'Paid')
+                                : inv.status === 'sent' ? (lang === 'es' ? 'Enviado' : 'Sent')
+                                : inv.status === 'disputed' ? (lang === 'es' ? 'En disputa' : 'Disputed')
+                                : inv.status === 'dispute_lost' ? (lang === 'es' ? 'Disputa perdida' : 'Dispute lost')
+                                : inv.status === 'refunded' ? (lang === 'es' ? 'Reembolsado' : 'Refunded')
+                                : inv.status || 'sent'
+                              }
+                              variant={
+                                inv.status === 'paid' ? 'active'
+                                : inv.status === 'sent' ? 'scheduled'
+                                : (inv.status === 'disputed' || inv.status === 'dispute_lost') ? 'cancelled'
+                                : 'default'
+                              }
                             />
                           </div>
                           <p className="text-[11px] text-gray-400 mt-0.5">{dateStr}</p>
@@ -1313,6 +1357,11 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
                     {lang === 'es' ? 'Copiar link de pago' : 'Copy payment link'}
                   </Button>
                 )}
+                {inv.status === 'disputed' && (
+                  <Button fullWidth loading={respondingDispute} onClick={openStripeDispute}>
+                    {lang === 'es' ? 'Responder en Stripe' : 'Respond in Stripe'}
+                  </Button>
+                )}
                 {inv.status === 'paid' && (
                   refundConfirm ? (
                     <Button variant="danger" fullWidth loading={refunding} onClick={() => handleRefund(inv)}>
@@ -1345,6 +1394,25 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
                   variant={inv.status === 'paid' ? 'active' : inv.status === 'sent' ? 'scheduled' : 'default'}
                 />
               </div>
+
+              {/* Dispute guidance — responding with evidence is how you avoid
+                  losing the money (and a clawback that could land on the platform). */}
+              {(inv.status === 'disputed' || inv.status === 'dispute_lost') && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-[12px] text-red-800">
+                  {inv.status === 'disputed'
+                    ? (lang === 'es'
+                      ? 'El cliente disputó este pago. Eres el comercio responsable — responde en Stripe con evidencia (fotos del trabajo, registro del servicio) antes de la fecha límite o perderás el pago.'
+                      : "The client disputed this payment. You're the merchant of record — respond in Stripe with evidence (job photos, service record) before the deadline or you'll lose the payment.")
+                    : (lang === 'es'
+                      ? 'Esta disputa se perdió y el banco retiró el pago.'
+                      : 'This dispute was lost and the bank pulled the payment back.')}
+                  {inv.disputeReason && (
+                    <span className="block mt-1 text-red-600">
+                      {lang === 'es' ? 'Motivo' : 'Reason'}: {inv.disputeReason}
+                    </span>
+                  )}
+                </div>
+              )}
 
               {refundConfirm && inv.status === 'paid' && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-[12px] text-amber-800">

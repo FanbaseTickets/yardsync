@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { queryCollection, getDocument, setDocument, updateDocument } from '@/lib/firestoreRest'
-import { sendAdminEmail } from '@/lib/email'
+import { sendAdminEmail, sendClientEmail } from '@/lib/email'
 import { getSubscriptionPeriodEndISO } from '@/lib/stripeHelpers'
 import { getBaseUrl } from '@/lib/baseUrl'
 import { sendPush } from '@/lib/push'
@@ -712,6 +712,58 @@ export async function POST(request) {
             html: `<p>A <strong>dispute</strong> was opened on a YardSync invoice.</p><ul><li>Invoice: ${invDoc.id}</li><li>Client: ${who}</li><li>Amount: $${amt}</li><li>Reason: ${dispute.reason || '—'}</li><li>Contractor: ${invDoc.data.gardenerUid}</li></ul><p>The contractor is merchant of record and must submit evidence before the Stripe evidence deadline.</p>`,
           })
         } catch (e) { console.error('[webhook] dispute admin email failed (non-fatal):', e.message) }
+
+        // Alert the CONTRACTOR too — they're merchant of record and must submit
+        // evidence before Stripe's deadline. Winning the dispute = not losing
+        // the money, so this is the strongest protection we have. Email + push,
+        // best-effort (never throws into the webhook). Skip on re-delivery.
+        if (!alreadyKnown) try {
+          const gUid     = invDoc.data.gardenerUid
+          const userDoc  = gUid ? await getDocument('users', gUid) : null
+          const cLang    = (userDoc?.data?.preferredLanguage || userDoc?.data?.language) === 'es' ? 'es' : 'en'
+          const amt      = ((dispute.amount || 0) / 100).toFixed(2)
+          const who      = invDoc.data.clientName || (cLang === 'es' ? 'un cliente' : 'a client')
+          const dueBy    = dispute.evidence_details?.due_by
+            ? new Date(dispute.evidence_details.due_by * 1000).toLocaleDateString(cLang === 'es' ? 'es-US' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+            : null
+          // One-time link straight to their Stripe Express dashboard to respond.
+          let loginUrl = null
+          try {
+            if (event.account) loginUrl = (await stripe.accounts.createLoginLink(event.account))?.url || null
+          } catch (e) { console.error('[webhook] dispute login link failed (non-fatal):', e.message) }
+
+          const cEmail = userDoc?.data?.email
+          if (cEmail) {
+            const subject = cLang === 'es'
+              ? `⚠️ Disputa de pago${dueBy ? ` — responde antes del ${dueBy}` : ''}`
+              : `⚠️ Payment dispute${dueBy ? ` — respond by ${dueBy}` : ''}`
+            const text = cLang === 'es'
+              ? `Un cliente (${who}) disputó un pago de $${amt} (motivo: ${dispute.reason || 'desconocido'}). Eres el comercio responsable y debes enviar evidencia (fotos del trabajo, registro del servicio)${dueBy ? ` antes del ${dueBy}` : ''} o perderás el pago.${loginUrl ? ` Responde aquí: ${loginUrl}` : ' Responde desde tu panel de Stripe Express.'}`
+              : `A client (${who}) disputed a $${amt} payment (reason: ${dispute.reason || 'unknown'}). You're the merchant of record and must submit evidence (job photos, service record)${dueBy ? ` by ${dueBy}` : ''} or you'll lose the payment.${loginUrl ? ` Respond here: ${loginUrl}` : ' Respond from your Stripe Express dashboard.'}`
+            const html = `<p>${cLang === 'es' ? 'Un cliente disputó un pago en YardSync.' : 'A client disputed a payment on YardSync.'}</p>
+              <ul>
+                <li>${cLang === 'es' ? 'Cliente' : 'Client'}: ${who}</li>
+                <li>${cLang === 'es' ? 'Monto' : 'Amount'}: $${amt}</li>
+                <li>${cLang === 'es' ? 'Motivo' : 'Reason'}: ${dispute.reason || '—'}</li>
+                ${dueBy ? `<li>${cLang === 'es' ? 'Fecha límite' : 'Deadline'}: ${dueBy}</li>` : ''}
+              </ul>
+              <p><strong>${cLang === 'es' ? 'Eres el comercio responsable' : "You're the merchant of record"}</strong> — ${cLang === 'es' ? 'envía evidencia (fotos del trabajo, registro del servicio) o perderás el pago.' : 'submit evidence (job photos, service record) or you will lose the payment.'}</p>
+              ${loginUrl
+                ? `<p><a href="${loginUrl}" style="background:#0E7C66;color:#fff;padding:12px 20px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">${cLang === 'es' ? 'Responder en Stripe' : 'Respond in Stripe'}</a></p>`
+                : `<p>${cLang === 'es' ? 'Responde desde tu panel de Stripe Express.' : 'Respond from your Stripe Express dashboard.'}</p>`}`
+            await sendClientEmail({ to: cEmail, subject, html, text, fromName: 'YardSync' })
+          }
+
+          if (gUid) {
+            await sendPush(gUid, {
+              title: cLang === 'es' ? '⚠️ Disputa de pago' : '⚠️ Payment dispute',
+              body:  cLang === 'es'
+                ? `${who} disputó $${amt}. Responde${dueBy ? ` antes del ${dueBy}` : ''} para no perder el pago.`
+                : `${who} disputed $${amt}. Respond${dueBy ? ` by ${dueBy}` : ''} so you don't lose the payment.`,
+              url:   invDoc.data.clientId ? `/clients/${invDoc.data.clientId}` : '/clients',
+            })
+          }
+        } catch (e) { console.error('[webhook] dispute contractor alert failed (non-fatal):', e.message) }
         break
       }
 
