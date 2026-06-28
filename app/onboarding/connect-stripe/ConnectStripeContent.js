@@ -119,6 +119,29 @@ export default function ConnectStripeContent() {
             Stripe es el mismo sistema de pago seguro que usan grandes marcas como Amazon, Uber y DoorDash. <strong>No necesitas LLC ni licencia</strong> — tu Seguro Social como dueño único funciona. YardSync nunca ve tu información bancaria.
           </p>
         </div>
+        {/* Fee explainer — set expectations BEFORE they invoice, in plain terms.
+            Reflects the live model: free-access, $39/mo, 5.5% capped at $100,
+            optional pass-through. Honesty here is a trust signal. */}
+        <div style={{ background: '#fff', border: '1px solid #E3EBE7', borderRadius: '12px', padding: '14px 16px', marginBottom: '18px' }}>
+          <div style={{ fontSize: '13px', color: '#0B5A46', fontWeight: 700, marginBottom: '8px' }}>
+            💸 How YardSync gets paid — no surprises
+          </div>
+          <ul style={{ margin: 0, padding: '0 0 0 18px', fontSize: '12px', color: '#3F6F60', lineHeight: 1.6 }}>
+            <li><strong>Connecting is free.</strong> You pay nothing until your first client pays you.</li>
+            <li>After that, it&apos;s <strong>$39/month</strong>.</li>
+            <li>Each invoice has a <strong>5.5% fee, capped at $100</strong> — big jobs never pay an oversized cut.</li>
+            <li>Optional: <strong>pass the fee to your client</strong> at checkout so you keep your full price.</li>
+          </ul>
+          <div style={{ fontSize: '13px', color: '#0B5A46', fontWeight: 700, margin: '12px 0 8px' }}>
+            💸 Cómo cobra YardSync — sin sorpresas
+          </div>
+          <ul style={{ margin: 0, padding: '0 0 0 18px', fontSize: '12px', color: '#3F6F60', lineHeight: 1.6 }}>
+            <li><strong>Conectar es gratis.</strong> No pagas nada hasta que tu primer cliente te pague.</li>
+            <li>Después, son <strong>$39 al mes</strong>.</li>
+            <li>Cada factura tiene una <strong>comisión del 5.5%, con tope de $100</strong> — los trabajos grandes nunca pagan de más.</li>
+            <li>Opcional: <strong>pásale la comisión a tu cliente</strong> al cobrar para que recibas tu precio completo.</li>
+          </ul>
+        </div>
         {!stripeConnectInstance ? (
           <div style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>
             Setting up your account...
