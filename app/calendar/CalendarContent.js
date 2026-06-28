@@ -11,7 +11,7 @@ import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Badge, Modal, Select, EmptyState, Skeleton, Input } from '@/components/ui'
 import { getClients, getSchedules, addSchedule, updateSchedule, deleteSchedule, getServices, updateScheduleMaterials, saveInvoice, getClientInvoices } from '@/lib/db'
 import { deleteAllClientSchedules } from '@/lib/db'
-import { formatCents } from '@/lib/fee'
+import { formatCents, grossUpForFees } from '@/lib/fee'
 import { badgePackageType } from '@/lib/clientBadge'
 import { buildInvoiceSms } from '@/lib/invoiceSms'
 import { validatePhone, formatPhone } from '@/lib/phone'
@@ -243,6 +243,10 @@ export default function CalendarPage() {
   const [sendingInvoiceId, setSendingInvoiceId] = useState(null)
   const invoiceInFlight = useRef(false)   // synchronous double-send guard (both invoice paths)
   const [invoicePreview,   setInvoicePreview]   = useState(null)
+  // Fee pass-through — seeded from the contractor's global default (Settings →
+  // Billing); when on, the client is billed a grossed-up total so the
+  // contractor nets their listed price. Shared by both invoice paths here.
+  const [coverFees,        setCoverFees]        = useState(false)
   const [dayFilter,        setDayFilter]        = useState('all') // 'all' | 'pending' | 'completed' | 'route'
   const [draggingId,       setDraggingId]       = useState(null)
   const [dragOrder,        setDragOrder]        = useState(null) // array of schedule ids during active drag
@@ -283,6 +287,11 @@ export default function CalendarPage() {
   // they were trying to send, no second tap. Re-POSTs the stashed body (safe:
   // the card_required gate returns before creating any invoice) with a short
   // retry to ride out the pmOnFile webhook, then notifies the client.
+  // Seed the fee-pass-through toggle from the contractor's global default.
+  useEffect(() => {
+    setCoverFees(profile?.coverFees === true)
+  }, [profile?.coverFees])
+
   const calResumeTriedRef = useRef(false)
   useEffect(() => {
     if (calResumeTriedRef.current || !user || !profile) return
@@ -322,7 +331,7 @@ export default function CalendarPage() {
       }
       if (data.smsRequested && stash.clientPhone && data.paymentUrl) {
         try {
-          const smsBody = buildInvoiceSms({ client: { name: stash.clientName }, contractor: profile, totalCents: stash.totalCents, paymentUrl: data.paymentUrl, lang })
+          const smsBody = buildInvoiceSms({ client: { name: stash.clientName }, contractor: profile, totalCents: data.amount ?? stash.totalCents, paymentUrl: data.paymentUrl, lang })
           await fetch('/api/twilio/send', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ clientPhone: stash.clientPhone, message: smsBody, gardenerUid: user.uid }),
@@ -522,6 +531,7 @@ export default function CalendarPage() {
         contractorEmail: user?.email || '',
         lang,
         channels,
+        coverFees,
       }
       const res = await fetch('/api/stripe/invoice', {
         method: 'POST',
@@ -533,7 +543,7 @@ export default function CalendarPage() {
         if (data.code === 'card_required') {
           // Free-access: stash the send intent, go to billing-setup; on return
           // the resume effect finishes the send automatically (no second tap).
-          try { sessionStorage.setItem('ys_resume_invoice', JSON.stringify({ kind: 'calendar', body, clientPhone, clientName, totalCents })) } catch {}
+          try { sessionStorage.setItem('ys_resume_invoice', JSON.stringify({ kind: 'calendar', body, clientPhone, clientName, totalCents: data.amount ?? totalCents })) } catch {}
           router.push(`/billing-setup?return=${encodeURIComponent(window.location.pathname)}`)
           return
         }
@@ -553,7 +563,8 @@ export default function CalendarPage() {
         const smsBody = buildInvoiceSms({
           client:     scheduledClient || { name: clientName },
           contractor: profile,
-          totalCents,
+          // grossed-up total when fees are covered, so the text matches the charge
+          totalCents: data.amount ?? totalCents,
           paymentUrl: data.paymentUrl,
           lang,
         })
@@ -770,6 +781,7 @@ export default function CalendarPage() {
         contractorEmail: user?.email || '',
         lang,
         channels,
+        coverFees,
       }
       const res = await fetch('/api/stripe/invoice', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
@@ -780,7 +792,7 @@ export default function CalendarPage() {
         if (data.code === 'card_required') {
           // Free-access: stash the send intent, go to billing-setup; on return
           // the resume effect finishes the send automatically (no second tap).
-          try { sessionStorage.setItem('ys_resume_invoice', JSON.stringify({ kind: 'calendar', body, clientPhone: walkInInvoiceTarget.clientPhone || '', clientName: walkInInvoiceTarget.clientName, totalCents })) } catch {}
+          try { sessionStorage.setItem('ys_resume_invoice', JSON.stringify({ kind: 'calendar', body, clientPhone: walkInInvoiceTarget.clientPhone || '', clientName: walkInInvoiceTarget.clientName, totalCents: data.amount ?? totalCents })) } catch {}
           router.push(`/billing-setup?return=${encodeURIComponent(window.location.pathname)}`)
           return
         }
@@ -802,7 +814,7 @@ export default function CalendarPage() {
         const smsBody = buildInvoiceSms({
           client:     { name: walkInInvoiceTarget.clientName },
           contractor: profile,
-          totalCents,
+          totalCents: data.amount ?? totalCents,
           paymentUrl: data.paymentUrl,
           lang,
         })
@@ -1672,10 +1684,32 @@ export default function CalendarPage() {
                 <span className="font-medium text-amber-800">{formatCents(walkInMaterialsTotal)}</span>
               </div>
             )}
-            <div className="flex justify-between text-[15px] border-t border-brand-200 pt-2 mt-1">
-              <span className="font-bold text-brand-900">{lang === 'es' ? 'Cliente paga' : 'Client pays'}</span>
-              <span className="font-bold text-brand-900">{formatCents(walkInInvoiceTotal)}</span>
-            </div>
+            <label className="flex items-start gap-2 cursor-pointer border-t border-brand-200 pt-2 mt-1">
+              <input
+                type="checkbox"
+                checked={coverFees}
+                onChange={(e) => setCoverFees(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+              />
+              <span className="text-[12px] leading-tight text-brand-800">
+                <span className="font-semibold text-brand-900">
+                  {lang === 'es' ? 'Cubrir mis comisiones' : 'Cover my fees'}
+                </span>
+                <br />
+                {lang === 'es'
+                  ? 'El cliente paga un poco más para que tú recibas tu precio completo.'
+                  : 'Client pays a bit more so you keep your full price.'}
+              </span>
+            </label>
+            {(() => {
+              const billed = coverFees ? grossUpForFees(walkInInvoiceTotal) : walkInInvoiceTotal
+              return (
+                <div className="flex justify-between text-[15px] pt-1">
+                  <span className="font-bold text-brand-900">{lang === 'es' ? 'Cliente paga' : 'Client pays'}</span>
+                  <span className="font-bold text-brand-900">{formatCents(billed)}</span>
+                </div>
+              )
+            })()}
           </div>
         </div>
       </Modal>
@@ -1832,11 +1866,14 @@ export default function CalendarPage() {
         title={lang === 'es' ? 'Confirmar factura' : 'Confirm invoice'}
       >
         {invoicePreview && (() => {
-          const fee = Math.round(invoicePreview.totalCents * 0.055)
+          // Fee pass-through: when on, the client is billed a grossed-up total
+          // so the contractor nets their listed price.
+          const billed = coverFees ? grossUpForFees(invoicePreview.totalCents) : invoicePreview.totalCents
+          const fee = Math.round(billed * 0.055)
           // Direct charge: the contractor also pays Stripe's processing fee
           // (≈2.9% + $0.30). Show it so "You receive" is never a surprise.
-          const stripeFee = Math.round(invoicePreview.totalCents * 0.029) + 30
-          const net = invoicePreview.totalCents - fee - stripeFee
+          const stripeFee = Math.round(billed * 0.029) + 30
+          const net = billed - fee - stripeFee
           return (
             <div className="space-y-3">
               <p className="text-[12px] text-gray-500">
@@ -1869,9 +1906,26 @@ export default function CalendarPage() {
                     <span className="font-medium text-amber-800">{formatCents(m.totalCents || 0)}</span>
                   </div>
                 ))}
+                <label className="flex items-start gap-2 px-3 py-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={coverFees}
+                    onChange={(e) => setCoverFees(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                  />
+                  <span className="text-[12px] leading-tight text-gray-700">
+                    <span className="font-semibold text-gray-900">
+                      {lang === 'es' ? 'Cubrir mis comisiones' : 'Cover my fees'}
+                    </span>
+                    <br />
+                    {lang === 'es'
+                      ? 'El cliente paga un poco más para que tú recibas tu precio completo.'
+                      : 'Client pays a bit more so you keep your full price.'}
+                  </span>
+                </label>
                 <div className="flex justify-between px-3 py-2 text-[13px] bg-gray-50">
                   <span className="text-gray-500">{lang === 'es' ? 'Cliente paga' : 'Client pays'}</span>
-                  <span className="font-bold text-gray-900">{formatCents(invoicePreview.totalCents)}</span>
+                  <span className="font-bold text-gray-900">{formatCents(billed)}</span>
                 </div>
                 <div className="flex justify-between px-3 py-1.5 text-[11px] text-gray-500">
                   <span>{lang === 'es' ? 'Comisión YardSync (5.5%)' : 'YardSync fee (5.5%)'}</span>
