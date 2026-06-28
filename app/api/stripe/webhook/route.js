@@ -121,6 +121,38 @@ export async function POST(request) {
           break
         }
 
+        // ── Standalone Pro Setup purchase ($99, mode:'payment') ──────────
+        // The contractor bought the white-glove client import. Mark it paid +
+        // flag the admin Pro Setup queue so the import can be fulfilled. Does NOT
+        // touch the subscription (free-access stays free until first paid invoice).
+        if (session.mode === 'payment' && session.metadata?.kind === 'pro_setup') {
+          try {
+            await updateDocument('users', gardenerUid, {
+              setupFeePaid:     true,
+              setupPaidAt:      new Date().toISOString(),
+              // Match the admin Pro Setup queue schema (app/admin/dashboard reads
+              // setupFeePaid && !setupContacted) so a standalone purchase appears
+              // and is workable exactly like a subscription-bundled one.
+              setupContacted:   false,
+              setupContactedAt: null,
+              setupNotes:       '',
+              updatedAt:        new Date().toISOString(),
+            })
+            console.log(`Pro Setup purchased by ${gardenerUid} (session ${session.id})`)
+            try {
+              const u = await getDocument('users', gardenerUid)
+              await sendAdminEmail({
+                subject: `🧰 Pro Setup purchased — ${u?.data?.businessName || u?.data?.name || gardenerUid}`,
+                text: `${u?.data?.businessName || u?.data?.name || gardenerUid} (${u?.data?.email || 'no email'}) bought Pro Setup ($99). Import their client book and mark setupStatus 'done'.`,
+                html: `<p><strong>Pro Setup purchased ($99).</strong></p><ul><li>Contractor: ${u?.data?.businessName || u?.data?.name || gardenerUid}</li><li>Email: ${u?.data?.email || '—'}</li><li>UID: ${gardenerUid}</li></ul><p>Import their client book, then mark <code>setupStatus: 'done'</code>.</p>`,
+              })
+            } catch (e) { console.error('[webhook] Pro Setup admin email failed (non-fatal):', e.message) }
+          } catch (e) {
+            console.error('Pro Setup checkout handling failed:', e.message)
+          }
+          break
+        }
+
         const subscriptionId = session.subscription
         const customerId     = session.customer
 

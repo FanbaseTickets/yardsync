@@ -52,6 +52,7 @@ export default function SettingsPage() {
   const [pushEnabled,       setPushEnabled]       = useState(false)
   const [pushBusy,          setPushBusy]          = useState(false)
   const [coverFeesBusy,     setCoverFeesBusy]     = useState(false)
+  const [buyingSetup,       setBuyingSetup]       = useState(false)
 
   useEffect(() => { isPushEnabled().then(setPushEnabled) }, [])
 
@@ -96,6 +97,27 @@ export default function SettingsPage() {
       toast.error(lang === 'es' ? 'No se pudo guardar' : 'Could not save')
     } finally {
       setCoverFeesBusy(false)
+    }
+  }
+
+  // Pro Setup ($99 one-time) — standalone purchase, available any time. Redirects
+  // to a Stripe Checkout (mode:'payment'); the webhook marks setupFeePaid + flags
+  // the admin import queue on completion.
+  async function handleBuyProSetup() {
+    if (buyingSetup || !user) return
+    setBuyingSetup(true)
+    try {
+      const idToken = await user.getIdToken()
+      const res = await fetch('/api/stripe/checkout/pro-setup', {
+        method: 'POST', headers: { Authorization: `Bearer ${idToken}` },
+      })
+      const data = await res.json()
+      if (res.ok && data.url) { window.location.href = data.url; return }
+      toast.error(data?.error || (lang === 'es' ? 'No se pudo iniciar la compra' : 'Could not start checkout'))
+      setBuyingSetup(false)
+    } catch {
+      toast.error(lang === 'es' ? 'No se pudo iniciar la compra' : 'Could not start checkout')
+      setBuyingSetup(false)
     }
   }
 
@@ -1569,6 +1591,42 @@ export default function SettingsPage() {
                   />
                 </button>
               </div>
+            </Card>
+          </section>
+
+          {/* Pro Setup — standalone $99 white-glove client import, buy any time */}
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <ArrowUpCircle size={14} className="text-brand-600" />
+              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                {lang === 'es' ? 'Configuración Pro' : 'Pro Setup'}
+              </p>
+            </div>
+            <Card>
+              {profile?.setupFeePaid === true ? (
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-green-600" />
+                  <p className="text-[13px] text-gray-700">
+                    {profile?.setupContacted === true
+                      ? (lang === 'es' ? 'Configuración Pro — importación en progreso ✓' : 'Pro Setup — import in progress ✓')
+                      : (lang === 'es' ? 'Configuración Pro comprada — importaremos tus clientes pronto.' : "Pro Setup purchased — we'll import your clients soon.")}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-[13px] font-medium text-gray-800">
+                    {lang === 'es' ? 'Importamos tu cartera de clientes' : 'We import your client book'}
+                  </p>
+                  <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">
+                    {lang === 'es'
+                      ? 'Desde Jobber, Yardbook, hojas de cálculo o cualquier lista — con paquetes, precios y visitas recurrentes listos. Pago único de $99, no reembolsable.'
+                      : 'From Jobber, Yardbook, spreadsheets, or any list — packages, pricing, and recurring visits ready. One-time $99, non-refundable.'}
+                  </p>
+                  <Button fullWidth size="sm" className="mt-3" loading={buyingSetup} onClick={handleBuyProSetup}>
+                    {lang === 'es' ? 'Importar mis clientes — $99' : 'Import my clients — $99'}
+                  </Button>
+                </>
+              )}
             </Card>
           </section>
 

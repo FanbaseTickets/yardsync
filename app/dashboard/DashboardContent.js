@@ -61,6 +61,15 @@ export default function DashboardPage() {
       router.replace('/dashboard')
       return
     }
+    if (searchParams.get('prosetup') === 'success') {
+      toast.success(lang === 'es' ? '¡Configuración Pro comprada! Te contactaremos para importar tus clientes.' : "Pro Setup purchased! We'll reach out to import your clients.")
+      router.replace('/dashboard')
+      return
+    }
+    if (searchParams.get('prosetup') === 'cancelled') {
+      router.replace('/dashboard')
+      return
+    }
     if (searchParams.get('subscribed') === 'true') {
       // Defensive: never auto-activate a free-until-paid account from a client
       // redirect. The webhook owns activation (first paid invoice).

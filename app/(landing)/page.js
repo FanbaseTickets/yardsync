@@ -70,6 +70,7 @@ const STRINGS = {
       pFeat: ['We import all your existing clients', 'Works from Yardbook, Jobber, spreadsheets, or any list', 'Set up service packages & pricing', 'Schedule all recurring visits', 'Ready on day one — zero downtime'],
       pNote: "Switching from another platform? We move your whole client book over so you don't have to start from scratch.",
       pCta: 'Switch & Set Up →',
+      pAvail: 'Available in your account after you sign up — free.',
     },
     how: {
       lbl: 'How it works', h: 'Up and running in minutes',
@@ -162,6 +163,7 @@ const STRINGS = {
       pFeat: ['Importamos todos tus clientes actuales', 'Funciona desde Yardbook, Jobber, hojas de cálculo o cualquier lista', 'Configuramos tus paquetes y precios', 'Programamos todas las visitas recurrentes', 'Listo desde el primer día — sin tiempo perdido'],
       pNote: '¿Te cambias de otra plataforma? Movemos toda tu cartera de clientes para que no empieces desde cero.',
       pCta: 'Cambiar y configurar →',
+      pAvail: 'Disponible en tu cuenta después de registrarte — gratis.',
     },
     how: {
       lbl: 'Cómo funciona', h: 'Listo en minutos',
@@ -460,7 +462,9 @@ export default function LandingPage() {
               <div className="lp-pa">$99</div><div className="lp-pp">{t.pricing.pPer}</div>
               <ul className="lp-pf">{t.pricing.pFeat.map((f, i) => <li key={i}>{f}</li>)}</ul>
               <p style={{ fontSize: '12px', color: 'var(--g6)', marginBottom: '16px', fontStyle: 'italic' }}>{t.pricing.pNote}</p>
-              <a href="/signup" className="lp-pcta" style={{ background: 'var(--gp)', color: '#fff' }}>{t.pricing.pCta}</a>
+              {/* No purchase button on the landing — Pro Setup is bought in-app
+                  after signup (welcome modal / Settings). Mention only. */}
+              <p style={{ fontSize: '12px', color: 'var(--g6)', textAlign: 'center', fontStyle: 'italic', margin: 0 }}>{t.pricing.pAvail}</p>
             </div>
           </div>
         </div>

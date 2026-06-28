@@ -64,6 +64,10 @@ export function AuthProvider({ children }) {
       subscriptionPlan:   'monthly',
       pmOnFile:           false,
       freeUntilPaidSince: new Date().toISOString(),
+      // First-run welcome carousel shows once (gated on explicit false). Set at
+      // signup so free-access members actually see it — the old activation path
+      // that set this was bypassed by free-access.
+      hasSeenRewardsIntro: false,
       // Record affirmative Terms acceptance at account creation (the signup form
       // requires the checkbox). Evidence for the merchant-of-record / liability
       // terms in ToS Section 5.
@@ -124,8 +128,16 @@ export function AuthProvider({ children }) {
         subscriptionPlan:   'monthly',
         pmOnFile:           false,
         freeUntilPaidSince: new Date().toISOString(),
+        hasSeenRewardsIntro: false,
         termsAcceptedAt: new Date().toISOString(),
         termsVersion:    '2026-06-22',
+        // Seed the same default packages the email-signup path sets, so a
+        // Google-signup contractor isn't left without packages in the picker.
+        basePackages: {
+          monthly:   { label: 'Monthly',   visits: 2,  basePriceCents: 6500  },
+          quarterly: { label: 'Quarterly', visits: 6,  basePriceCents: 18500 },
+          annual:    { label: 'Annual',    visits: 24, basePriceCents: 72000 },
+        },
         smsTemplate:   'Hi {name}! Your yard service is scheduled for {date} at {time}. See you then! Reply STOP to opt out. – {business}',
         smsTemplateEs: '¡Hola {name}! Su servicio de jardín está programado para {date} a las {time}. ¡Hasta pronto! Responda STOP para cancelar. – {business}',
       }
