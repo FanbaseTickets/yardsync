@@ -534,6 +534,39 @@ export async function POST(request) {
         const pi = event.data.object
         console.log('payment_intent.succeeded fired:', { id: pi.id, gardenerUid: pi.metadata?.gardenerUid })
 
+        // ── Model B: client saved their card on the FIRST invoice (save-on-pay) ──
+        // The invoice route tags eligible (recurring, unsaved) PIs with
+        // offerCardSave:'true' and attaches a connected-account customer; the pay
+        // page confirms with setup_future_usage:'off_session' ONLY when the client
+        // checks the consent box. Both signals present = explicit authorization to
+        // enable auto-billing. Auto-charge engine PIs lack offerCardSave, so they
+        // never re-trigger this. Non-fatal — never block the invoice-paid flip.
+        if (pi.metadata?.offerCardSave === 'true' && pi.setup_future_usage === 'off_session' && pi.metadata?.clientId) {
+          try {
+            const acct = event.account               // connected account the card lives on
+            const cId  = pi.metadata.clientId
+            const pmId = typeof pi.payment_method === 'string' ? pi.payment_method : pi.payment_method?.id
+            const cust = typeof pi.customer === 'string' ? pi.customer : pi.customer?.id
+            if (acct && cId && pmId && cust) {
+              const pm = await stripe.paymentMethods.retrieve(pmId, { stripeAccount: acct })
+              // Default PM so off-session recurring charges use it automatically.
+              await stripe.customers.update(cust, { invoice_settings: { default_payment_method: pmId } }, { stripeAccount: acct })
+              await updateDocument('clients', cId, {
+                clientStripeCustomerId: cust,
+                clientPaymentMethodId:  pmId,
+                clientCardBrand:        pm?.card?.brand || null,
+                clientCardLast4:        pm?.card?.last4 || null,
+                autoChargeAuthorizedAt: new Date().toISOString(),
+                autoBilling:            true,
+                updatedAt:              new Date().toISOString(),
+              })
+              console.log(`Model B: client ${cId} saved card via first invoice — pm ${pmId} (${pm?.card?.brand} ****${pm?.card?.last4})`)
+            }
+          } catch (e) {
+            console.error('Model B card-save flip failed (non-fatal):', e.message)
+          }
+        }
+
         const invDoc = await queryCollection('invoices', 'stripePaymentIntentId', pi.id)
         console.log('Invoice query result – empty:', !invDoc, 'searching for:', pi.id)
 

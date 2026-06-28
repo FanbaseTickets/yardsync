@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { createDocument, getDocument } from '@/lib/firestoreRest'
+import { createDocument, getDocument, updateDocument } from '@/lib/firestoreRest'
 import { sendClientEmail } from '@/lib/email'
 import { getBaseUrl } from '@/lib/baseUrl'
 import { computeInvoiceType } from '@/lib/stripeHelpers'
@@ -166,6 +166,40 @@ export async function POST(req) {
     const estStripeFee     = Math.round(billedCents * 0.029) + 30
     const contractorNet    = Math.max(0, billedCents - applicationFeeAmount - estStripeFee)
 
+    // ── Model B: offer to vault the card on the FIRST invoice (save-on-pay) ──
+    // For a RECURRING client who has no card on file yet, attach a connected-
+    // account Customer to this PaymentIntent so the pay page can optionally save
+    // the card (setup_future_usage) for future auto-charges. The `offerCardSave`
+    // metadata flag + setup_future_usage on the confirmed PI together are the
+    // consent signal the webhook keys on to enable auto-billing — a one-off /
+    // walk-in invoice (no recurrence) is never offered card-save. We persist the
+    // customer id on the client doc so repeat invoices reuse the same customer.
+    let clientDoc = null
+    if (clientId) { try { clientDoc = await getDocument('clients', clientId) } catch {} }
+    const cd            = clientDoc?.data
+    const isRecurring   = !!(cd && cd.recurrence && cd.packageType !== 'onetime')
+    const alreadySaved  = !!(cd && cd.clientPaymentMethodId)
+    const offerCardSave = isRecurring && !alreadySaved
+    let clientCustomerId = cd?.clientStripeCustomerId || null
+    if (offerCardSave && !clientCustomerId) {
+      try {
+        const cust = await stripe.customers.create(
+          {
+            name:  clientName  || undefined,
+            email: clientEmail || undefined,
+            phone: clientPhone || undefined,
+            metadata: { gardenerUid, clientId: clientId || '' },
+          },
+          { stripeAccount: stripeAccountId }
+        )
+        clientCustomerId = cust.id
+        try { await updateDocument('clients', clientId, { clientStripeCustomerId: clientCustomerId }) } catch {}
+      } catch (custErr) {
+        console.error('[invoice] connected-account customer create failed (non-fatal):', custErr.message)
+        clientCustomerId = null
+      }
+    }
+
     // Step 1: Create Stripe PaymentIntent as a DIRECT CHARGE on the connected
     // account (the `stripeAccount` request option). See
     // docs/DIRECT_CHARGES_AND_RECEIPTS.md.
@@ -184,12 +218,19 @@ export async function POST(req) {
         application_fee_amount: applicationFeeAmount,
         description: description || 'YardSync invoice',
         receipt_email: clientEmail || undefined,
+        // Customer present only when we're offering card-save (recurring, unsaved)
+        // — required for setup_future_usage to attach the PM at confirm time.
+        ...(offerCardSave && clientCustomerId ? { customer: clientCustomerId } : {}),
         metadata: {
           gardenerUid,
           clientId,
           clientName: clientName || '',
           lineItemCount: String(lineItems?.length || 0),
           feesCovered: coverFees === true ? 'true' : 'false',
+          // Webhook keys on this + setup_future_usage to enable auto-billing.
+          offerCardSave: offerCardSave && clientCustomerId ? 'true' : 'false',
+          businessName: contractorName || '',
+          lang: lang === 'es' ? 'es' : 'en',
         },
       },
       { stripeAccount: stripeAccountId }
@@ -283,6 +324,7 @@ export async function POST(req) {
       contractorReceives: contractorNet,
       emailNotified: !!(emailChannel && clientEmail),
       smsRequested:  !!smsChannel,
+      offerCardSave: offerCardSave && !!clientCustomerId,
     })
   } catch (err) {
     console.error('Stripe invoice error:', err)
