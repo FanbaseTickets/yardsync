@@ -71,6 +71,7 @@ export default function ClientDetailPage() {
   const [refunding,     setRefunding]     = useState(false)
   const [refundConfirm, setRefundConfirm] = useState(false)
   const [respondingDispute, setRespondingDispute] = useState(false)
+  const [settingUpCard, setSettingUpCard] = useState(false)
   const [duplicateWarn, setDuplicateWarn] = useState(null)
   const [jobMaterials,  setJobMaterials]  = useState([])
   const [form,          setForm]          = useState({})
@@ -518,6 +519,41 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
     }
   }
 
+  // Auto-billing (auto-charge): mint a card-save link for THIS client on the
+  // connected account, open it, and copy it so the contractor can also share it.
+  // The client saves a card once + authorizes recurring charges; the webhook
+  // stores it on the client doc and turns auto-billing on.
+  async function handleSetupAutoBilling() {
+    if (settingUpCard) return
+    setSettingUpCard(true)
+    const win = window.open('', '_blank')
+    try {
+      const idToken = await user.getIdToken()
+      const res = await fetch('/api/stripe/client-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ clientId: id }),
+      })
+      const data = await res.json()
+      if (res.ok && data.url) {
+        if (win) win.location = data.url
+        else window.open(data.url, '_blank')
+        try { await navigator.clipboard.writeText(data.url) } catch {}
+        toast.success(lang === 'es' ? 'Enlace abierto y copiado — compártelo con tu cliente' : 'Link opened & copied — share it with your client')
+      } else {
+        if (win) win.close()
+        toast.error(data?.code === 'no_connect'
+          ? (lang === 'es' ? 'Completa la configuración de pagos primero' : 'Finish payment setup first')
+          : (data?.error || (lang === 'es' ? 'No se pudo crear el enlace' : 'Could not create the link')))
+      }
+    } catch {
+      if (win) win.close()
+      toast.error(lang === 'es' ? 'No se pudo crear el enlace' : 'Could not create the link')
+    } finally {
+      setSettingUpCard(false)
+    }
+  }
+
   // Open the contractor's Stripe Express dashboard (one-time login link) to
   // respond to a dispute — submitting evidence is the best way to NOT lose it.
   async function openStripeDispute() {
@@ -809,6 +845,36 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
               >
                 {lang === 'es' ? 'Programar visitas' : 'Schedule visits'}
               </Button>
+            )}
+
+            {/* Auto-billing (auto-charge): client card on file + recurring charge */}
+            {!isOnetime && (
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                {client.clientCardLast4 ? (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <RefreshCw size={14} className="text-green-600" />
+                      <span className="text-[12px] text-gray-700">
+                        {lang === 'es' ? 'Cobro automático activo' : 'Auto-billing on'} · {client.clientCardBrand ? client.clientCardBrand.charAt(0).toUpperCase() + client.clientCardBrand.slice(1) : ''} ••{client.clientCardLast4}
+                      </span>
+                    </div>
+                    <button onClick={handleSetupAutoBilling} disabled={settingUpCard} className="text-[12px] text-brand-600 font-medium disabled:opacity-50">
+                      {settingUpCard ? '…' : (lang === 'es' ? 'Cambiar tarjeta' : 'Update card')}
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <Button fullWidth variant="secondary" loading={settingUpCard} icon={RefreshCw} onClick={handleSetupAutoBilling}>
+                      {lang === 'es' ? 'Activar cobro automático' : 'Set up auto-billing'}
+                    </Button>
+                    <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
+                      {lang === 'es'
+                        ? 'Tu cliente guarda su tarjeta una vez y se le cobra automáticamente su precio recurrente en cada visita. Recibe un aviso 3 días antes y puede cancelar respondiendo.'
+                        : 'Your client saves their card once and is charged their recurring price automatically each visit. They get a reminder 3 days before and can cancel by reply.'}
+                    </p>
+                  </>
+                )}
+              </div>
             )}
 
             {isOnetime && (
