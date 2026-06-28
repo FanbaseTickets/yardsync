@@ -12,6 +12,7 @@ import { formatCents } from '@/lib/fee'
 import { badgePackageType } from '@/lib/clientBadge'
 import { isVerifiedBusiness } from '@/lib/verifiedBadge'
 import VerifiedBadge from '@/components/VerifiedBadge'
+import InstallApp from '@/components/InstallApp'
 import { Users, CalendarCheck, DollarSign, MessageSquare, CheckCircle2, Clock, LogOut, Settings, CreditCard, Link2, Package, UserPlus, CalendarPlus, X, Landmark, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
@@ -252,6 +253,10 @@ export default function DashboardPage() {
         </div>
 
         <div className="px-4 py-4 max-w-lg mx-auto space-y-5">
+
+          {/* Install-app prompt (dismissible) — for contractors who skipped the
+              welcome modal and haven't added YardSync to their home screen. */}
+          <InstallApp dismissible />
 
           {/* Canceling banner */}
           {profile?.subscriptionStatus === 'canceling' && profile?.cancelAt && (
