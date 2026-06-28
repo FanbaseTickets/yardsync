@@ -534,8 +534,10 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
         body: JSON.stringify({ clientId: id }),
       })
-      const data = await res.json()
-      if (res.ok && data.url) {
+      // Parse defensively — a non-JSON error (e.g. a 404) must still surface a toast.
+      let data = null
+      try { data = await res.json() } catch {}
+      if (res.ok && data?.url) {
         if (win) win.location = data.url
         else window.open(data.url, '_blank')
         try { await navigator.clipboard.writeText(data.url) } catch {}
@@ -544,7 +546,7 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
         if (win) win.close()
         toast.error(data?.code === 'no_connect'
           ? (lang === 'es' ? 'Completa la configuración de pagos primero' : 'Finish payment setup first')
-          : (data?.error || (lang === 'es' ? 'No se pudo crear el enlace' : 'Could not create the link')))
+          : (data?.error || (lang === 'es' ? `No se pudo crear el enlace (${res.status})` : `Could not create the link (${res.status})`)))
       }
     } catch {
       if (win) win.close()
