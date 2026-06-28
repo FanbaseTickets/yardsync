@@ -128,10 +128,15 @@ export async function POST(request) {
         if (session.mode === 'payment' && session.metadata?.kind === 'pro_setup') {
           try {
             await updateDocument('users', gardenerUid, {
-              setupFeePaid:   true,
-              setupFeePaidAt: new Date().toISOString(),
-              setupStatus:    'pending',   // admin Pro Setup queue: pending → done
-              updatedAt:      new Date().toISOString(),
+              setupFeePaid:     true,
+              setupPaidAt:      new Date().toISOString(),
+              // Match the admin Pro Setup queue schema (app/admin/dashboard reads
+              // setupFeePaid && !setupContacted) so a standalone purchase appears
+              // and is workable exactly like a subscription-bundled one.
+              setupContacted:   false,
+              setupContactedAt: null,
+              setupNotes:       '',
+              updatedAt:        new Date().toISOString(),
             })
             console.log(`Pro Setup purchased by ${gardenerUid} (session ${session.id})`)
             try {

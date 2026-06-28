@@ -1607,8 +1607,8 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-green-600" />
                   <p className="text-[13px] text-gray-700">
-                    {profile?.setupStatus === 'done'
-                      ? (lang === 'es' ? 'Configuración Pro completada ✓' : 'Pro Setup complete ✓')
+                    {profile?.setupContacted === true
+                      ? (lang === 'es' ? 'Configuración Pro — importación en progreso ✓' : 'Pro Setup — import in progress ✓')
                       : (lang === 'es' ? 'Configuración Pro comprada — importaremos tus clientes pronto.' : "Pro Setup purchased — we'll import your clients soon.")}
                   </p>
                 </div>
