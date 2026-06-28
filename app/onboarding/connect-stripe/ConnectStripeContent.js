@@ -130,7 +130,7 @@ export default function ConnectStripeContent() {
             <li><strong>Connecting is free.</strong> You pay nothing until your first client pays you.</li>
             <li>After that, it&apos;s <strong>$39/month</strong>.</li>
             <li>Each invoice has a <strong>5.5% fee, capped at $100</strong> — big jobs never pay an oversized cut.</li>
-            <li>Optional: <strong>pass the fee to your client</strong> at checkout so you keep your full price.</li>
+            <li>Optional: <strong>build the fee into your price</strong> so you keep your full amount — you set one all-in price (it&apos;s not a card surcharge).</li>
           </ul>
           <div style={{ fontSize: '13px', color: '#0B5A46', fontWeight: 700, margin: '12px 0 8px' }}>
             💸 Cómo cobra YardSync — sin sorpresas
@@ -139,7 +139,7 @@ export default function ConnectStripeContent() {
             <li><strong>Conectar es gratis.</strong> No pagas nada hasta que tu primer cliente te pague.</li>
             <li>Después, son <strong>$39 al mes</strong>.</li>
             <li>Cada factura tiene una <strong>comisión del 5.5%, con tope de $100</strong> — los trabajos grandes nunca pagan de más.</li>
-            <li>Opcional: <strong>pásale la comisión a tu cliente</strong> al cobrar para que recibas tu precio completo.</li>
+            <li>Opcional: <strong>incluye la comisión en tu precio</strong> para que recibas tu monto completo — fijas un solo precio todo incluido (no es un recargo por tarjeta).</li>
           </ul>
         </div>
         {!stripeConnectInstance ? (
