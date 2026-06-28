@@ -537,12 +537,20 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
         if (win) win.location = data.url
         else window.open(data.url, '_blank')
       } else {
-        if (win) win.close()
-        toast.error(lang === 'es' ? 'No se pudo abrir Stripe' : 'Could not open Stripe')
+        // Couldn't mint a one-time login link (e.g. createLoginLink state
+        // requirements). Don't dead-end: send them to the Stripe Express login
+        // page, where they sign in to their own dashboard to respond.
+        console.error('login-link failed:', res.status, data)
+        if (win) win.location = 'https://connect.stripe.com/express_login'
+        else window.open('https://connect.stripe.com/express_login', '_blank')
+        toast(lang === 'es'
+          ? 'Inicia sesión en Stripe para responder a la disputa.'
+          : 'Sign in to Stripe to respond to the dispute.')
       }
-    } catch {
-      if (win) win.close()
-      toast.error(lang === 'es' ? 'No se pudo abrir Stripe' : 'Could not open Stripe')
+    } catch (err) {
+      console.error('openStripeDispute error:', err)
+      if (win) win.location = 'https://connect.stripe.com/express_login'
+      else window.open('https://connect.stripe.com/express_login', '_blank')
     } finally {
       setRespondingDispute(false)
     }
