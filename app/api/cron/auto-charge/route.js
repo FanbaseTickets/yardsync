@@ -56,7 +56,7 @@ export async function GET(request) {
         ],
       }))
         .map(s => ({ id: s.id, ...s.data }))
-        .filter(s => !s.isWalkIn && !s.autoChargedAt)   // idempotency: skip already-claimed visits
+        .filter(s => !s.isWalkIn && !s.autoChargedAt && !s.autoChargeCancelledAt)   // idempotency + client-cancelled
 
       for (const visit of dueToday) {
         const client = myClients.find(c => c.id === visit.clientId)

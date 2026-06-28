@@ -554,6 +554,18 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
     }
   }
 
+  // Turn OFF auto-billing for this client (keeps the card on file so it can be
+  // re-enabled without re-collecting).
+  async function handleTurnOffAutoBilling() {
+    try {
+      await updateClient(id, { autoBilling: false })
+      toast.success(lang === 'es' ? 'Cobro automático desactivado' : 'Auto-billing turned off')
+      loadData()
+    } catch {
+      toast.error(translate('common', 'error'))
+    }
+  }
+
   // Open the contractor's Stripe Express dashboard (one-time login link) to
   // respond to a dispute — submitting evidence is the best way to NOT lose it.
   async function openStripeDispute() {
@@ -851,16 +863,32 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
             {!isOnetime && (
               <div className="mt-3 pt-3 border-t border-gray-100">
                 {client.clientCardLast4 ? (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <RefreshCw size={14} className="text-green-600" />
-                      <span className="text-[12px] text-gray-700">
-                        {lang === 'es' ? 'Cobro automático activo' : 'Auto-billing on'} · {client.clientCardBrand ? client.clientCardBrand.charAt(0).toUpperCase() + client.clientCardBrand.slice(1) : ''} ••{client.clientCardLast4}
-                      </span>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <RefreshCw size={14} className={client.autoBilling ? 'text-green-600' : 'text-gray-400'} />
+                        <span className="text-[12px] text-gray-700">
+                          {client.autoBilling
+                            ? (lang === 'es' ? 'Cobro automático activo' : 'Auto-billing on')
+                            : (lang === 'es' ? 'Tarjeta guardada · cobro automático apagado' : 'Card on file · auto-billing off')}
+                          {' · '}{client.clientCardBrand ? client.clientCardBrand.charAt(0).toUpperCase() + client.clientCardBrand.slice(1) : ''} ••{client.clientCardLast4}
+                        </span>
+                      </div>
                     </div>
-                    <button onClick={handleSetupAutoBilling} disabled={settingUpCard} className="text-[12px] text-brand-600 font-medium disabled:opacity-50">
-                      {settingUpCard ? '…' : (lang === 'es' ? 'Cambiar tarjeta' : 'Update card')}
-                    </button>
+                    <div className="flex items-center gap-4 mt-2">
+                      <button onClick={handleSetupAutoBilling} disabled={settingUpCard} className="text-[12px] text-brand-600 font-medium disabled:opacity-50">
+                        {settingUpCard ? '…' : (lang === 'es' ? 'Cambiar tarjeta' : 'Update card')}
+                      </button>
+                      {client.autoBilling ? (
+                        <button onClick={handleTurnOffAutoBilling} className="text-[12px] text-gray-500 font-medium">
+                          {lang === 'es' ? 'Apagar' : 'Turn off'}
+                        </button>
+                      ) : (
+                        <button onClick={() => updateClient(id, { autoBilling: true }).then(loadData)} className="text-[12px] text-green-700 font-medium">
+                          {lang === 'es' ? 'Encender' : 'Turn on'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <>

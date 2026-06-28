@@ -74,6 +74,14 @@ export async function GET(request) {
         const biz     = contractor.businessName || 'YardSync'
         const last4   = client.clientCardLast4 ? `••${client.clientCardLast4}` : ''
 
+        // Per-client cancel token for the email link (reused across reminders).
+        let token = client.autoCancelToken
+        if (!token) {
+          token = (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`)
+          try { await updateDocument('clients', client.id, { autoCancelToken: token }) } catch {}
+        }
+        const cancelUrl = `${appUrl}/cancel-auto?c=${client.id}&t=${token}`
+
         const smsBody = lang === 'es'
           ? `Aviso de ${biz}: cobraremos ${amount} a tu tarjeta ${last4} el ${dateStr} por tu servicio recurrente. Responde CANCELAR para detenerlo. Responda STOP para cancelar mensajes. – YardSync`
           : `Heads up from ${biz}: we'll charge ${amount} to your card ${last4} on ${dateStr} for your recurring service. Reply CANCEL to stop this charge. Reply STOP to opt out. – YardSync`
@@ -89,9 +97,9 @@ export async function GET(request) {
               to: client.email,
               subject: lang === 'es' ? `Próximo cobro de ${biz} — ${amount}` : `Upcoming charge from ${biz} — ${amount}`,
               text: lang === 'es'
-                ? `Cobraremos ${amount} a tu tarjeta ${last4} el ${dateStr} por tu servicio recurrente. Para cancelar este cobro, responde CANCELAR al mensaje de texto o contacta a ${biz}.`
-                : `We'll charge ${amount} to your card ${last4} on ${dateStr} for your recurring service. To cancel this charge, reply CANCEL to the text or contact ${biz}.`,
-              html: `<p>${lang === 'es' ? `Cobraremos <strong>${amount}</strong> a tu tarjeta ${last4} el <strong>${dateStr}</strong> por tu servicio recurrente.` : `We'll charge <strong>${amount}</strong> to your card ${last4} on <strong>${dateStr}</strong> for your recurring service.`}</p><p>${lang === 'es' ? 'Para cancelar este cobro, responde CANCELAR al mensaje de texto.' : 'To cancel this charge, reply CANCEL to the text message.'}</p>`,
+                ? `Cobraremos ${amount} a tu tarjeta ${last4} el ${dateStr} por tu servicio recurrente. Para cancelar: ${cancelUrl} (o responde CANCELAR al mensaje de texto).`
+                : `We'll charge ${amount} to your card ${last4} on ${dateStr} for your recurring service. To cancel: ${cancelUrl} (or reply CANCEL to the text).`,
+              html: `<p>${lang === 'es' ? `Cobraremos <strong>${amount}</strong> a tu tarjeta ${last4} el <strong>${dateStr}</strong> por tu servicio recurrente.` : `We'll charge <strong>${amount}</strong> to your card ${last4} on <strong>${dateStr}</strong> for your recurring service.`}</p><p><a href="${cancelUrl}">${lang === 'es' ? 'Cancelar este cobro' : 'Cancel this charge'}</a> ${lang === 'es' ? '— o responde CANCELAR al mensaje de texto.' : '— or reply CANCEL to the text.'}</p>`,
               fromName: biz,
             })
             any = true
