@@ -1693,7 +1693,7 @@ export default function CalendarPage() {
               />
               <span className="text-[12px] leading-tight text-brand-800">
                 <span className="font-semibold text-brand-900">
-                  {lang === 'es' ? 'Cubrir mis comisiones' : 'Cover my fees'}
+                  {lang === 'es' ? 'Incluir la comisión en mi precio' : 'Build the fee into my price'}
                 </span>
                 <br />
                 {lang === 'es'
@@ -1915,7 +1915,7 @@ export default function CalendarPage() {
                   />
                   <span className="text-[12px] leading-tight text-gray-700">
                     <span className="font-semibold text-gray-900">
-                      {lang === 'es' ? 'Cubrir mis comisiones' : 'Cover my fees'}
+                      {lang === 'es' ? 'Incluir la comisión en mi precio' : 'Build the fee into my price'}
                     </span>
                     <br />
                     {lang === 'es'

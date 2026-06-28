@@ -90,8 +90,8 @@ export default function SettingsPage() {
       await saveGardenerProfile(user.uid, { coverFees: next })
       await refreshProfile?.()
       toast.success(next
-        ? (lang === 'es' ? 'Cubrirás tus comisiones por defecto' : "You'll cover your fees by default")
-        : (lang === 'es' ? 'Ya no cubrirás tus comisiones' : 'Fee pass-through turned off'))
+        ? (lang === 'es' ? 'Tus precios ahora incluyen la comisión' : 'Your prices now include the fee by default')
+        : (lang === 'es' ? 'Tus precios ya no incluyen la comisión' : 'Prices no longer include the fee'))
     } catch (err) {
       toast.error(lang === 'es' ? 'No se pudo guardar' : 'Could not save')
     } finally {
@@ -1532,7 +1532,7 @@ export default function SettingsPage() {
             )}
           </section>
 
-          {/* Fee pass-through — global default for "cover my fees" on invoices */}
+          {/* Fee-inclusive pricing — global default for building the fee into invoice prices */}
           <section>
             <div className="flex items-center gap-2 mb-3">
               <CreditCard size={14} className="text-brand-600" />
@@ -1544,12 +1544,12 @@ export default function SettingsPage() {
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
                   <p className="text-[13px] font-medium text-gray-800">
-                    {lang === 'es' ? 'Cubrir mis comisiones por defecto' : 'Cover my fees by default'}
+                    {lang === 'es' ? 'Incluir la comisión en mis precios por defecto' : 'Build the fee into my prices by default'}
                   </p>
                   <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">
                     {lang === 'es'
-                      ? 'El cliente paga un poco más para que tú recibas tu precio completo (se cubre la comisión de 5.5% de YardSync y la de Stripe). Lo puedes anular en cada factura.'
-                      : "The client pays a bit more so you keep your full price (covers YardSync's 5.5% and Stripe's fee). You can override it on each invoice."}
+                      ? 'Fija un precio todo incluido para que recibas tu monto completo después de la comisión de 5.5% de YardSync y la de Stripe. Lo puedes cambiar en cada factura. Tú decides tu precio; no es un recargo por tarjeta.'
+                      : "Sets one all-in price so you keep your full amount after YardSync's 5.5% and Stripe's fee. You can change it on any invoice. You set your price — this is not a card surcharge."}
                   </p>
                 </div>
                 <button

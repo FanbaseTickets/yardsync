@@ -26,7 +26,7 @@ export default function PrivacyPage() {
           {es ? '🇺🇸 English' : '🇲🇽 Español'}
         </button>
       </div>
-      <p className="text-sm text-gray-500 mb-4">{es ? 'Última actualización: 25 de junio de 2026' : 'Last updated: June 25, 2026'}</p>
+      <p className="text-sm text-gray-500 mb-4">{es ? 'Última actualización: 27 de junio de 2026' : 'Last updated: June 27, 2026'}</p>
 
       {es && (
         <p className="text-[12px] text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3 mb-8">
@@ -57,6 +57,8 @@ export default function PrivacyPage() {
             <li>{es ? 'Datos de uso, incluyendo dirección IP, tipo de navegador, tipo de dispositivo y páginas visitadas' : 'Usage data including IP address, browser type, device type, and pages visited'}</li>
             <li>{es ? 'Información de facturación de la suscripción. Cuando configura los pagos, puede guardar una tarjeta para su suscripción de YardSync. Su tarjeta es recopilada y almacenada por Stripe, nuestro procesador de pagos; YardSync nunca recibe ni almacena el número completo de su tarjeta. Solo conservamos un identificador de cliente de Stripe y un token de referencia del método de pago que nos permiten cobrar su suscripción a través de Stripe.' : 'Subscription billing information. When you set up payments, you may save a card on file for your YardSync subscription. Your card is collected and stored by Stripe, our payment processor; YardSync never receives or stores your full card number. We retain only a Stripe customer identifier and a payment-method reference token that let us bill your subscription through Stripe.'}</li>
             <li>{es ? 'Comunicaciones enviadas a través de la plataforma' : 'Communications sent through the platform'}</li>
+            {/* PENDING LEGAL REVIEW (added 2026-06-27): dispute/chargeback data disclosure. */}
+            <li>{es ? 'Información de disputas y contracargos asociada a las facturas que usted envía o recibe a través de YardSync, incluyendo el monto disputado, el motivo proporcionado por la red de tarjetas, el nombre del cliente en la factura, y el estado y las fechas de la disputa' : 'Payment dispute and chargeback information associated with invoices you send or receive through YardSync, including the disputed amount, the reason provided by the card network, the client name on the invoice, and the dispute status and timestamps'}</li>
           </ul>
         </div>
 
@@ -71,6 +73,9 @@ export default function PrivacyPage() {
             <li>{es ? 'Para almacenar y mostrar los logotipos, headshots y perfiles de tarjeta de los contratistas en las páginas de pago y en las tarjetas de presentación digitales públicas' : 'To store and display contractor logos, headshots, and business-card profiles on client-facing payment pages and public digital business cards'}</li>
             <li>{es ? 'Para alojar la tarjeta de presentación digital pública de cada proveedor y capturar solicitudes de servicio de posibles clientes como prospectos para ese proveedor' : 'To host each service provider’s public digital business card and to capture service requests from prospective clients as leads for that provider'}</li>
             <li>{es ? 'Para cobrar su suscripción de YardSync a través de Stripe usando la tarjeta que tiene guardada, incluyendo iniciar el cobro de la suscripción cuando se pague su primera factura a un cliente' : 'To bill your YardSync subscription through Stripe using your saved card on file, including initiating the subscription charge when your first client invoice is paid'}</li>
+            {/* PENDING LEGAL REVIEW (added 2026-06-27): dispute handling + push-notification disclosures. */}
+            <li>{es ? 'Para detectar, registrar y responder a disputas y contracargos de pagos, y para notificar al administrador de YardSync y al proveedor de servicio correspondiente para que pueda presentar evidencia antes de la fecha límite de la red de tarjetas' : 'To detect, record, and respond to payment disputes and chargebacks, and to notify the YardSync administrator and the relevant service provider so that evidence can be submitted before the card network’s deadline'}</li>
+            <li>{es ? 'Para enviar notificaciones push (si usted las activa) a sus dispositivos con la app instalada, como alertas de pago recibido o de disputa de pago; estas notificaciones pueden incluir el nombre de un cliente y un monto' : 'To send push notifications (if you enable them) to your installed devices, such as payment-received or payment-dispute alerts; these notifications may include a client name and an amount'}</li>
           </ul>
         </div>
 
