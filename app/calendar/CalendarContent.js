@@ -11,7 +11,7 @@ import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Badge, Modal, Select, EmptyState, Skeleton, Input } from '@/components/ui'
 import { getClients, getSchedules, addSchedule, updateSchedule, deleteSchedule, getServices, updateScheduleMaterials, saveInvoice, getClientInvoices } from '@/lib/db'
 import { deleteAllClientSchedules } from '@/lib/db'
-import { formatCents, grossUpForFees, calcApplicationFee } from '@/lib/fee'
+import { formatCents, grossUpForFees, calcApplicationFee, isFeeCapped } from '@/lib/fee'
 import { badgePackageType } from '@/lib/clientBadge'
 import { buildInvoiceSms } from '@/lib/invoiceSms'
 import { validatePhone, formatPhone } from '@/lib/phone'
@@ -1928,7 +1928,9 @@ export default function CalendarPage() {
                   <span className="font-bold text-gray-900">{formatCents(billed)}</span>
                 </div>
                 <div className="flex justify-between px-3 py-1.5 text-[11px] text-gray-500">
-                  <span>{lang === 'es' ? 'Comisión YardSync (5.5%)' : 'YardSync fee (5.5%)'}</span>
+                  <span>{isFeeCapped(billed)
+                    ? (lang === 'es' ? 'Comisión YardSync (con tope)' : 'YardSync fee (capped)')
+                    : (lang === 'es' ? 'Comisión YardSync (5.5%)' : 'YardSync fee (5.5%)')}</span>
                   <span>−{formatCents(fee)}</span>
                 </div>
                 <div className="flex justify-between px-3 py-1.5 text-[11px] text-gray-500">

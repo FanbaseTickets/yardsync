@@ -8,7 +8,7 @@ import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, Skeleton, Modal, Input, Select } from '@/components/ui'
 import { getClient, updateClient, deleteClient, getClientInvoices, getServices, saveInvoice, getMostRecentSchedule } from '@/lib/db'
-import { formatCents, grossUpForFees, calcApplicationFee } from '@/lib/fee'
+import { formatCents, grossUpForFees, calcApplicationFee, isFeeCapped } from '@/lib/fee'
 import { badgePackageType } from '@/lib/clientBadge'
 import { buildInvoiceSms } from '@/lib/invoiceSms'
 import { validatePhone } from '@/lib/phone'
@@ -1094,7 +1094,9 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
                       fees (incl. the Stripe fee they bear on direct charges) are never
                       a surprise. */}
                   <div className="flex justify-between text-[11px] text-brand-600 pt-1">
-                    <span>{lang === 'es' ? 'Comisión YardSync (5.5%)' : 'YardSync fee (5.5%)'}</span>
+                    <span>{isFeeCapped(billed)
+                      ? (lang === 'es' ? 'Comisión YardSync (con tope)' : 'YardSync fee (capped)')
+                      : (lang === 'es' ? 'Comisión YardSync (5.5%)' : 'YardSync fee (5.5%)')}</span>
                     <span>−{formatCents(ysFee)}</span>
                   </div>
                   <div className="flex justify-between text-[11px] text-brand-600">
