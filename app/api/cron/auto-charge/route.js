@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { formatDate } from '@/lib/date'
 import { listCollection, updateDocument, getDocument } from '@/lib/firestoreRest'
 import { chargeClientForVisit } from '@/lib/autoCharge'
+import { sendPush } from '@/lib/push'
 
 // AUTO-CHARGE cron — daily. For each recurring visit due TODAY whose client has
 // auto-billing on (card on file + authorized), charge the saved card off-session
@@ -58,6 +59,7 @@ export async function GET(request) {
         .map(s => ({ id: s.id, ...s.data }))
         .filter(s => !s.isWalkIn && !s.autoChargedAt && !s.autoChargeCancelledAt)   // idempotency + client-cancelled
 
+      let myCharged = 0, myFallback = 0, myTotalCents = 0   // for the contractor digest
       for (const visit of dueToday) {
         const client = myClients.find(c => c.id === visit.clientId)
         if (!client) continue
@@ -85,10 +87,10 @@ export async function GET(request) {
         // next day retries (contractor may finish setup); keep it for permanent.
         if (r.ok && r.charged) {
           await updateDocument('schedules', visit.id, { autoChargeStatus: 'charged', autoChargeId: r.invoiceId || null })
-          results.charged++
+          results.charged++; myCharged++; myTotalCents += r.billedCents || 0
         } else if (r.ok && r.fallback) {
           await updateDocument('schedules', visit.id, { autoChargeStatus: 'fallback_link', autoChargeId: r.invoiceId || null })
-          results.fallback++
+          results.fallback++; myFallback++
         } else if (r.code === 'no_connect' || r.code === 'no_card') {
           await updateDocument('schedules', visit.id, { autoChargedAt: null, autoChargeStatus: null })   // retry tomorrow
           if (r.code === 'no_card') results.skippedNoCard++; else results.gateBlocked++
@@ -99,6 +101,20 @@ export async function GET(request) {
           await updateDocument('schedules', visit.id, { autoChargeStatus: 'error' })
           results.errors++
         }
+      }
+
+      // Contractor sync: push a digest so the contractor knows what auto-charged
+      // today (and what fell back to a payment link).
+      if (myCharged > 0 || myFallback > 0) {
+        const cl  = contractor.language === 'es' ? 'es' : 'en'
+        const amt = `$${(myTotalCents / 100).toFixed(2)}`
+        await sendPush(contractor.id, {
+          title: cl === 'es' ? 'Cobros automáticos de hoy' : "Today's auto-charges",
+          body:  cl === 'es'
+            ? `Se cobró a ${myCharged} cliente(s) (${amt})${myFallback ? `; ${myFallback} no se pudo cobrar — enviamos enlace de pago` : ''}.`
+            : `Charged ${myCharged} client(s) (${amt})${myFallback ? `; ${myFallback} couldn't be charged — sent a payment link` : ''}.`,
+          url: '/dashboard',
+        })
       }
     }
 

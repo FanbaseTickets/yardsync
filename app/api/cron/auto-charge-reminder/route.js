@@ -5,6 +5,7 @@ import { listCollection, updateDocument, getDocument } from '@/lib/firestoreRest
 import { grossUpForFees } from '@/lib/fee'
 import { sendSms } from '@/lib/sms'
 import { sendClientEmail } from '@/lib/email'
+import { sendPush } from '@/lib/push'
 
 const LEAD_DAYS = 3   // advance notice before an auto-charge
 
@@ -57,6 +58,7 @@ export async function GET(request) {
         .map(s => ({ id: s.id, ...s.data }))
         .filter(s => !s.isWalkIn && !s.chargeReminderSentAt && !s.autoChargeCancelledAt)
 
+      let myReminders = 0, myTotalCents = 0   // for the contractor digest
       for (const visit of upcoming) {
         const client = myClients.find(c => c.id === visit.clientId)
         if (!client?.clientPaymentMethodId) { results.skipped++; continue }
@@ -106,7 +108,7 @@ export async function GET(request) {
           }
           if (any) {
             await updateDocument('schedules', visit.id, { chargeReminderSentAt: new Date().toISOString() })
-            results.sent++
+            results.sent++; myReminders++; myTotalCents += total
           } else {
             results.skipped++
           }
@@ -114,6 +116,20 @@ export async function GET(request) {
           console.error('[auto-charge-reminder] send failed:', e.message)
           results.errors++
         }
+      }
+
+      // Contractor sync: let the contractor know their clients were notified of an
+      // upcoming auto-charge (so they're aware + know the heads-up went out).
+      if (myReminders > 0) {
+        const cl  = contractor.language === 'es' ? 'es' : 'en'
+        const amt = `$${(myTotalCents / 100).toFixed(2)}`
+        await sendPush(contractor.id, {
+          title: cl === 'es' ? 'Cobros automáticos en 3 días' : 'Auto-charges in 3 days',
+          body:  cl === 'es'
+            ? `Avisamos a ${myReminders} cliente(s) que se les cobrará ${amt} en 3 días. Pueden cancelar antes.`
+            : `We notified ${myReminders} client(s) they'll be auto-charged ${amt} in 3 days. They can cancel before then.`,
+          url: '/dashboard',
+        })
       }
     }
 
