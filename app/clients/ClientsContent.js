@@ -320,7 +320,10 @@ export default function ClientsPage() {
     )
     // Apply package filter
     if (['weekly', 'biweekly', 'monthly', 'quarterly', 'annual'].includes(filter)) {
-      list = list.filter(c => c.packageType === filter)
+      // Bucket by the SAME derived cadence the badge shows (badgePackageType reads
+      // recurrence), so a biweekly-cadence client filters under Biweekly instead
+      // of its raw packageType ('monthly') — matching what the contractor sees.
+      list = list.filter(c => badgePackageType(c) === filter)
     }
     // Apply status filter
     if (filter === 'active')   list = list.filter(c => c.status === 'active')
@@ -347,11 +350,11 @@ export default function ClientsPage() {
     recent:    nonLeadClients.length,
     active:    activeCount,
     inactive:  inactiveCount,
-    weekly:    nonLeadClients.filter(c => c.packageType === 'weekly').length,
-    biweekly:  nonLeadClients.filter(c => c.packageType === 'biweekly').length,
-    monthly:   nonLeadClients.filter(c => c.packageType === 'monthly').length,
-    quarterly: nonLeadClients.filter(c => c.packageType === 'quarterly').length,
-    annual:    nonLeadClients.filter(c => c.packageType === 'annual').length,
+    weekly:    nonLeadClients.filter(c => badgePackageType(c) === 'weekly').length,
+    biweekly:  nonLeadClients.filter(c => badgePackageType(c) === 'biweekly').length,
+    monthly:   nonLeadClients.filter(c => badgePackageType(c) === 'monthly').length,
+    quarterly: nonLeadClients.filter(c => badgePackageType(c) === 'quarterly').length,
+    annual:    nonLeadClients.filter(c => badgePackageType(c) === 'annual').length,
   }
 
   // ── Lead actions ───────────────────────────────────────────────────
@@ -466,13 +469,10 @@ export default function ClientsPage() {
           title={translate('clients', 'title')}
           subtitle={`${activeCount} ${activeCount !== 1 && lang === 'es' ? translate('common', 'active_pl') : translate('clients', 'active')}${inactiveCount > 0 ? ` · ${inactiveCount} ${translate('clients', 'inactive')}` : ''}`}
           actions={
-            <Button icon={Plus} size="sm" onClick={() => {
-              if (services.length === 0 && !loading) {
-                toast.error(lang === 'es' ? 'Primero crea un paquete de servicio' : 'Create a service package first')
-                return
-              }
-              setShowAdd(true)
-            }}>
+            // No services gate — the Add-client modal has an inline "+ New package"
+            // builder, so a first-timer creates their package right there instead
+            // of being dead-ended to the Services tab.
+            <Button icon={Plus} size="sm" onClick={() => setShowAdd(true)}>
               {translate('clients', 'add')}
             </Button>
           }
