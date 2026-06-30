@@ -199,7 +199,9 @@ export async function POST(req) {
 
     return NextResponse.json({ quoteId, quoteUrl, totalCents, validUntil, emailNotified, smsOk: !!smsResult.ok, smsSkipped: !!smsResult.skipped })
   } catch (err) {
+    // Log the raw cause server-side; never leak Firestore/Stripe internals to
+    // the contractor's toast.
     console.error('[quotes] create failed:', err.message)
-    return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: 'Could not send the quote — please try again', code: 'quote_failed' }, { status: 500 })
   }
 }
