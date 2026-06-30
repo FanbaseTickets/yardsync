@@ -319,8 +319,11 @@ export default function ClientsPage() {
       c.address?.toLowerCase().includes(search.toLowerCase())
     )
     // Apply package filter
-    if (['monthly', 'quarterly', 'annual', 'weekly'].includes(filter)) {
-      list = list.filter(c => c.packageType === filter)
+    if (['weekly', 'biweekly', 'monthly', 'quarterly', 'annual'].includes(filter)) {
+      // Bucket by the SAME derived cadence the badge shows (badgePackageType reads
+      // recurrence), so a biweekly-cadence client filters under Biweekly instead
+      // of its raw packageType ('monthly') — matching what the contractor sees.
+      list = list.filter(c => badgePackageType(c) === filter)
     }
     // Apply status filter
     if (filter === 'active')   list = list.filter(c => c.status === 'active')
@@ -347,10 +350,11 @@ export default function ClientsPage() {
     recent:    nonLeadClients.length,
     active:    activeCount,
     inactive:  inactiveCount,
-    monthly:   nonLeadClients.filter(c => c.packageType === 'monthly').length,
-    quarterly: nonLeadClients.filter(c => c.packageType === 'quarterly').length,
-    annual:    nonLeadClients.filter(c => c.packageType === 'annual').length,
-    weekly:    nonLeadClients.filter(c => c.packageType === 'weekly').length,
+    weekly:    nonLeadClients.filter(c => badgePackageType(c) === 'weekly').length,
+    biweekly:  nonLeadClients.filter(c => badgePackageType(c) === 'biweekly').length,
+    monthly:   nonLeadClients.filter(c => badgePackageType(c) === 'monthly').length,
+    quarterly: nonLeadClients.filter(c => badgePackageType(c) === 'quarterly').length,
+    annual:    nonLeadClients.filter(c => badgePackageType(c) === 'annual').length,
   }
 
   // ── Lead actions ───────────────────────────────────────────────────
@@ -465,13 +469,10 @@ export default function ClientsPage() {
           title={translate('clients', 'title')}
           subtitle={`${activeCount} ${activeCount !== 1 && lang === 'es' ? translate('common', 'active_pl') : translate('clients', 'active')}${inactiveCount > 0 ? ` · ${inactiveCount} ${translate('clients', 'inactive')}` : ''}`}
           actions={
-            <Button icon={Plus} size="sm" onClick={() => {
-              if (services.length === 0 && !loading) {
-                toast.error(lang === 'es' ? 'Primero crea un paquete de servicio' : 'Create a service package first')
-                return
-              }
-              setShowAdd(true)
-            }}>
+            // No services gate — the Add-client modal has an inline "+ New package"
+            // builder, so a first-timer creates their package right there instead
+            // of being dead-ended to the Services tab.
+            <Button icon={Plus} size="sm" onClick={() => setShowAdd(true)}>
               {translate('clients', 'add')}
             </Button>
           }
@@ -507,6 +508,7 @@ export default function ClientsPage() {
               { value: 'quarterly', label: lang === 'es' ? 'Trimestral' : 'Quarterly',  count: chipCounts.quarterly },
               { value: 'annual',    label: lang === 'es' ? 'Anual' : 'Annual',          count: chipCounts.annual },
               { value: 'weekly',    label: lang === 'es' ? 'Semanal' : 'Weekly',        count: chipCounts.weekly },
+              { value: 'biweekly',  label: lang === 'es' ? 'Quincenal' : 'Biweekly',   count: chipCounts.biweekly },
             ].map(chip => {
               const isLeads  = chip.value === 'leads'
               const selected = filter === chip.value

@@ -71,6 +71,7 @@ export default function ClientDetailPage() {
   const [refunding,     setRefunding]     = useState(false)
   const [refundConfirm, setRefundConfirm] = useState(false)
   const [respondingDispute, setRespondingDispute] = useState(false)
+  const [settingUpCard, setSettingUpCard] = useState(false)
   const [duplicateWarn, setDuplicateWarn] = useState(null)
   const [jobMaterials,  setJobMaterials]  = useState([])
   const [form,          setForm]          = useState({})
@@ -518,6 +519,59 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
     }
   }
 
+  // Auto-billing (auto-charge): mint a card-save link for THIS client on the
+  // connected account, open it, and copy it so the contractor can also share it.
+  // The client saves a card once + authorizes recurring charges; the webhook
+  // stores it on the client doc and turns auto-billing on.
+  async function handleSetupAutoBilling() {
+    if (settingUpCard) return
+    setSettingUpCard(true)
+    const win = window.open('', '_blank')
+    try {
+      const idToken = await user.getIdToken()
+      const res = await fetch('/api/stripe/client-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ clientId: id }),
+      })
+      // Parse defensively — a non-JSON error (e.g. a 404) must still surface a toast.
+      let data = null
+      try { data = await res.json() } catch {}
+      if (res.ok && data?.url) {
+        if (win) win.location = data.url
+        else window.open(data.url, '_blank')
+        try { await navigator.clipboard.writeText(data.url) } catch {}
+        toast.success(lang === 'es' ? 'Enlace abierto y copiado — compártelo con tu cliente' : 'Link opened & copied — share it with your client')
+      } else if (data?.code === 'no_connect') {
+        // The contractor hasn't connected their bank yet — don't dead-end; send
+        // them to Connect onboarding so there's a clear path to enable this.
+        if (win) win.close()
+        toast(lang === 'es' ? 'Conecta tu banco para activar el cobro automático' : 'Connect your bank to enable auto-billing')
+        router.push('/onboarding/connect-stripe')
+      } else {
+        if (win) win.close()
+        toast.error(data?.error || (lang === 'es' ? `No se pudo crear el enlace (${res.status})` : `Could not create the link (${res.status})`))
+      }
+    } catch {
+      if (win) win.close()
+      toast.error(lang === 'es' ? 'No se pudo crear el enlace' : 'Could not create the link')
+    } finally {
+      setSettingUpCard(false)
+    }
+  }
+
+  // Turn OFF auto-billing for this client (keeps the card on file so it can be
+  // re-enabled without re-collecting).
+  async function handleTurnOffAutoBilling() {
+    try {
+      await updateClient(id, { autoBilling: false })
+      toast.success(lang === 'es' ? 'Cobro automático desactivado' : 'Auto-billing turned off')
+      loadData()
+    } catch {
+      toast.error(translate('common', 'error'))
+    }
+  }
+
   // Open the contractor's Stripe Express dashboard (one-time login link) to
   // respond to a dispute — submitting evidence is the best way to NOT lose it.
   async function openStripeDispute() {
@@ -775,6 +829,14 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
             </p>
             <div className="space-y-2">
               <div className="flex justify-between text-[13px]">
+                <span className="text-gray-500">{lang === 'es' ? 'Cuándo se factura' : 'When billed'}</span>
+                <span className="font-medium text-gray-900">
+                  {client.billingMode === 'postvisit'
+                    ? (lang === 'es' ? 'Después de cada visita' : 'After each visit')
+                    : (lang === 'es' ? 'Antes de cada visita' : 'Before each visit')}
+                </span>
+              </div>
+              <div className="flex justify-between text-[13px]">
                 <span className="text-gray-500">{translate('client_detail', 'base_price')}</span>
                 <span className="font-medium text-gray-900">{formatCents(baseCents)}</span>
               </div>
@@ -809,6 +871,52 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
               >
                 {lang === 'es' ? 'Programar visitas' : 'Schedule visits'}
               </Button>
+            )}
+
+            {/* Auto-billing (auto-charge): client card on file + recurring charge */}
+            {!isOnetime && (
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                {client.clientCardLast4 ? (
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <RefreshCw size={14} className={client.autoBilling ? 'text-green-600' : 'text-gray-400'} />
+                        <span className="text-[12px] text-gray-700">
+                          {client.autoBilling
+                            ? (lang === 'es' ? 'Cobro automático activo' : 'Auto-billing on')
+                            : (lang === 'es' ? 'Tarjeta guardada · cobro automático apagado' : 'Card on file · auto-billing off')}
+                          {' · '}{client.clientCardBrand ? client.clientCardBrand.charAt(0).toUpperCase() + client.clientCardBrand.slice(1) : ''} ••{client.clientCardLast4}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 mt-2">
+                      <button onClick={handleSetupAutoBilling} disabled={settingUpCard} className="text-[12px] text-brand-600 font-medium disabled:opacity-50">
+                        {settingUpCard ? '…' : (lang === 'es' ? 'Cambiar tarjeta' : 'Update card')}
+                      </button>
+                      {client.autoBilling ? (
+                        <button onClick={handleTurnOffAutoBilling} className="text-[12px] text-gray-500 font-medium">
+                          {lang === 'es' ? 'Apagar' : 'Turn off'}
+                        </button>
+                      ) : (
+                        <button onClick={() => updateClient(id, { autoBilling: true }).then(loadData)} className="text-[12px] text-green-700 font-medium">
+                          {lang === 'es' ? 'Encender' : 'Turn on'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <Button fullWidth variant="secondary" loading={settingUpCard} icon={RefreshCw} onClick={handleSetupAutoBilling}>
+                      {lang === 'es' ? 'Activar cobro automático' : 'Set up auto-billing'}
+                    </Button>
+                    <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
+                      {lang === 'es'
+                        ? 'Tu cliente guarda su tarjeta una vez y se le cobra automáticamente su precio recurrente en cada visita. Recibe un aviso 3 días antes y puede cancelar respondiendo.'
+                        : 'Your client saves their card once and is charged their recurring price automatically each visit. They get a reminder 3 days before and can cancel by reply.'}
+                    </p>
+                  </>
+                )}
+              </div>
             )}
 
             {isOnetime && (

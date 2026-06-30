@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
 import { useLang } from '@/context/LangContext'
 import { CheckCircle2, Star, Zap, Sparkles, Upload, ArrowRight } from 'lucide-react'
+import InstallApp from '@/components/InstallApp'
 import toast from 'react-hot-toast'
 
 /**
@@ -187,11 +188,13 @@ export default function WelcomeModal() {
             <h2 className="text-[22px] leading-[1.25] font-serif text-gray-900 mb-2" style={{ fontFamily: 'var(--font-display), serif' }}>
               {es ? <>¡Todo listo!</> : <>You're all set!</>}
             </h2>
-            <p className="text-[13px] text-gray-500 leading-[1.55] mb-5">
+            <p className="text-[13px] text-gray-500 leading-[1.55] mb-4">
               {es
                 ? 'Empieza conectando tus pagos y agregando tu primer cliente. La Configuración Pro siempre está disponible en Ajustes.'
                 : 'Start by connecting your payments and adding your first client. Pro Setup is always available in Settings.'}
             </p>
+            {/* Install prompt — older contractors won't know to "Add to Home Screen" */}
+            <div className="mb-4"><InstallApp /></div>
             <button
               onClick={dismiss}
               disabled={saving}

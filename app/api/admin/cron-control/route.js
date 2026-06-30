@@ -39,7 +39,10 @@ export async function GET(request) {
   }
   try {
     const doc = await getDocument('settings', DOC_ID)
-    return NextResponse.json({ smsRemindersEnabled: doc?.data?.smsRemindersEnabled === true })
+    return NextResponse.json({
+      smsRemindersEnabled: doc?.data?.smsRemindersEnabled === true,
+      autoChargeEnabled:   doc?.data?.autoChargeEnabled === true,
+    })
   } catch (err) {
     return NextResponse.json({ error: err.message || 'Failed to load' }, { status: 500 })
   }
@@ -51,12 +54,13 @@ export async function POST(request) {
   }
   try {
     const body = await request.json()
-    const smsRemindersEnabled = body.smsRemindersEnabled === true
-    await setDocument('settings', DOC_ID, {
-      smsRemindersEnabled,
-      updatedAt: new Date().toISOString(),
-    })
-    return NextResponse.json({ ok: true, smsRemindersEnabled })
+    // Write only the switch(es) present in the body — setDocument is a masked
+    // PATCH, so an unspecified switch is preserved.
+    const fields = { updatedAt: new Date().toISOString() }
+    if ('smsRemindersEnabled' in body) fields.smsRemindersEnabled = body.smsRemindersEnabled === true
+    if ('autoChargeEnabled'   in body) fields.autoChargeEnabled   = body.autoChargeEnabled === true
+    await setDocument('settings', DOC_ID, fields)
+    return NextResponse.json({ ok: true, ...fields })
   } catch (err) {
     return NextResponse.json({ error: err.message || 'Failed to save' }, { status: 500 })
   }

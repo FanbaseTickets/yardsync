@@ -6,12 +6,17 @@ import { loadStripe } from '@stripe/stripe-js'
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
 
-function PayForm({ clientSecret, amount, description, clientName }) {
+function PayForm({ clientSecret, amount, description, clientName, offerCardSave, businessName, es }) {
   const stripe = useStripe()
   const elements = useElements()
   const [paying, setPaying] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
+  // Opt-in (default OFF): recurring auto-billing is an affirmative choice. A
+  // pre-checked negative-option is an FTC/card-network soft spot, so the client
+  // must actively check the box; the adjacent text is the authorization mandate.
+  const [saveCard, setSaveCard] = useState(false)
+  const biz = businessName || (es ? 'tu proveedor' : 'your service provider')
 
   async function handlePay(e) {
     e.preventDefault()
@@ -21,7 +26,12 @@ function PayForm({ clientSecret, amount, description, clientName }) {
 
     const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
       clientSecret,
-      { payment_method: { card: elements.getElement(CardElement) } }
+      {
+        payment_method: { card: elements.getElement(CardElement) },
+        // Opt-in card vault for future auto-charges (only offered to recurring
+        // clients; the PI carries a connected-account customer so this attaches).
+        ...(offerCardSave && saveCard ? { setup_future_usage: 'off_session' } : {}),
+      }
     )
 
     if (stripeError) {
@@ -77,6 +87,28 @@ function PayForm({ clientSecret, amount, description, clientName }) {
           }}
         />
       </div>
+
+      {offerCardSave && (
+        <label className="flex items-start gap-3 mb-4 p-3 rounded-xl border border-gray-200 bg-gray-50 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={saveCard}
+            onChange={(e) => setSaveCard(e.target.checked)}
+            className="mt-0.5 w-4 h-4 accent-[#0F6E56]"
+          />
+          <span className="text-[12.5px] text-gray-600 leading-relaxed">
+            {es ? (
+              <>Guardar mi tarjeta para pagos automáticos. Autorizo a <strong>{biz}</strong> a cobrar
+              automáticamente cada visita programada. Recibiré un aviso 3 días antes de cada cobro y
+              puedo cancelar en cualquier momento.</>
+            ) : (
+              <>Save my card for automatic payments. I authorize <strong>{biz}</strong> to charge it
+              automatically for each scheduled visit. I'll get a reminder 3 days before each charge and
+              can cancel anytime.</>
+            )}
+          </span>
+        </label>
+      )}
 
       {error && (
         <div className="flex items-center gap-2 mb-4 text-red-600">
@@ -192,6 +224,9 @@ export default function PayContent() {
               amount={details.amount}
               description={details.description}
               clientName={details.metadata?.clientName}
+              offerCardSave={details.metadata?.offerCardSave === 'true'}
+              businessName={details.metadata?.businessName}
+              es={details.metadata?.lang === 'es'}
             />
           </Elements>
         )}
