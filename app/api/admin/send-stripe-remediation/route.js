@@ -18,7 +18,7 @@ import { getBaseUrl } from '@/lib/baseUrl'
 import { sendClientEmail } from '@/lib/email'
 import { requirementsSummary } from '@/lib/stripeRequirementLabels'
 
-const stripe   = new Stripe(process.env.STRIPE_SECRET_KEY)
+const stripe   = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-02-25.clover' })
 const API_KEY  = process.env.FIREBASE_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY
 
 async function verifyAdmin(request) {

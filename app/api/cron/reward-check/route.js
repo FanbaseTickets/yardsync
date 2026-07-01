@@ -4,7 +4,7 @@ import { queryCollection, getDocument, updateDocument } from '@/lib/firestoreRes
 import { sendClientEmail } from '@/lib/email'
 import { sendSms } from '@/lib/sms'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-02-25.clover' })
 
 // Idempotency gate: skip if the same event was already sent this calendar month.
 // Prevents duplicate notifications on manual cron re-runs.

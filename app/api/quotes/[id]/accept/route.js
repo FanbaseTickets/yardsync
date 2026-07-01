@@ -8,7 +8,7 @@ import { sendSms } from '@/lib/sms'
 import { sendClientEmail } from '@/lib/email'
 import { convertQuoteToClient } from '@/lib/quoteConvert'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-02-25.clover' })
 
 // POST /api/quotes/[id]/accept — public. Body { signatureName }.
 // The acquisition-spine handoff: records the typed e-signature, CONVERTS the

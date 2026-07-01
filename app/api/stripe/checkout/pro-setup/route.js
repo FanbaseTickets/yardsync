@@ -3,7 +3,7 @@ import Stripe from 'stripe'
 import { getBaseUrl } from '@/lib/baseUrl'
 import { getDocument } from '@/lib/firestoreRest'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-02-25.clover' })
 const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY
 
 // Verify the caller's Firebase ID token → uid, so a contractor can only start a

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { getDocument } from '@/lib/firestoreRest'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-02-25.clover' })
 
 // Retry the users/{uid} read until stripeSubscriptionId is present.
 // The webhook that writes stripeSubscriptionId (checkout.session.completed)

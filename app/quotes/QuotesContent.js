@@ -339,7 +339,12 @@ export default function QuotesContent() {
               </label>
             )}
             {depositPreviewCents() > 0 && (
-              <p className="text-[11px] text-gray-400 mt-1">{es ? 'Se cobra al aceptar' : 'Charged instantly on acceptance'} · {formatCents(depositPreviewCents())}</p>
+              <p className="text-[11px] text-gray-400 mt-1">
+                {depositRequired
+                  ? (es ? 'Se cobra al aceptar' : 'Charged on acceptance')
+                  : (es ? 'Se ofrece al aceptar (el cliente puede pagar o no)' : 'Offered at acceptance (client can pay or skip)')}
+                {' · '}{formatCents(depositPreviewCents())}
+              </p>
             )}
           </div>
 

@@ -76,7 +76,7 @@ export async function GET(request) {
 
   // ── 3. Stripe — verify secret key works and prices exist ────────────────
   try {
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-02-25.clover' })
     const [monthly, annual] = await Promise.all([
       stripe.prices.retrieve(process.env.STRIPE_PRICE_MONTHLY),
       stripe.prices.retrieve(process.env.STRIPE_PRICE_ANNUAL),

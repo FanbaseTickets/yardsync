@@ -3,7 +3,7 @@ import { collection, getDocs, addDoc, updateDoc, doc, query, where, serverTimest
 import { db } from '@/lib/firebase'
 import Stripe from 'stripe'
 
-const stripe     = new Stripe(process.env.STRIPE_SECRET_KEY)
+const stripe     = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-02-25.clover' })
 const TWILIO_SID     = process.env.TWILIO_ACCOUNT_SID
 const TWILIO_TOKEN   = process.env.TWILIO_AUTH_TOKEN
 const TWILIO_MSG_SVC = process.env.TWILIO_MESSAGING_SERVICE_SID
