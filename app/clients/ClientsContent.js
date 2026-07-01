@@ -15,7 +15,7 @@ import { formatCents } from '@/lib/fee'
 import { validatePhone, formatPhone } from '@/lib/phone'
 import { isValidEmail, suggestEmailCorrection } from '@/lib/emailHelpers'
 import PhoneInput from '@/components/ui/PhoneInput'
-import { Users, Plus, Search, MapPin, AlertCircle, Sparkles, Phone, Mail, MessageSquare, Check, X } from 'lucide-react'
+import { Users, Plus, Search, MapPin, AlertCircle, Sparkles, Phone, Mail, MessageSquare, Check, X, FileText } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 
@@ -643,11 +643,18 @@ export default function ClientsPage() {
                         {lang === 'es' ? 'Aceptar' : 'Accept'}
                       </button>
                       <button
-                        onClick={() => handleDismissLead(lead)}
-                        className="flex items-center justify-center gap-1.5 bg-white text-gray-600 text-[13px] font-medium py-2 px-4 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+                        onClick={() => router.push(`/quotes?clientId=${lead.id}`)}
+                        className="flex-1 flex items-center justify-center gap-1.5 bg-white text-brand-700 text-[13px] font-semibold py-2 rounded-lg border border-brand-200 hover:bg-brand-50 transition-colors"
                       >
-                        <X size={14} />
-                        {lang === 'es' ? 'Descartar' : 'Dismiss'}
+                        <FileText size={14} />
+                        {lang === 'es' ? 'Cotizar' : 'Quote'}
+                      </button>
+                      <button
+                        onClick={() => handleDismissLead(lead)}
+                        aria-label={lang === 'es' ? 'Descartar' : 'Dismiss'}
+                        className="flex items-center justify-center bg-white text-gray-500 py-2 px-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+                      >
+                        <X size={16} />
                       </button>
                     </div>
                   </div>

@@ -861,6 +861,16 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
                 : translate('client_detail', 'send_invoice')}
             </Button>
 
+            <Button
+              fullWidth
+              variant="secondary"
+              className="mt-2"
+              icon={FileText}
+              onClick={() => router.push(`/quotes?clientId=${id}`)}
+            >
+              {lang === 'es' ? 'Enviar cotización' : 'Send a quote'}
+            </Button>
+
             {!isOnetime && (
               <Button
                 fullWidth

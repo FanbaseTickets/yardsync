@@ -51,6 +51,24 @@ export default function QuotesContent() {
   useEffect(() => { if (user) loadAll() }, [user])
   useEffect(() => { setCoverFees(profile?.coverFees === true) }, [profile?.coverFees])
 
+  // Deep-link entry from a client/lead ("Send a quote" button →
+  // /quotes?clientId=X): open the builder prefilled to that client. Uses
+  // window.location.search (not useSearchParams) to avoid the Suspense gate.
+  // Runs once clients are loaded so the select has the option to select.
+  useEffect(() => {
+    if (loading || clients.length === 0) return
+    const cid = new URLSearchParams(window.location.search).get('clientId')
+    if (cid && clients.some(c => c.id === cid)) {
+      resetBuilder()
+      setMode('client')
+      setClientId(cid)
+      setShowBuilder(true)
+      // Strip the param so a refresh / re-render doesn't reopen it.
+      window.history.replaceState(null, '', '/quotes')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, clients])
+
   async function loadAll() {
     setLoading(true)
     try {
