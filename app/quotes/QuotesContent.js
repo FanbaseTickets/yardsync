@@ -9,7 +9,7 @@ import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Button, Input, Select, Modal, EmptyState, Skeleton } from '@/components/ui'
 import { getClients, getServices } from '@/lib/db'
-import { formatCents } from '@/lib/fee'
+import { formatCents, grossUpForFees } from '@/lib/fee'
 import { FileText, Plus, Trash2, Copy, ExternalLink } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -193,7 +193,7 @@ export default function QuotesContent() {
           <div className="flex gap-2">
             <Button variant="secondary" fullWidth onClick={() => setShowBuilder(false)} disabled={sending}>{es ? 'Cancelar' : 'Cancel'}</Button>
             <Button fullWidth onClick={send} loading={sending} disabled={!canSend}>
-              {es ? 'Enviar' : 'Send'}{subtotalCents > 0 ? ` · ${formatCents(coverFees ? Math.round(subtotalCents / (1 - 0.055)) : subtotalCents)}` : ''}
+              {es ? 'Enviar' : 'Send'}{subtotalCents > 0 ? ` · ${formatCents(coverFees ? grossUpForFees(subtotalCents) : subtotalCents)}` : ''}
             </Button>
           </div>
         }
