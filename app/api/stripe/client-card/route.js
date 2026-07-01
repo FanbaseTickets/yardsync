@@ -81,9 +81,12 @@ export async function POST(req) {
         // off_session future usage = the card can be charged automatically later.
         // Stripe shows the client a mandate; we add explicit recurring-authorization
         // text so the consent is unmistakable.
+        // PENDING LEGAL REVIEW (added 2026-06-30): off-session recurring authorization
+        // mandate — states frequency (each recurring visit), variable amount, advance
+        // notice, and cancel method. Counsel to confirm.
         custom_text: {
           submit: {
-            message: `By saving your card you authorize ${gardenerDoc?.data?.businessName || 'this business'} to charge it automatically for your recurring service. You'll get a reminder before each charge and can cancel anytime by reply.`,
+            message: `By saving your card you authorize ${gardenerDoc?.data?.businessName || 'this business'} to automatically charge it for each recurring service visit; the amount may vary based on the service each visit. You'll get a reminder 3 days before each charge and can cancel anytime by replying CANCEL to the text or using the cancel link in the reminder.`,
           },
         },
         success_url: `${baseUrl}/card-saved?ok=1`,
