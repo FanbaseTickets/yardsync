@@ -91,7 +91,7 @@ export async function GET(request) {
         } else if (r.ok && r.fallback) {
           await updateDocument('schedules', visit.id, { autoChargeStatus: 'fallback_link', autoChargeId: r.invoiceId || null })
           results.fallback++; myFallback++
-        } else if (r.code === 'no_connect' || r.code === 'no_card') {
+        } else if (r.code === 'no_connect' || r.code === 'no_card' || r.code === 'no_platform_card') {
           await updateDocument('schedules', visit.id, { autoChargedAt: null, autoChargeStatus: null })   // retry tomorrow
           if (r.code === 'no_card') results.skippedNoCard++; else results.gateBlocked++
         } else if (r.code === 'no_amount') {
