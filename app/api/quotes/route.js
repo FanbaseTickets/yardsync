@@ -95,6 +95,9 @@ export async function POST(req) {
       contractorName,
       contractorEmail,
       lang,
+      depositType,      // 'amount' | 'percent' | undefined
+      depositValue,     // dollars (amount) or percent (0-100)
+      depositRequired,  // bool — must pay deposit to lock acceptance
     } = await req.json()
 
     const callerUid = await verifyCallerUid(req)
@@ -142,6 +145,21 @@ export async function POST(req) {
     if (subtotalCents < 50) return NextResponse.json({ error: 'Quote total must be at least $0.50', code: 'bad_total' }, { status: 400 })
     const totalCents = coverFees === true ? grossUpForFees(subtotalCents) : subtotalCents
 
+    // Deposit (per-quote, $ or %) — collected instantly on acceptance. Clamped
+    // to [50¢, total]. A 100% "deposit" is how a contractor collects the full
+    // amount upfront. `required` gates whether it must be paid to lock accept.
+    let deposit = null
+    if (depositType === 'amount' || depositType === 'percent') {
+      const v = Number(depositValue)
+      if (Number.isFinite(v) && v > 0) {
+        let depCents = depositType === 'percent'
+          ? Math.round(totalCents * Math.min(v, 100) / 100)
+          : Math.round(v * 100)
+        depCents = Math.max(50, Math.min(depCents, totalCents))
+        deposit = { type: depositType, value: v, depositCents: depCents, required: depositRequired === true }
+      }
+    }
+
     const language = recipient.language
     const days     = Number.isInteger(validUntilDays) && validUntilDays > 0 && validUntilDays <= 365 ? validUntilDays : 30
     const validUntil = new Date(Date.now() + days * 86400000).toISOString()
@@ -160,7 +178,7 @@ export async function POST(req) {
       subtotalCents,
       coverFees:       coverFees === true,
       totalCents,
-      deposit:         null,        // Phase 3
+      deposit,
       validUntil,
       status:          'sent',
       signature:       null,

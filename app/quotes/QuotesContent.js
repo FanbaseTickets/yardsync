@@ -10,7 +10,7 @@ import PageHeader from '@/components/layout/PageHeader'
 import { Button, Input, Select, Modal, EmptyState, Skeleton } from '@/components/ui'
 import { getClients, getServices } from '@/lib/db'
 import { formatCents, grossUpForFees } from '@/lib/fee'
-import { FileText, Plus, Trash2, Copy, ExternalLink } from 'lucide-react'
+import { FileText, Plus, Trash2, Copy, ExternalLink, CalendarDays } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 // Status → pill colors + bilingual labels.
@@ -47,6 +47,9 @@ export default function QuotesContent() {
   const [coverFees, setCoverFees] = useState(false)
   const [validDays, setValidDays] = useState(30)
   const [channels, setChannels] = useState('both')
+  const [depositType, setDepositType] = useState('none')     // 'none' | 'amount' | 'percent'
+  const [depositValue, setDepositValue] = useState('')
+  const [depositRequired, setDepositRequired] = useState(false)
 
   useEffect(() => { if (user) loadAll() }, [user])
   useEffect(() => { setCoverFees(profile?.coverFees === true) }, [profile?.coverFees])
@@ -85,7 +88,17 @@ export default function QuotesContent() {
   function resetBuilder() {
     setMode('client'); setClientId(''); setProspect({ name: '', phone: '', email: '', language: 'en' })
     setTitle(''); setLines([EMPTY_LINE()]); setValidDays(30); setChannels('both')
+    setDepositType('none'); setDepositValue(''); setDepositRequired(false)
     setCoverFees(profile?.coverFees === true)
+  }
+
+  // Preview the resolved deposit in cents (mirrors the server clamp).
+  function depositPreviewCents() {
+    const total = coverFees ? grossUpForFees(subtotalCents) : subtotalCents
+    const v = parseFloat(depositValue)
+    if (depositType === 'none' || !Number.isFinite(v) || v <= 0 || total < 50) return 0
+    const c = depositType === 'percent' ? Math.round(total * Math.min(v, 100) / 100) : Math.round(v * 100)
+    return Math.max(50, Math.min(c, total))
   }
 
   function setLine(i, key, val) { setLines(prev => prev.map((l, idx) => idx === i ? { ...l, [key]: val } : l)) }
@@ -129,6 +142,9 @@ export default function QuotesContent() {
         coverFees,
         validUntilDays: Number(validDays) || 30,
         channels,
+        depositType,
+        depositValue: parseFloat(depositValue) || 0,
+        depositRequired,
         contractorName:  profile?.businessName || profile?.displayName || user?.displayName || '',
         contractorEmail: user?.email || '',
         lang,
@@ -196,6 +212,22 @@ export default function QuotesContent() {
                       </a>
                     </div>
                   </div>
+                  {(q.deposit?.depositCents >= 50 || (q.status === 'converted' && q.convertedClientId)) && (
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
+                      <span className="text-[12px] text-gray-500">
+                        {q.deposit?.depositCents >= 50
+                          ? (q.depositPaid
+                              ? `${es ? 'Depósito pagado' : 'Deposit paid'} ${formatCents(q.deposit.depositCents)}`
+                              : `${es ? 'Depósito' : 'Deposit'} ${formatCents(q.deposit.depositCents)}${es ? ' · pendiente' : ' · pending'}`)
+                          : (es ? 'Convertido en cliente' : 'Converted to client')}
+                      </span>
+                      {q.status === 'converted' && q.convertedClientId && (
+                        <a href={`/calendar?client=${q.convertedClientId}`} className="inline-flex items-center gap-1 text-[12px] font-medium text-brand-700 hover:text-brand-800 px-2 py-1 rounded-lg hover:bg-brand-50">
+                          <CalendarDays size={13} /> {es ? 'Programar' : 'Schedule'}
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })
@@ -281,6 +313,36 @@ export default function QuotesContent() {
               {es ? 'Incluir la tarifa en el precio (el cliente ve un total inclusivo).' : 'Build the fee into the price (client sees one inclusive total).'}
             </span>
           </label>
+          {/* Deposit — collected instantly when the client accepts */}
+          <div>
+            <label className="text-[13px] font-medium text-gray-700">{es ? 'Depósito (opcional)' : 'Deposit (optional)'}</label>
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              <Select value={depositType} onChange={e => setDepositType(e.target.value)}>
+                <option value="none">{es ? 'Sin depósito' : 'No deposit'}</option>
+                <option value="amount">{es ? 'Monto fijo $' : 'Fixed $ amount'}</option>
+                <option value="percent">{es ? '% del total' : '% of total'}</option>
+              </Select>
+              {depositType !== 'none' && (
+                <Input
+                  type="number" inputMode="decimal" min="0"
+                  prefix={depositType === 'amount' ? '$' : undefined}
+                  suffix={depositType === 'percent' ? '%' : undefined}
+                  value={depositValue} onChange={e => setDepositValue(e.target.value)}
+                  placeholder={depositType === 'percent' ? '20' : '50.00'}
+                />
+              )}
+            </div>
+            {depositType !== 'none' && (
+              <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                <input type="checkbox" checked={depositRequired} onChange={e => setDepositRequired(e.target.checked)} className="w-4 h-4 accent-[#0F6E56]" />
+                <span className="text-[12.5px] text-gray-600">{es ? 'Requerir el depósito para aceptar' : 'Require the deposit to accept'}</span>
+              </label>
+            )}
+            {depositPreviewCents() > 0 && (
+              <p className="text-[11px] text-gray-400 mt-1">{es ? 'Se cobra al aceptar' : 'Charged instantly on acceptance'} · {formatCents(depositPreviewCents())}</p>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-2">
             <Input label={es ? 'Válida por (días)' : 'Valid for (days)'} type="number" min="1" max="365" value={validDays} onChange={e => setValidDays(e.target.value)} />
             <Select label={es ? 'Enviar por' : 'Send via'} value={channels} onChange={e => setChannels(e.target.value)}>

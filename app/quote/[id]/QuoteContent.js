@@ -44,6 +44,7 @@ export default function QuoteContent() {
   const [result, setResult]   = useState(null)   // 'accepted' | 'declined'
   const [declining, setDeclining] = useState(false)
   const [declineReason, setDeclineReason] = useState('')
+  const [acceptedDeposit, setAcceptedDeposit] = useState(null)  // { payUrl, amountCents } from accept
 
   const es = q?.language === 'es'
 
@@ -79,6 +80,7 @@ export default function QuoteContent() {
       })
       const data = await res.json()
       if (!res.ok) { setActionErr(localizedErr(data, { es: 'No se pudo aceptar', en: 'Could not accept' })); setBusy(false); return }
+      if (data.deposit?.payUrl) setAcceptedDeposit(data.deposit)
       setResult('accepted')
     } catch { setActionErr(es ? 'Algo salió mal. Intenta de nuevo.' : 'Something went wrong. Try again.'); setBusy(false) }
   }
@@ -118,13 +120,31 @@ export default function QuoteContent() {
   const showExpired  = q.status === 'expired' && !showAccepted && !showDeclined
 
   if (showAccepted) {
+    // Deposit still owed? Show a Pay button (from the just-accepted response, or
+    // reconstructed on reload from the stored deposit + pay URL).
+    const payInfo = !q.depositPaid && (
+      acceptedDeposit?.payUrl
+        ? acceptedDeposit
+        : (q.deposit?.depositCents >= 50 && q.depositPayUrl ? { payUrl: q.depositPayUrl, amountCents: q.deposit.depositCents } : null)
+    )
     return (
       <Shell q={q}>
         <div className="flex flex-col items-center gap-4 py-12 text-center">
           <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center"><CheckCircle2 size={32} className="text-green-600" /></div>
           <h2 className="text-xl font-bold text-gray-900">{es ? '¡Cotización aceptada!' : 'Quote accepted!'}</h2>
           <p className="text-lg font-semibold text-gray-700">{money(q.totalCents)}</p>
-          <p className="text-sm text-gray-500">{es ? `${q.businessName} fue notificado y se pondrá en contacto contigo.` : `${q.businessName} has been notified and will be in touch.`}</p>
+          {payInfo ? (
+            <>
+              <p className="text-sm text-gray-500">{es ? `Paga tu depósito de ${money(payInfo.amountCents)} para confirmar.` : `Pay your ${money(payInfo.amountCents)} deposit to lock it in.`}</p>
+              <a href={payInfo.payUrl} className="w-full max-w-xs bg-[#0F6E56] text-white font-bold text-[15px] py-4 rounded-2xl shadow-lg hover:bg-[#0B5A46] transition-colors">
+                {es ? `Pagar depósito ${money(payInfo.amountCents)}` : `Pay deposit ${money(payInfo.amountCents)}`}
+              </a>
+            </>
+          ) : q.depositPaid ? (
+            <p className="text-sm text-green-600 font-medium">{es ? '✓ Depósito pagado. ¡Gracias!' : '✓ Deposit paid. Thank you!'}</p>
+          ) : (
+            <p className="text-sm text-gray-500">{es ? `${q.businessName} fue notificado y se pondrá en contacto contigo.` : `${q.businessName} has been notified and will be in touch.`}</p>
+          )}
         </div>
       </Shell>
     )
@@ -176,7 +196,17 @@ export default function QuoteContent() {
         <p className="text-[11px] text-gray-400 text-right mt-1">{es ? 'Tarifas incluidas' : 'Fees included'}</p>
       </div>
 
-      {validLabel && <p className="text-xs text-gray-400 mb-4">{es ? 'Válida hasta' : 'Valid until'} {validLabel}</p>}
+      {validLabel && <p className="text-xs text-gray-400 mb-3">{es ? 'Válida hasta' : 'Valid until'} {validLabel}</p>}
+
+      {q.deposit?.depositCents >= 50 && (
+        <div className="flex items-center justify-between bg-brand-50 border border-brand-100 rounded-xl px-4 py-3 mb-4">
+          <span className="text-[13px] text-brand-800">
+            {es ? 'Depósito al aceptar' : 'Deposit on acceptance'}
+            {q.deposit.required ? (es ? ' (requerido)' : ' (required)') : (es ? ' (opcional)' : ' (optional)')}
+          </span>
+          <span className="text-[15px] font-bold text-brand-800">{money(q.deposit.depositCents)}</span>
+        </div>
+      )}
 
       {!declining ? (
         <>

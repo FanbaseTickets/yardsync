@@ -606,6 +606,20 @@ export async function POST(request) {
             })
           }
 
+          // Quote deposit paid → stamp the quote so the public page + contractor
+          // list show it as collected. (The invoice doc itself is already marked
+          // paid above.)
+          if (invDoc.data.invoiceType === 'deposit' && invDoc.data.quoteId) {
+            try {
+              await updateDocument('quotes', invDoc.data.quoteId, {
+                depositPaid:   true,
+                depositPaidAt: new Date().toISOString(),
+                updatedAt:     new Date().toISOString(),
+              })
+              console.log(`Quote ${invDoc.data.quoteId} deposit marked paid via PI ${pi.id}`)
+            } catch (e) { console.error('[webhook] quote deposit stamp failed (non-fatal):', e.message) }
+          }
+
           // Trust-state mechanic (spec §6.3): a first paid invoice for an
           // intake-sourced upfront client increments completedJobsCount, which
           // flips the /clients "switch to post-visit?" prompt. One-off client
@@ -614,7 +628,9 @@ export async function POST(request) {
           // handler (that's subscription invoices). The increment must live in
           // both paths. Idempotent via the per-invoice countedTowardTrust flag,
           // which also prevents any double-count if both events ever fire.
-          if (!invDoc.data.countedTowardTrust && invDoc.data.clientId) {
+          // A deposit is money down, NOT a completed visit — it must not flip
+          // the first-time-upfront → post-visit trust prompt. Skip deposits.
+          if (!invDoc.data.countedTowardTrust && invDoc.data.clientId && invDoc.data.invoiceType !== 'deposit') {
             try {
               const clientDoc = await getDocument('clients', invDoc.data.clientId)
               if (clientDoc?.data) {

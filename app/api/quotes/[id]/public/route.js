@@ -43,6 +43,9 @@ export async function GET(_req, { params }) {
       status,
       language:      q.language === 'es' ? 'es' : 'en',
       signature:     q.signature ? { name: q.signature.name, agreedAt: q.signature.agreedAt } : null,
+      deposit:       q.deposit || null,
+      depositPaid:   q.depositPaid === true,
+      depositPayUrl: q.depositPayUrl || null,
       businessName,
       logoUrl,
     })
