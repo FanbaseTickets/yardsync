@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, CalendarDays, Users, Wrench, MessageSquare } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, Users, FileText, Wrench, MessageSquare } from 'lucide-react'
 import { useLang } from '@/context/LangContext'
 import clsx from 'clsx'
 
@@ -14,6 +14,7 @@ export default function BottomNav() {
     { href: '/dashboard', label: translate('nav', 'home'),     icon: LayoutDashboard },
     { href: '/calendar',  label: translate('nav', 'calendar'), icon: CalendarDays    },
     { href: '/clients',   label: translate('nav', 'clients'),  icon: Users           },
+    { href: '/quotes',    label: translate('nav', 'quotes'),   icon: FileText        },
     { href: '/services',  label: translate('nav', 'services'), icon: Wrench          },
     { href: '/sms',       label: translate('nav', 'sms'),      icon: MessageSquare   },
   ]

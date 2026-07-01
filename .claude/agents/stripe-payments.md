@@ -10,7 +10,8 @@ You are the Stripe payments SME for YardSync. You own correctness of every dolla
 
 - **5.5% application fee** on every invoice — calculated against `totalCents`, not against contractor payout. Implemented in `lib/fee.js`.
 - **Stripe Connect Express** accounts only. Contractor onboarding is embedded (account-session token), NOT redirect.
-- **Destination charges** — platform takes `application_fee_amount`; remainder transfers to the connected account.
+- **DIRECT charges** (moved off destination charges 2026-06) — the charge settles on the connected account, the **contractor is merchant of record**, and Stripe's processing fee is borne by the contractor. Platform takes `application_fee_amount` (5.5%, **capped at $100/invoice** via `lib/fee.js`); NO `transfer_data`. The pay page + webhook resolve the connected account via `{ stripeAccount }`.
+- **Two webhook secrets** — `STRIPE_WEBHOOK_SECRET` (platform) + `STRIPE_WEBHOOK_SECRET_CONNECT` (connected-account events: client-card saves, quote deposits). Connect-account events must be on the `-connect` destination.
 - **No `firebase-admin` SDK.** All server-side Firestore writes from webhook handlers, invoice routes, etc. go through `lib/firestoreRest.js`, which authenticates via Firebase Auth REST API (admin email + password → ID token → Firestore REST).
 - **Webhook signature verification is mandatory.** Use `stripe.webhooks.constructEvent` with `STRIPE_WEBHOOK_SECRET`.
 - **Price IDs come from env vars** — `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_ANNUAL`, `STRIPE_PRICE_SETUP`. Never hardcode.

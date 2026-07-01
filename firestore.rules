@@ -71,5 +71,14 @@ service cloud.firestore {
       // touched by client SDK. Admin-only is sufficient.
       allow read, write: if isAdmin();
     }
+    match /quotes/{doc} {
+      // Quotes (F14) — every read/write goes through server-side
+      // lib/firestoreRest.js (admin-authed): the contractor list + builder use
+      // /api/quotes, and the public /quote/[id] page reads + the e-sign
+      // accept/decline write via /api/quotes/[id]/*. Quotes hold client PII
+      // (name/phone/email + signature IP), so broad-authenticated reads would
+      // leak across contractors — admin-only, accessed only via the server.
+      allow read, write: if isAdmin();
+    }
   }
 }

@@ -26,7 +26,7 @@ export default function PrivacyPage() {
           {es ? '🇺🇸 English' : '🇲🇽 Español'}
         </button>
       </div>
-      <p className="text-sm text-gray-500 mb-4">{es ? 'Última actualización: 27 de junio de 2026' : 'Last updated: June 27, 2026'}</p>
+      <p className="text-sm text-gray-500 mb-4">{es ? 'Última actualización: 30 de junio de 2026' : 'Last updated: June 30, 2026'}</p>
 
       {es && (
         <p className="text-[12px] text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3 mb-8">
@@ -59,6 +59,8 @@ export default function PrivacyPage() {
             <li>{es ? 'Comunicaciones enviadas a través de la plataforma' : 'Communications sent through the platform'}</li>
             {/* PENDING LEGAL REVIEW (added 2026-06-27): dispute/chargeback data disclosure. */}
             <li>{es ? 'Información de disputas y contracargos asociada a las facturas que usted envía o recibe a través de YardSync, incluyendo el monto disputado, el motivo proporcionado por la red de tarjetas, el nombre del cliente en la factura, y el estado y las fechas de la disputa' : 'Payment dispute and chargeback information associated with invoices you send or receive through YardSync, including the disputed amount, the reason provided by the card network, the client name on the invoice, and the dispute status and timestamps'}</li>
+            {/* PENDING LEGAL REVIEW (added 2026-06-30): e-signature metadata capture on quote acceptance. */}
+            <li>{es ? 'Metadatos de firma electrónica capturados cuando un cliente acepta una cotización, incluyendo el nombre escrito, la fecha y hora, la dirección IP y el agente de usuario (navegador/dispositivo)' : 'Electronic signature metadata captured when a client accepts a quote, including the typed name, timestamp, IP address, and user-agent (browser/device)'}</li>
           </ul>
         </div>
 
@@ -76,6 +78,8 @@ export default function PrivacyPage() {
             {/* PENDING LEGAL REVIEW (added 2026-06-27): dispute handling + push-notification disclosures. */}
             <li>{es ? 'Para detectar, registrar y responder a disputas y contracargos de pagos, y para notificar al administrador de YardSync y al proveedor de servicio correspondiente para que pueda presentar evidencia antes de la fecha límite de la red de tarjetas' : 'To detect, record, and respond to payment disputes and chargebacks, and to notify the YardSync administrator and the relevant service provider so that evidence can be submitted before the card network’s deadline'}</li>
             <li>{es ? 'Para enviar notificaciones push (si usted las activa) a sus dispositivos con la app instalada, como alertas de pago recibido o de disputa de pago; estas notificaciones pueden incluir el nombre de un cliente y un monto' : 'To send push notifications (if you enable them) to your installed devices, such as payment-received or payment-dispute alerts; these notifications may include a client name and an amount'}</li>
+            {/* PENDING LEGAL REVIEW (added 2026-06-30): purpose of e-signature metadata retention. */}
+            <li>{es ? 'Para registrar y conservar los metadatos de firma electrónica de las cotizaciones aceptadas como prueba del acuerdo y como evidencia en caso de fraude o disputa' : 'To record and retain electronic signature metadata from accepted quotes as proof of agreement and as evidence in the event of fraud or a dispute'}</li>
           </ul>
         </div>
 
@@ -150,6 +154,17 @@ export default function PrivacyPage() {
           <h2 className="text-lg font-semibold text-gray-900 mb-2">{es ? '12. Contáctenos' : '12. Contact Us'}</h2>
           <p>{es ? 'Para preguntas sobre privacidad, contáctenos en: ' : 'For privacy questions, contact us at: '}<a href="mailto:support@yardsyncapp.com" className="text-green-700 underline">support@yardsyncapp.com</a></p>
           <p className="mt-2"><strong>{es ? 'Ley aplicable:' : 'Governing Law:'}</strong> {es ? 'Esta Política de Privacidad se rige por las leyes del Estado de Texas.' : 'This Privacy Policy is governed by the laws of the State of Texas.'}</p>
+        </div>
+
+        {/* PENDING LEGAL REVIEW (added 2026-06-30): quotes e-signature evidence + deposit/card data handled by Stripe — draft language, counsel to confirm. */}
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">{es ? '13. Firmas Electrónicas y Datos de Pago de Cotizaciones' : '13. Electronic Signatures and Quote Payment Data'}</h2>
+          <p>{es
+            ? 'Cuando un cliente acepta una cotización escribiendo su nombre y marcando "Acepto", registramos y conservamos metadatos de la firma —el nombre escrito, la fecha y hora, la dirección IP y el agente de usuario (navegador/dispositivo)— como firma electrónica bajo las leyes ESIGN y UETA. Conservamos estos datos como prueba de que el cliente aceptó la cotización y como evidencia en caso de fraude o disputa. Estos metadatos se asocian a la cotización y quedan disponibles para el proveedor de servicio correspondiente.'
+            : 'When a client accepts a quote by typing their name and checking "I agree," we record and retain signature metadata — the typed name, timestamp, IP address, and user-agent (browser/device) — as an electronic signature under the ESIGN and UETA laws. We keep this data as proof that the client accepted the quote and as evidence in the event of fraud or a dispute. This metadata is associated with the quote and made available to the relevant service provider.'}</p>
+          <p className="mt-2">{es
+            ? 'Cuando un cliente paga un depósito o un prepago para aceptar una cotización, los datos de su tarjeta son recopilados y procesados por Stripe, nuestro procesador de pagos, bajo los términos de Stripe. YardSync nunca recibe ni almacena el número completo de la tarjeta; solo conservamos tokens y referencias de pago proporcionados por Stripe (como los últimos cuatro dígitos y la marca de la tarjeta) que nos permiten mostrar y conciliar el pago.'
+            : 'When a client pays a deposit or prepayment to accept a quote, their card data is collected and processed by Stripe, our payment processor, under Stripe’s terms. YardSync never receives or stores the full card number; we retain only Stripe-provided payment tokens and references (such as the card’s last four digits and brand) that let us display and reconcile the payment.'}</p>
         </div>
 
       </section>

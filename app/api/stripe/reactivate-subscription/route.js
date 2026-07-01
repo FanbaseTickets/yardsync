@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-02-25.clover' })
 
 export async function POST(req) {
   try {
-    const { stripeSubscriptionId, stripeCustomerId, plan } = await req.json()
+    const { stripeSubscriptionId, stripeCustomerId, plan, gardenerUid } = await req.json()
 
     // Case 1: Subscription still exists (cancel_at_period_end)
     // Just remove the cancellation
@@ -40,6 +40,10 @@ export async function POST(req) {
       customer: stripeCustomerId,
       items: [{ price: priceId }],
       payment_behavior: 'default_incomplete',
+      // Consistency w/ checkout + first-paid activation subs: tag the owner so
+      // metadata-first webhook lookups resolve (the current lookups use
+      // stripeCustomerId, so this is defense-in-depth). Harmless if absent.
+      ...(gardenerUid ? { metadata: { gardenerUid } } : {}),
       expand: ['latest_invoice.payment_intent'],
     })
 
