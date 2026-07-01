@@ -112,7 +112,12 @@ export async function POST(request) {
         // the payment method so the first-paid activation can bill it. Do NOT
         // touch subscriptionStatus — it stays 'free_until_paid' until their
         // first client invoice is paid. (See docs/FREE_ACCESS_SPEC.md §4.1.)
-        if (session.mode === 'setup') {
+        // `!event.account` positively asserts this is a PLATFORM setup session:
+        // the client-card connect flow (kind:'client_card') is handled above and
+        // carries event.account, but this guard stops any future connect setup
+        // session that lacks `kind` from wrongly writing a connected-account
+        // customer id onto the contractor's user doc.
+        if (session.mode === 'setup' && !event.account) {
           try {
             // Expand the payment method so we can store the brand + last4 for
             // the "card on file" display + the Update-card flow.
@@ -351,54 +356,13 @@ export async function POST(request) {
           }
         }
 
-        // Also check if this is a Connect invoice payment
-        const piId = session.payment_intent
-        if (piId) {
-          const invDoc = await queryCollection('invoices', 'stripePaymentIntentId', piId)
-          console.log('Invoice query result – empty:', !invDoc, 'searching for:', piId)
-          if (invDoc) {
-            await updateDocument('invoices', invDoc.id, {
-              status:    'paid',
-              paidAt:    new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            })
-            console.log(`Invoice ${invDoc.id} marked paid via PaymentIntent ${piId}`)
-
-            // Trust-state mechanic (spec §6.3): on first paid invoice for an
-            // intake-sourced client (billingMode='upfront'), increment the
-            // completedJobsCount. Once it crosses 1, the /clients UI offers
-            // the contractor a one-time "switch to post-visit?" prompt.
-            //
-            // Idempotent via per-invoice countedTowardTrust flag — Stripe can
-            // re-fire payment_succeeded after retries, and we don't want to
-            // inflate the counter. The check + flag write isn't transactional
-            // but the failure mode (double-count under tight concurrency) is
-            // benign for a trust-building counter.
-            if (!invDoc.data.countedTowardTrust && invDoc.data.clientId) {
-              try {
-                const clientDoc = await getDocument('clients', invDoc.data.clientId)
-                if (clientDoc?.data) {
-                  const prev = clientDoc.data.completedJobsCount || 0
-                  await updateDocument('clients', invDoc.data.clientId, {
-                    completedJobsCount: prev + 1,
-                    lastInvoicePaidAt:  new Date().toISOString(),
-                    updatedAt:          new Date().toISOString(),
-                  })
-                  await updateDocument('invoices', invDoc.id, {
-                    countedTowardTrust: true,
-                  })
-                  console.log(`Trust-state: clients/${invDoc.data.clientId}.completedJobsCount ${prev} -> ${prev + 1}`)
-                } else {
-                  console.warn(`[webhook] trust-state: clients/${invDoc.data.clientId} not found; skipping increment`)
-                }
-              } catch (trustErr) {
-                console.error('[webhook] trust-state increment failed (non-fatal):', trustErr.message)
-              }
-            }
-          } else {
-            console.log('No invoice found for PaymentIntent:', piId)
-          }
-        }
+        // NOTE (2026-06-30 audit / M1): there is intentionally NO client-invoice
+        // handling here. Client charges are DIRECT charges = bare PaymentIntents
+        // (not attached to a Stripe Invoice object), so they reconcile solely in
+        // `payment_intent.succeeded` (marks paid + trust-state + quote
+        // amountPaidCents). Subscription-invoice PIs never match our `invoices`
+        // collection, so the previous lookup here was always empty — removed to
+        // avoid a confusing duplicate of the payment_intent.succeeded logic.
         break
       }
 

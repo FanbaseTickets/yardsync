@@ -26,7 +26,7 @@ export default function TermsPage() {
           {es ? '🇺🇸 English' : '🇲🇽 Español'}
         </button>
       </div>
-      <p className="text-sm text-gray-500 mb-4">{es ? 'Última actualización: 27 de junio de 2026' : 'Last updated: June 27, 2026'}</p>
+      <p className="text-sm text-gray-500 mb-4">{es ? 'Última actualización: 30 de junio de 2026' : 'Last updated: June 30, 2026'}</p>
 
       {es && (
         <p className="text-[12px] text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3 mb-8">
@@ -225,8 +225,19 @@ export default function TermsPage() {
             : 'If any provision of these Terms is found unenforceable, the remaining provisions remain in full effect (severability). YardSync’s failure to enforce any right is not a waiver of that right. These Terms constitute the entire agreement between you and JNew Technologies regarding your use of YardSync.'}</p>
         </div>
 
+        {/* PENDING LEGAL REVIEW (added 2026-06-30): Quotes, ESIGN/UETA electronic signatures, and deposits — draft language, counsel to confirm (incl. ESIGN/UETA consent-to-transact-electronically requirements + deposit refundability set by contractor). */}
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">{es ? '18. Contacto' : '18. Contact'}</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">{es ? '18. Cotizaciones, Firmas Electrónicas y Depósitos' : '18. Quotes, Electronic Signatures, and Deposits'}</h2>
+          <p>{es
+            ? <><strong>Cotizaciones y firmas electrónicas.</strong> Los proveedores de servicio pueden enviar cotizaciones a sus clientes a través de YardSync. Cuando un cliente acepta una cotización escribiendo su nombre y marcando la casilla de "Acepto", esa acción constituye su firma electrónica y forma un acuerdo vinculante con el proveedor de servicio bajo la Ley federal ESIGN y la Ley Uniforme de Transacciones Electrónicas (UETA). Al aceptar de esta manera, el cliente da su consentimiento para realizar esta transacción por medios electrónicos y acepta que su firma electrónica tiene el mismo efecto legal que una firma manuscrita. YardSync registra y conserva metadatos de la firma —incluyendo el nombre escrito, la fecha y hora, la dirección IP y el agente de usuario (navegador/dispositivo)— como evidencia del acuerdo. YardSync facilita esta función únicamente como herramienta tecnológica; el acuerdo es entre el proveedor de servicio y su cliente, y YardSync no es parte de él.</>
+            : <><strong>Quotes and electronic signatures.</strong> Service providers may send quotes to their clients through YardSync. When a client accepts a quote by typing their name and checking the "I agree" box, that action constitutes their electronic signature and forms a binding agreement with the service provider under the federal ESIGN Act and the Uniform Electronic Transactions Act (UETA). By accepting in this way, the client consents to transact electronically and agrees that their electronic signature has the same legal effect as a handwritten signature. YardSync records and retains signature metadata — including the typed name, timestamp, IP address, and user-agent (browser/device) — as evidence of the agreement. YardSync facilitates this feature solely as a technology tool; the agreement is between the service provider and their client, and YardSync is not a party to it.</>}</p>
+          <p className="mt-2">{es
+            ? <><strong>Depósitos y prepago.</strong> Un proveedor de servicio puede exigir un depósito o el pago completo por adelantado como condición para aceptar una cotización. Los depósitos son cobrados por el proveedor de servicio como comerciante registrado mediante un cargo directo en su cuenta de Stripe conectada, igual que cualquier otra factura (ver Sección 5). <strong>La política de reembolso de un depósito la establece cada proveedor de servicio de forma individual, no YardSync;</strong> YardSync únicamente facilita el cobro y no determina si un depósito es reembolsable ni administra su devolución. La tarifa de aplicación del 5.5% que se aplica a un depósito no es reembolsable y la conserva JNew Technologies, de forma consistente con la Sección 5, incluso si el proveedor reembolsa el depósito. Un depósito pagado se acredita al total del trabajo, y el saldo restante se factura por separado.</>
+            : <><strong>Deposits and prepayment.</strong> A service provider may require a deposit or full prepayment as a condition of accepting a quote. Deposits are charged by the service provider as merchant of record via a direct charge on their connected Stripe account, the same as any other invoice (see Section 5). <strong>Deposit refundability is set by the individual service provider, not YardSync;</strong> YardSync only facilitates the charge and does not determine whether a deposit is refundable or administer its return. The 5.5% application fee applied to a deposit is non-refundable and retained by JNew Technologies, consistent with Section 5, even if the provider refunds the deposit. A paid deposit is credited toward the job total, and the remaining balance is billed separately.</>}</p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">{es ? '19. Contacto' : '19. Contact'}</h2>
           <p>{es ? 'Para preguntas sobre estos términos: ' : 'For questions about these terms: '}<a href="mailto:support@yardsyncapp.com" className="text-green-700 underline">support@yardsyncapp.com</a></p>
         </div>
 
