@@ -606,18 +606,35 @@ export async function POST(request) {
             })
           }
 
-          // Quote deposit paid → stamp the quote so the public page + contractor
-          // list show it as collected. (The invoice doc itself is already marked
-          // paid above.)
-          if (invDoc.data.invoiceType === 'deposit' && invDoc.data.quoteId) {
+          // Quote payment (deposit OR full/balance) → bump the quote's
+          // amountPaidCents and stamp state. Keyed on quoteId, so any
+          // quote-linked invoice reconciles: the client's deposit, a client
+          // "pay full/remaining", or a contractor-billed balance (invoice route
+          // passes quoteId). Clamped to the total so deposit + balance never
+          // over-count (this is the volume-rewards/P&L correctness fix — GMV is
+          // the total, collected in pieces). Idempotency: the invoice-paid flip
+          // above is idempotent, but a re-delivered event would double-add here;
+          // guarded by the per-invoice paid state + clamp to total.
+          if (invDoc.data.quoteId && !invDoc.data.countedTowardQuote) {
             try {
-              await updateDocument('quotes', invDoc.data.quoteId, {
-                depositPaid:   true,
-                depositPaidAt: new Date().toISOString(),
-                updatedAt:     new Date().toISOString(),
-              })
-              console.log(`Quote ${invDoc.data.quoteId} deposit marked paid via PI ${pi.id}`)
-            } catch (e) { console.error('[webhook] quote deposit stamp failed (non-fatal):', e.message) }
+              const qDoc = await getDocument('quotes', invDoc.data.quoteId)
+              if (qDoc?.data) {
+                const total = qDoc.data.totalCents || 0
+                const paid  = total > 0
+                  ? Math.min(total, (qDoc.data.amountPaidCents || 0) + amountCents)
+                  : (qDoc.data.amountPaidCents || 0) + amountCents
+                const patch = {
+                  amountPaidCents:    paid,
+                  pendingPayIntentId: null, pendingPayUrl: null, pendingPayMode: null,
+                  updatedAt:          new Date().toISOString(),
+                }
+                if (invDoc.data.invoiceType === 'deposit') { patch.depositPaid = true; patch.depositPaidAt = new Date().toISOString() }
+                if (total > 0 && paid >= total) patch.fullyPaidAt = new Date().toISOString()
+                await updateDocument('quotes', invDoc.data.quoteId, patch)
+                await updateDocument('invoices', invDoc.id, { countedTowardQuote: true })
+                console.log(`Quote ${invDoc.data.quoteId} amountPaid -> ${paid}/${total} via PI ${pi.id} (${invDoc.data.invoiceType})`)
+              }
+            } catch (e) { console.error('[webhook] quote payment stamp failed (non-fatal):', e.message) }
           }
 
           // Trust-state mechanic (spec §6.3): a first paid invoice for an

@@ -10,12 +10,18 @@ export async function GET(_req, { params }) {
     const q = qd?.data
     if (!q) return NextResponse.json({ error: 'Quote not found' }, { status: 404 })
 
-    // Brand for the page header.
-    let businessName = 'YardSync', logoUrl = null
+    // Brand for the page header + whether the contractor can actually collect
+    // (Connect active + free-access card-on-file invariant), so the page only
+    // shows Pay buttons when a charge would succeed.
+    let businessName = 'YardSync', logoUrl = null, canCollect = false
     try {
       const u = await getDocument('users', q.gardenerUid)
-      businessName = u?.data?.businessName || u?.data?.name || 'YardSync'
-      logoUrl = u?.data?.logoUrl || null
+      const g = u?.data || {}
+      businessName = g.businessName || g.name || 'YardSync'
+      logoUrl = g.logoUrl || null
+      const connectReady = !!g.stripeAccountId && g.stripeChargesEnabled === true && g.stripeCardPaymentsActive !== false
+      const freeAccessBlocked = g.subscriptionStatus === 'free_until_paid' && g.pmOnFile !== true
+      canCollect = connectReady && !freeAccessBlocked
     } catch {}
 
     // Expire on read if past validity (terminal states untouched).
@@ -41,11 +47,12 @@ export async function GET(_req, { params }) {
       deposit:       q.deposit || null,
       validUntil:    q.validUntil || null,
       status,
-      language:      q.language === 'es' ? 'es' : 'en',
-      signature:     q.signature ? { name: q.signature.name, agreedAt: q.signature.agreedAt } : null,
-      deposit:       q.deposit || null,
-      depositPaid:   q.depositPaid === true,
-      depositPayUrl: q.depositPayUrl || null,
+      language:        q.language === 'es' ? 'es' : 'en',
+      signature:       q.signature ? { name: q.signature.name, agreedAt: q.signature.agreedAt } : null,
+      deposit:         q.deposit || null,
+      depositPaid:     q.depositPaid === true,
+      amountPaidCents: q.amountPaidCents || 0,
+      canCollect,
       businessName,
       logoUrl,
     })

@@ -37,6 +37,7 @@ export default function QuotesContent() {
   const [loading, setLoading]   = useState(true)
   const [showBuilder, setShowBuilder] = useState(false)
   const [sending, setSending]   = useState(false)
+  const [billing, setBilling]   = useState(null)   // quote id being balance-billed
 
   // builder form
   const [mode, setMode]         = useState('client')   // 'client' | 'prospect'
@@ -162,6 +163,30 @@ export default function QuotesContent() {
     finally { setSending(false) }
   }
 
+  // Bill the quote's remaining balance: route through the SAME single-pending-PI
+  // pay endpoint the client uses (mode:'full', notify:true) so the client can
+  // never be double-charged across "bill balance" and a client self-pay. It
+  // texts/emails the client the pay link.
+  async function billBalance(q) {
+    const balance = Math.max(0, (q.totalCents || 0) - (q.amountPaidCents || 0))
+    if (balance < 50 || !q.convertedClientId) return
+    setBilling(q.id)
+    try {
+      const res = await fetch(`/api/quotes/${q.id}/pay`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'full', notify: true }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        if (data.code === 'cannot_collect') { toast.error(es ? 'Termina la configuración de pagos primero' : 'Finish payment setup first'); setBilling(null); return }
+        toast.error(data.error || (es ? 'No se pudo facturar' : 'Could not bill')); setBilling(null); return
+      }
+      toast.success(es ? 'Enlace de saldo enviado al cliente' : 'Balance link sent to client')
+      loadAll()
+    } catch { toast.error(es ? 'Algo salió mal' : 'Something went wrong') }
+    finally { setBilling(null) }
+  }
+
   function copyLink(q) {
     const url = `${window.location.origin}/quote/${q.id}`
     navigator.clipboard.writeText(url).then(
@@ -212,22 +237,41 @@ export default function QuotesContent() {
                       </a>
                     </div>
                   </div>
-                  {(q.deposit?.depositCents >= 50 || (q.status === 'converted' && q.convertedClientId)) && (
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
-                      <span className="text-[12px] text-gray-500">
-                        {q.deposit?.depositCents >= 50
-                          ? (q.depositPaid
-                              ? `${es ? 'Depósito pagado' : 'Deposit paid'} ${formatCents(q.deposit.depositCents)}`
-                              : `${es ? 'Depósito' : 'Deposit'} ${formatCents(q.deposit.depositCents)}${es ? ' · pendiente' : ' · pending'}`)
-                          : (es ? 'Convertido en cliente' : 'Converted to client')}
-                      </span>
-                      {q.status === 'converted' && q.convertedClientId && (
-                        <a href={`/calendar?client=${q.convertedClientId}`} className="inline-flex items-center gap-1 text-[12px] font-medium text-brand-700 hover:text-brand-800 px-2 py-1 rounded-lg hover:bg-brand-50">
-                          <CalendarDays size={13} /> {es ? 'Programar' : 'Schedule'}
-                        </a>
-                      )}
-                    </div>
-                  )}
+                  {(() => {
+                    const total = q.totalCents || 0
+                    const paid  = q.amountPaidCents || 0
+                    const balance = Math.max(0, total - paid)
+                    const converted = q.status === 'converted' && q.convertedClientId
+                    const hasDeposit = q.deposit?.depositCents >= 50
+                    if (!(paid > 0 || hasDeposit || converted)) return null
+                    const progress = (total > 0 && paid >= total)
+                      ? (es ? 'Pagado en su totalidad' : 'Paid in full')
+                      : paid > 0
+                        ? `${es ? 'Pagado' : 'Paid'} ${formatCents(paid)} / ${formatCents(total)}`
+                        : hasDeposit
+                          ? `${es ? 'Depósito' : 'Deposit'} ${formatCents(q.deposit.depositCents)}${q.deposit.required ? (es ? ' · req.' : ' · req.') : ''}`
+                          : (es ? 'Convertido en cliente' : 'Converted to client')
+                    return (
+                      <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-gray-50">
+                        <span className="text-[12px] text-gray-500 min-w-0 truncate">{progress}</span>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {converted && balance >= 50 && (
+                            <button onClick={() => billBalance(q)} disabled={billing === q.id}
+                              className="inline-flex items-center gap-1 text-[12px] font-medium text-brand-700 hover:text-brand-800 px-2 py-1 rounded-lg hover:bg-brand-50 disabled:opacity-50">
+                              {billing === q.id
+                                ? <span className="w-3 h-3 border-2 border-brand-300 border-t-brand-700 rounded-full animate-spin" />
+                                : <>{es ? 'Facturar saldo' : 'Bill balance'} {formatCents(balance)}</>}
+                            </button>
+                          )}
+                          {converted && (
+                            <a href={`/calendar?client=${q.convertedClientId}`} className="inline-flex items-center gap-1 text-[12px] font-medium text-gray-500 hover:text-gray-800 px-2 py-1 rounded-lg hover:bg-gray-50">
+                              <CalendarDays size={13} /> {es ? 'Programar' : 'Schedule'}
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
               )
             })

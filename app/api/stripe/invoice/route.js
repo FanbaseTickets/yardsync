@@ -90,6 +90,7 @@ export async function POST(req) {
       lang,
       channels,
       coverFees,
+      quoteId,        // set when billing a quote's remaining balance
     } = await req.json()
 
     // Auth: require a valid Firebase ID token whose uid matches gardenerUid, so
@@ -273,6 +274,9 @@ export async function POST(req) {
         // Caller can still override via the invoiceType param when needed
         // (walk-in invoices explicitly pass 'addon').
         invoiceType:           invoiceType || computeInvoiceType(lineItems),
+        // Links a balance invoice back to its quote so the webhook credits the
+        // quote's amountPaidCents (keeps deposit + balance summing to the total).
+        quoteId:               quoteId || null,
         createdAt:             new Date().toISOString(),
         lineItems:             lineItems || [],
       })

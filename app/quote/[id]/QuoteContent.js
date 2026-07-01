@@ -44,7 +44,7 @@ export default function QuoteContent() {
   const [result, setResult]   = useState(null)   // 'accepted' | 'declined'
   const [declining, setDeclining] = useState(false)
   const [declineReason, setDeclineReason] = useState('')
-  const [acceptedDeposit, setAcceptedDeposit] = useState(null)  // { payUrl, amountCents } from accept
+  const [paying, setPaying] = useState(null)   // 'deposit' | 'full' | null
 
   const es = q?.language === 'es'
 
@@ -80,9 +80,25 @@ export default function QuoteContent() {
       })
       const data = await res.json()
       if (!res.ok) { setActionErr(localizedErr(data, { es: 'No se pudo aceptar', en: 'Could not accept' })); setBusy(false); return }
-      if (data.deposit?.payUrl) setAcceptedDeposit(data.deposit)
+      // Refresh so the accepted screen has current pay options (canCollect,
+      // deposit, amountPaid).
+      try { const r2 = await fetch(`/api/quotes/${id}/public`); if (r2.ok) setQ(await r2.json()) } catch {}
       setResult('accepted')
     } catch { setActionErr(es ? 'Algo salió mal. Intenta de nuevo.' : 'Something went wrong. Try again.'); setBusy(false) }
+  }
+
+  // Create the chosen charge (deposit or full/remaining) and redirect to /pay.
+  async function payNow(mode) {
+    setPaying(mode); setActionErr(null)
+    try {
+      const res = await fetch(`/api/quotes/${id}/pay`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.payUrl) { setActionErr(localizedErr(data, { es: 'No se pudo iniciar el pago', en: 'Could not start payment' })); setPaying(null); return }
+      window.location.href = data.payUrl
+    } catch { setActionErr(es ? 'Algo salió mal.' : 'Something went wrong.'); setPaying(null) }
   }
 
   async function decline() {
@@ -120,28 +136,48 @@ export default function QuoteContent() {
   const showExpired  = q.status === 'expired' && !showAccepted && !showDeclined
 
   if (showAccepted) {
-    // Deposit still owed? Show a Pay button (from the just-accepted response, or
-    // reconstructed on reload from the stored deposit + pay URL).
-    const payInfo = !q.depositPaid && (
-      acceptedDeposit?.payUrl
-        ? acceptedDeposit
-        : (q.deposit?.depositCents >= 50 && q.depositPayUrl ? { payUrl: q.depositPayUrl, amountCents: q.deposit.depositCents } : null)
-    )
+    const total     = q.totalCents || 0
+    const paid      = q.amountPaidCents || 0
+    const balance   = Math.max(0, total - paid)
+    const depCents  = q.deposit?.depositCents || 0
+    const hasDeposit = depCents >= 50
+    const fullyPaid = total > 0 && paid >= total
+    // Offer deposit only before anything is paid and when it's less than the
+    // whole balance (a 100% deposit == paying in full).
+    const showDeposit = q.canCollect && hasDeposit && !q.depositPaid && paid === 0 && depCents < balance
+    const showFull    = q.canCollect && balance >= 50
+    const fullLabel   = paid > 0
+      ? (es ? `Pagar saldo ${money(balance)}` : `Pay balance ${money(balance)}`)
+      : (es ? `Pagar total ${money(balance)}` : `Pay full ${money(balance)}`)
+
     return (
       <Shell q={q}>
         <div className="flex flex-col items-center gap-4 py-12 text-center">
           <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center"><CheckCircle2 size={32} className="text-green-600" /></div>
           <h2 className="text-xl font-bold text-gray-900">{es ? '¡Cotización aceptada!' : 'Quote accepted!'}</h2>
-          <p className="text-lg font-semibold text-gray-700">{money(q.totalCents)}</p>
-          {payInfo ? (
-            <>
-              <p className="text-sm text-gray-500">{es ? `Paga tu depósito de ${money(payInfo.amountCents)} para confirmar.` : `Pay your ${money(payInfo.amountCents)} deposit to lock it in.`}</p>
-              <a href={payInfo.payUrl} className="w-full max-w-xs bg-[#0F6E56] text-white font-bold text-[15px] py-4 rounded-2xl shadow-lg hover:bg-[#0B5A46] transition-colors">
-                {es ? `Pagar depósito ${money(payInfo.amountCents)}` : `Pay deposit ${money(payInfo.amountCents)}`}
-              </a>
-            </>
-          ) : q.depositPaid ? (
-            <p className="text-sm text-green-600 font-medium">{es ? '✓ Depósito pagado. ¡Gracias!' : '✓ Deposit paid. Thank you!'}</p>
+          <p className="text-lg font-semibold text-gray-700">{money(total)}</p>
+
+          {fullyPaid ? (
+            <p className="text-sm text-green-600 font-medium">{es ? '✓ Pagado en su totalidad. ¡Gracias!' : '✓ Paid in full. Thank you!'}</p>
+          ) : (showDeposit || showFull) ? (
+            <div className="w-full max-w-xs flex flex-col gap-2">
+              {paid > 0 && (
+                <p className="text-[13px] text-gray-500">{es ? `Pagado ${money(paid)} · saldo ${money(balance)}` : `Paid ${money(paid)} · balance ${money(balance)}`}</p>
+              )}
+              {actionErr && <div className="flex items-center gap-2 justify-center text-red-600"><AlertCircle size={14} /><p className="text-sm">{actionErr}</p></div>}
+              {showDeposit && (
+                <button onClick={() => payNow('deposit')} disabled={!!paying}
+                  className="w-full bg-[#0F6E56] text-white font-bold text-[15px] py-4 rounded-2xl shadow-lg hover:bg-[#0B5A46] transition-colors disabled:opacity-60 flex items-center justify-center">
+                  {paying === 'deposit' ? <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : (es ? `Pagar depósito ${money(depCents)}` : `Pay deposit ${money(depCents)}`)}
+                </button>
+              )}
+              {showFull && (
+                <button onClick={() => payNow('full')} disabled={!!paying}
+                  className={`w-full font-bold text-[15px] py-4 rounded-2xl transition-colors disabled:opacity-60 flex items-center justify-center ${showDeposit ? 'bg-white text-[#0F6E56] border border-[#0F6E56]' : 'bg-[#0F6E56] text-white shadow-lg hover:bg-[#0B5A46]'}`}>
+                  {paying === 'full' ? <span className={`w-5 h-5 border-2 rounded-full animate-spin ${showDeposit ? 'border-[#0F6E56]/30 border-t-[#0F6E56]' : 'border-white/40 border-t-white'}`} /> : fullLabel}
+                </button>
+              )}
+            </div>
           ) : (
             <p className="text-sm text-gray-500">{es ? `${q.businessName} fue notificado y se pondrá en contacto contigo.` : `${q.businessName} has been notified and will be in touch.`}</p>
           )}
