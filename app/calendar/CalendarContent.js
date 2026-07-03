@@ -871,7 +871,7 @@ export default function CalendarPage() {
       // onetime or unknown: periodStart stays null — always show prompt
 
       try {
-        const clientInvoices = await getClientInvoices(schedule.clientId)
+        const clientInvoices = await getClientInvoices(user.uid, schedule.clientId)
         const hasPaidInPeriod = periodStart && clientInvoices.some(inv => {
           if (inv.status !== 'paid') return false
           const d = inv.createdAt?.toDate ? inv.createdAt.toDate() : new Date(inv.createdAt || 0)

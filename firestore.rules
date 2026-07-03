@@ -4,6 +4,14 @@ service cloud.firestore {
     function isAdmin() {
       return request.auth != null && request.auth.token.email == 'admin@fanbasetickets.net';
     }
+    // Owner scoping (Crew Tier Phase 1a): businessId === ownerUid, so a doc's
+    // gardenerUid IS its owning business/account. Only the owner (or admin, via
+    // firestoreRest) may touch their business data. Closes the prior multi-tenant
+    // hole where `request.auth != null` let any contractor read another's book.
+    // (Crew Worker access is added in Phase 1b via a memberships lookup.)
+    function isOwner(bizUid) {
+      return request.auth != null && request.auth.uid == bizUid;
+    }
     match /users/{uid} {
       allow read, write: if isAdmin() || (request.auth != null && request.auth.uid == uid);
     }
@@ -11,19 +19,24 @@ service cloud.firestore {
       allow read, write: if isAdmin() || (request.auth != null && request.auth.uid == uid);
     }
     match /clients/{doc} {
-      allow read, write: if isAdmin() || request.auth != null;
+      allow read, update, delete: if isAdmin() || isOwner(resource.data.gardenerUid);
+      allow create:              if isAdmin() || isOwner(request.resource.data.gardenerUid);
     }
     match /schedules/{doc} {
-      allow read, write: if isAdmin() || request.auth != null;
+      allow read, update, delete: if isAdmin() || isOwner(resource.data.gardenerUid);
+      allow create:              if isAdmin() || isOwner(request.resource.data.gardenerUid);
     }
     match /services/{doc} {
-      allow read, write: if isAdmin() || request.auth != null;
+      allow read, update, delete: if isAdmin() || isOwner(resource.data.gardenerUid);
+      allow create:              if isAdmin() || isOwner(request.resource.data.gardenerUid);
     }
     match /invoices/{doc} {
-      allow read, write: if isAdmin() || request.auth != null;
+      allow read, update, delete: if isAdmin() || isOwner(resource.data.gardenerUid);
+      allow create:              if isAdmin() || isOwner(request.resource.data.gardenerUid);
     }
     match /feePayments/{doc} {
-      allow read, write: if isAdmin() || request.auth != null;
+      allow read, update, delete: if isAdmin() || isOwner(resource.data.gardenerUid);
+      allow create:              if isAdmin() || isOwner(request.resource.data.gardenerUid);
     }
     match /icalEvents/{doc} {
       allow read: if true;
