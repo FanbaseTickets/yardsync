@@ -133,8 +133,17 @@ function PayForm({ clientSecret, amount, description, clientName, offerCardSave,
         )}
       </button>
 
-      <p className="text-xs text-gray-400 text-center mt-3">
-        Secured by Stripe · YardSync never sees your card details
+      {/* PENDING LEGAL REVIEW (added 2026-06-30): client-facing assent so the
+          Terms (MoR disclaimer, non-refundable fee, arbitration) bind the client. */}
+      <p className="text-[11px] text-gray-400 text-center mt-3">
+        {es ? (
+          <>Al pagar, aceptas los <a href="/terms" target="_blank" rel="noreferrer" className="underline">Términos</a> y la <a href="/privacy" target="_blank" rel="noreferrer" className="underline">Política de Privacidad</a> de YardSync.</>
+        ) : (
+          <>By paying, you agree to YardSync's <a href="/terms" target="_blank" rel="noreferrer" className="underline">Terms</a> and <a href="/privacy" target="_blank" rel="noreferrer" className="underline">Privacy Policy</a>.</>
+        )}
+      </p>
+      <p className="text-xs text-gray-400 text-center mt-2">
+        {es ? 'Protegido por Stripe · YardSync nunca ve los datos de tu tarjeta' : 'Secured by Stripe · YardSync never sees your card details'}
       </p>
     </form>
   )
