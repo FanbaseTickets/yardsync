@@ -114,7 +114,7 @@ export default function ClientDetailPage() {
     try {
       const [c, inv, svc] = await Promise.all([
         getClient(id),
-        getClientInvoices(id),
+        getClientInvoices(user.uid, id),
         getServices(user.uid),
       ])
       setClient(c)

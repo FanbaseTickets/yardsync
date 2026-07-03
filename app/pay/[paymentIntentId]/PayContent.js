@@ -97,14 +97,18 @@ function PayForm({ clientSecret, amount, description, clientName, offerCardSave,
             className="mt-0.5 w-4 h-4 accent-[#0F6E56]"
           />
           <span className="text-[12.5px] text-gray-600 leading-relaxed">
+            {/* PENDING LEGAL REVIEW (added 2026-06-30): recurring off-session authorization mandate — states frequency, variable amount, advance notice, and cancel method. Counsel to confirm. */}
             {es ? (
               <>Guardar mi tarjeta para pagos automáticos. Autorizo a <strong>{biz}</strong> a cobrar
-              automáticamente cada visita programada. Recibiré un aviso 3 días antes de cada cobro y
-              puedo cancelar en cualquier momento.</>
+              automáticamente esta tarjeta por cada visita programada; el monto puede variar según el
+              servicio de cada visita. Recibiré un aviso 3 días antes de cada cobro y puedo cancelar en
+              cualquier momento respondiendo CANCELAR al mensaje de texto o usando el enlace para cancelar
+              del aviso.</>
             ) : (
-              <>Save my card for automatic payments. I authorize <strong>{biz}</strong> to charge it
-              automatically for each scheduled visit. I'll get a reminder 3 days before each charge and
-              can cancel anytime.</>
+              <>Save my card for automatic payments. I authorize <strong>{biz}</strong> to charge this card
+              automatically for each scheduled visit; the amount may vary based on each visit's service.
+              I'll get a reminder 3 days before each charge and can cancel anytime by replying CANCEL to
+              the text or using the cancel link in the reminder.</>
             )}
           </span>
         </label>
@@ -129,8 +133,17 @@ function PayForm({ clientSecret, amount, description, clientName, offerCardSave,
         )}
       </button>
 
-      <p className="text-xs text-gray-400 text-center mt-3">
-        Secured by Stripe · YardSync never sees your card details
+      {/* PENDING LEGAL REVIEW (added 2026-06-30): client-facing assent so the
+          Terms (MoR disclaimer, non-refundable fee, arbitration) bind the client. */}
+      <p className="text-[11px] text-gray-400 text-center mt-3">
+        {es ? (
+          <>Al pagar, aceptas los <a href="/terms" target="_blank" rel="noreferrer" className="underline">Términos</a> y la <a href="/privacy" target="_blank" rel="noreferrer" className="underline">Política de Privacidad</a> de YardSync.</>
+        ) : (
+          <>By paying, you agree to YardSync's <a href="/terms" target="_blank" rel="noreferrer" className="underline">Terms</a> and <a href="/privacy" target="_blank" rel="noreferrer" className="underline">Privacy Policy</a>.</>
+        )}
+      </p>
+      <p className="text-xs text-gray-400 text-center mt-2">
+        {es ? 'Protegido por Stripe · YardSync nunca ve los datos de tu tarjeta' : 'Secured by Stripe · YardSync never sees your card details'}
       </p>
     </form>
   )

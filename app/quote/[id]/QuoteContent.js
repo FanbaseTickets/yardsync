@@ -258,8 +258,8 @@ export default function QuoteContent() {
               <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 w-4 h-4 accent-[#0F6E56]" />
               <span className="text-[12px] text-gray-600 leading-relaxed">
                 {es
-                  ? <>Acepto esta cotización y los términos de servicio de <strong>{q.businessName}</strong> y los Términos de YardSync. Mi nombre escrito es mi firma electrónica.</>
-                  : <>I accept this quote and the service terms of <strong>{q.businessName}</strong> and YardSync's Terms. My typed name is my electronic signature.</>}
+                  ? <>Acepto esta cotización y los términos de servicio de <strong>{q.businessName}</strong>, y los <a href="/terms" target="_blank" rel="noreferrer" className="underline">Términos</a> y la <a href="/privacy" target="_blank" rel="noreferrer" className="underline">Política de Privacidad</a> de YardSync. Mi nombre escrito es mi firma electrónica.</>
+                  : <>I accept this quote and the service terms of <strong>{q.businessName}</strong>, and YardSync's <a href="/terms" target="_blank" rel="noreferrer" className="underline">Terms</a> and <a href="/privacy" target="_blank" rel="noreferrer" className="underline">Privacy Policy</a>. My typed name is my electronic signature.</>}
               </span>
             </label>
           </div>

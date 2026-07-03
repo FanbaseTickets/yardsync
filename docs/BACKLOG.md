@@ -32,6 +32,7 @@
 | 18 | C11 i18n consolidation (inline EN/ES → `lib/i18n.js`) |
 | 19 | Payment page shows contractor logo (trust signal) |
 | 20 | Rate-limit atomicity / per-IP throttle (deeper spam hardening) |
+| 23 | **YardSync Facebook page link on the digital card** — optional social link (facebook.com/YardSyncApp) on `/join/[slug]` + Settings→Card, alongside website, with a contact-visibility toggle; lucide `Facebook` icon, EN/ES. Low priority, own small PR — don't bundle. |
 
 ## TIER 3 — Phase 3 (Community & Visibility)
 
