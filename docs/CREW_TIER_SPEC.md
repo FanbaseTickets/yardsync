@@ -42,6 +42,43 @@ Enforcement is **two layers**:
 
 Each phase: build on `dev` → CC test → promote. Phase 1's rules redesign is the highest-risk step — spec the exact rule matrix + test it against existing owner accounts BEFORE deploying.
 
+## Phase 1 — Role-aware Firestore rules matrix (REVIEW ARTIFACT — not deployed)
+
+### ⚠️ This also fixes a latent multi-tenant leak
+The CURRENT rules for `clients`, `schedules`, `services`, `invoices`, `feePayments` are `allow read, write: if isAdmin() || request.auth != null` — i.e. **ANY logged-in contractor can read/write ANY other contractor's client book, schedules, and invoices** from the client SDK. The app never does this (every query is scoped to the caller's uid), but the *rules* don't enforce it. The role-aware redesign closes this hole by scoping every business collection to the owner (and workers to only their assigned jobs). This is a real security fix independent of Crew.
+
+### Helpers
+```
+function signedIn() { return request.auth != null; }
+function isOwner(bizUid) { return signedIn() && request.auth.uid == bizUid; }   // businessId === ownerUid
+function memberPath(bizUid) { return /databases/$(database)/documents/memberships/$(bizUid + '_' + request.auth.uid); }
+function isActiveWorker(bizUid) {
+  return signedIn() && exists(memberPath(bizUid))
+    && get(memberPath(bizUid)).data.status == 'active'
+    && get(memberPath(bizUid)).data.role == 'worker';
+}
+```
+`isOwner` short-circuits (no `get()`), so owner reads pay zero extra cost; the membership `get()` only fires for a non-owner touching a schedule.
+
+### Matrix (business data — `gardenerUid` on a doc == the owner/business uid)
+| Collection | Owner | Worker | Admin (server) |
+|---|---|---|---|
+| `clients` | read+write own | **none** (job info is denormalized on schedules) | all |
+| `schedules` | read+write own | **read + update ONLY** those with `assignedTo == uid`; update limited to `status/completedAt/photos/updatedAt` (can't reassign or change gardenerUid); no create/delete | all |
+| `services` (has prices) | read+write own | **none** | all |
+| `invoices` (money) | read+write own | **none** | all |
+| `feePayments` (money) | read+write own | **none** | all |
+| `businesses/{bizUid}` | read+write own | read the business they belong to | all |
+| `memberships/{bizUid}_{memberUid}` | read own-biz memberships | read only their OWN membership | **write = admin/server only** (invites + accepts go through a firestoreRest route so a worker can't self-grant a role) |
+| `users`, `subscriptions` | self only (unchanged) | self only | all |
+| `quotes`, `slugs`, `settings`, etc. | (unchanged — admin/server-only) | — | all |
+
+### Denormalization requirement
+So workers never read the `clients` collection (which holds `basePriceCents` = money), each `schedules` doc must carry the non-money job fields it needs: `clientName`, `serviceAddress`, `serviceLabel` (NO price). Phase 1 backfills/writes these on schedule create.
+
+### Safety / rollout plan (this is the risk)
+1. Implement the model + rules on `dev`. 2. **Deploy rules to `yardsync-dev` ONLY**, then run the full OWNER regression via CC (create/edit client, schedule, send invoice, quote, settings, calendar, dashboard) — confirm nothing an owner does is blocked by the tighter rules. 3. Add a Worker test account + verify scoping (sees only assigned jobs, blocked from clients/invoices/money). 4. Only after dev passes → deploy rules to prod (needs Jay's go). **Requires Jay's explicit permission for each rules deploy.**
+
 ## Open items for later decision
 - Per-seat dollar amount (e.g., $10–15/mo) — set at Phase 2.
 - Whether a future **Manager** role (can see money + invoice) is added — deferred; the 2-role model ships first.
