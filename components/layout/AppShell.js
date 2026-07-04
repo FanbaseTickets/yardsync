@@ -24,6 +24,16 @@ export default function AppShell({ children }) {
   const hasChecked    = useRef(false)
   const redirectedRef = useRef(false)
 
+  // Finish a pending crew invite: a brand-new Worker who clicked an invite link
+  // signs up and lands in the app — route them to /crew/join to complete accept.
+  useEffect(() => {
+    if (!user || typeof window === 'undefined') return
+    if (window.location.pathname.startsWith('/crew/join')) return
+    let token = null
+    try { token = sessionStorage.getItem('ys_crew_join_token') } catch {}
+    if (token) router.push(`/crew/join?token=${token}`)
+  }, [user, router])
+
   // Redirect to login if not authenticated.
   //
   // Defense in depth against the cold-lambda post-signup hang:

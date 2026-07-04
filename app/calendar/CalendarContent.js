@@ -9,7 +9,7 @@ import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Button, Badge, Modal, Select, EmptyState, Skeleton, Input } from '@/components/ui'
-import { getClients, getSchedules, addSchedule, updateSchedule, deleteSchedule, getServices, updateScheduleMaterials, saveInvoice, getClientInvoices } from '@/lib/db'
+import { getClients, getSchedules, addSchedule, updateSchedule, deleteSchedule, getServices, updateScheduleMaterials, saveInvoice, getClientInvoices, getMyCrews, getWorkerSchedules, getTeamMemberships } from '@/lib/db'
 import { deleteAllClientSchedules } from '@/lib/db'
 import { formatCents, grossUpForFees, calcApplicationFee, isFeeCapped } from '@/lib/fee'
 import { badgePackageType } from '@/lib/clientBadge'
@@ -187,6 +187,8 @@ export default function CalendarPage() {
   const [clients,         setClients]         = useState([])
   const [addonServices,   setAddonServices]   = useState([])
   const [schedules,       setSchedules]       = useState([])
+  const [crewColorMap,    setCrewColorMap]    = useState({})   // gardenerUid → {color,name} for crew jobs
+  const [teamMembers,     setTeamMembers]     = useState([])   // my active crew (Workers) for job assignment
   const [loading,         setLoading]         = useState(true)
   const [selectedDay,     setSelectedDay]     = useState(new Date())
 
@@ -353,8 +355,31 @@ export default function CalendarPage() {
         getServices(user.uid),
       ])
       setClients(c)
-      setSchedules(s)
       setAddonServices(svc.filter(sv => sv.serviceType === 'addon'))
+
+      // Unified color-coded calendar (Crew Tier): merge in jobs assigned to me
+      // in crews I work in, colored per business. Own jobs = brand green (no map
+      // entry). Non-fatal if the crew rules aren't deployed yet — just shows own.
+      let merged = s
+      const colorMap = {}
+      try {
+        const others = (await getMyCrews(user.uid)).filter(m => m.businessUid !== user.uid)
+        if (others.length) {
+          const palette = ['#6366f1', '#ec4899', '#f59e0b', '#0ea5e9', '#8b5cf6', '#ef4444']
+          others.forEach((m, i) => { colorMap[m.businessUid] = { color: palette[i % palette.length], name: m.businessName || 'Crew' } })
+          const crewScheds = (await Promise.all(
+            others.map(m => getWorkerSchedules(m.businessUid, user.uid, toDateStr(monthStart), toDateStr(monthEnd)))
+          )).flat()
+          merged = [...s, ...crewScheds]
+        }
+      } catch {}
+      setCrewColorMap(colorMap)
+      setSchedules(merged)
+
+      // My active crew (Workers) — for assigning jobs to them.
+      try {
+        setTeamMembers((await getTeamMemberships(user.uid)).filter(m => m.status === 'active' && m.role === 'worker'))
+      } catch {}
     } catch {
       toast.error(translate('common', 'error'))
     } finally {
@@ -364,6 +389,17 @@ export default function CalendarPage() {
 
   function getSchedulesForDay(date) {
     return schedules.filter(s => s.serviceDate === toDateStr(date))
+  }
+
+  // Owner assigns one of their own jobs to a crew member (or unassigns → back to
+  // the owner). Sets schedules.assignedTo; the member then sees it on their
+  // unified calendar. Optimistic reload.
+  async function assignJob(schedule, memberUid) {
+    try {
+      await updateSchedule(schedule.id, { assignedTo: memberUid || null })
+      toast.success(memberUid ? (lang === 'es' ? 'Asignado' : 'Assigned') : (lang === 'es' ? 'Sin asignar' : 'Unassigned'))
+      loadData()
+    } catch { toast.error(translate('common', 'error')) }
   }
 
   function handleClientSelect(clientId) {
@@ -852,6 +888,10 @@ export default function CalendarPage() {
       await updateSchedule(schedule.id, { status: 'completed' })
       loadData()
 
+      // Crew job (I'm the assigned Worker, not the owner): mark done and stop —
+      // no access to the owner's client/invoices, and no billing prompt applies.
+      if (schedule.gardenerUid && user?.uid && schedule.gardenerUid !== user.uid) { toast.success('✓'); return }
+
       // For walk-in or no clientId — just show toast
       if (!schedule.clientId || schedule.isWalkIn) {
         toast.success('✓')
@@ -1199,6 +1239,16 @@ export default function CalendarPage() {
             </button>
           </div>
 
+          {/* Crew color legend — only when I'm a member of other crews */}
+          {Object.keys(crewColorMap).length > 0 && (
+            <div className="flex items-center gap-3 flex-wrap text-[11px]">
+              <span className="inline-flex items-center gap-1 text-gray-600"><span className="w-2.5 h-2.5 rounded-full bg-brand-500" /> {lang === 'es' ? 'Tú' : 'You'}</span>
+              {Object.values(crewColorMap).map((c, i) => (
+                <span key={i} className="inline-flex items-center gap-1 text-gray-600"><span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c.color }} /> {c.name}</span>
+              ))}
+            </div>
+          )}
+
           <Card padding={false}>
             <div className="p-3">
               <div className="grid grid-cols-7 mb-1">
@@ -1303,6 +1353,9 @@ export default function CalendarPage() {
                     const done      = schedule.status === 'completed'
                     const hasAddons = schedule.addons?.length > 0
                     const isOpen    = expandedId === schedule.id
+                    // Crew job (assigned to me in someone else's business): no local
+                    // client doc — render from the denormalized fields + crew color.
+                    const crew = (schedule.gardenerUid && user?.uid && schedule.gardenerUid !== user.uid) ? crewColorMap[schedule.gardenerUid] : null
                     return (
                       <div key={schedule.id} data-schedule-id={schedule.id}>
                       <Card padding={false} className={draggingId === schedule.id ? 'opacity-60 ring-2 ring-brand-400' : ''}>
@@ -1324,7 +1377,7 @@ export default function CalendarPage() {
                           onClick={() => setExpandedId(isOpen ? null : schedule.id)}
                           className="flex-1 w-full p-3 flex items-center gap-3 text-left"
                         >
-                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${done ? 'bg-brand-500' : 'bg-amber-400'}`} />
+                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${crew ? '' : (done ? 'bg-brand-500' : 'bg-amber-400')}`} style={crew ? { backgroundColor: crew.color } : undefined} />
                           <div className="flex-1 min-w-0">
                             <p className={`text-[13px] font-medium ${done ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
                               {client?.name || schedule.clientName}
@@ -1333,10 +1386,17 @@ export default function CalendarPage() {
                                   {lang === 'es' ? 'Ocasional' : 'Walk-in'}
                                 </span>
                               )}
+                              {crew && (
+                                <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: crew.color + '22', color: crew.color }}>
+                                  {crew.name}
+                                </span>
+                              )}
                             </p>
                             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                               <span className="text-[11px] text-gray-400">{schedule.time}</span>
-                              {!schedule.isWalkIn && <Badge label={translate('packages', badgePackageType(client)) || badgePackageType(client)} variant={badgePackageType(client)} />}
+                              {!schedule.isWalkIn && !crew && <Badge label={translate('packages', badgePackageType(client)) || badgePackageType(client)} variant={badgePackageType(client)} />}
+                              {crew && schedule.serviceLabel && <span className="text-[11px] text-gray-500">{schedule.serviceLabel}</span>}
+                              {crew && schedule.serviceAddress && <span className="text-[11px] text-gray-400 truncate max-w-[160px]">· {schedule.serviceAddress}</span>}
                               {schedule.isWalkIn && schedule.basePrice > 0 && <span className="text-[11px] text-brand-600 font-medium">{formatCents(schedule.basePrice)}</span>}
                               {schedule.isRecurring && (
                                 <div className="flex items-center gap-0.5">
@@ -1357,12 +1417,40 @@ export default function CalendarPage() {
                         </button>
                         </div>
 
-                        {isOpen && (
+                        {isOpen && crew && (
+                          <div className="px-3 pb-3 pt-1 border-t border-gray-100 space-y-2">
+                            {schedule.serviceAddress && (
+                              <div className="bg-gray-50 rounded-lg px-3 py-2">
+                                <p className="text-[10px] text-gray-400 font-medium uppercase mb-0.5">{lang === 'es' ? 'Dirección' : 'Address'}</p>
+                                <p className="text-[12px] text-gray-600">{schedule.serviceAddress}</p>
+                              </div>
+                            )}
+                            {!done && (
+                              <Button icon={CheckCircle2} size="sm" variant="secondary" fullWidth onClick={() => { setExpandedId(null); handleComplete(schedule) }}>
+                                {lang === 'es' ? 'Marcar completado' : 'Mark complete'}
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                        {isOpen && !crew && (
                           <div className="px-3 pb-3 pt-1 border-t border-gray-100 space-y-2">
                             {client?.notes && (
                               <div className="bg-gray-50 rounded-lg px-3 py-2">
                                 <p className="text-[10px] text-gray-400 font-medium uppercase mb-0.5">{translate('calendar_extra', 'notes')}</p>
                                 <p className="text-[12px] text-gray-500 italic">{client.notes}</p>
+                              </div>
+                            )}
+                            {teamMembers.length > 0 && (
+                              <div>
+                                <label className="text-[10px] text-gray-400 font-medium uppercase">{lang === 'es' ? 'Asignar a' : 'Assign to'}</label>
+                                <select
+                                  value={schedule.assignedTo || ''}
+                                  onChange={e => assignJob(schedule, e.target.value)}
+                                  className="w-full mt-1 rounded-lg border border-gray-200 text-[13px] px-2 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                                >
+                                  <option value="">{lang === 'es' ? 'Sin asignar (yo)' : 'Unassigned (me)'}</option>
+                                  {teamMembers.map(m => <option key={m.id} value={m.memberUid}>{m.inviteName || m.memberEmail || (lang === 'es' ? 'Miembro' : 'Member')}</option>)}
+                                </select>
                               </div>
                             )}
                             {!done && (
