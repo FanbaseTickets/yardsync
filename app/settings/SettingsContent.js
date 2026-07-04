@@ -13,6 +13,7 @@ import LogoUpload from '@/components/ui/LogoUpload'
 import CardPreview from './CardPreview'
 import CardAssets from './CardAssets'
 import DataExport from './DataExport'
+import TeamPanel from './TeamPanel'
 import { normalizeEsTemplate } from '@/lib/smsTemplate'
 import { isVerifiedBusiness } from '@/lib/verifiedBadge'
 import { startCardCapture } from '@/lib/cardCapture'
@@ -153,7 +154,7 @@ export default function SettingsPage() {
   // (e.g. /settings?tab=billing) land on the right tab.
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get('tab')
-    if (['profile', 'card', 'sms', 'billing'].includes(t)) setActiveTab(t)
+    if (['profile', 'card', 'sms', 'billing', 'team'].includes(t)) setActiveTab(t)
   }, [])
 
   // Returning from an "Update card on file" → confirm + refresh so the new card
@@ -183,6 +184,7 @@ export default function SettingsPage() {
     { key: 'card',    en: 'Card',    es: 'Tarjeta' },
     { key: 'sms',     en: 'SMS',     es: 'SMS' },
     { key: 'billing', en: 'Billing', es: 'Pagos' },
+    { key: 'team',    en: 'Team',    es: 'Equipo' },
   ]
 
   const [form,    setForm]    = useState({
@@ -1872,6 +1874,13 @@ export default function SettingsPage() {
             <DataExport lang={lang} />
           </div>
           </>)}
+
+          {/* ── Team tab (Crew Tier) ── */}
+          {activeTab === 'team' && (
+            <div className="px-4 py-4 max-w-lg mx-auto">
+              <TeamPanel />
+            </div>
+          )}
 
           <div className="mt-8 pt-6 border-t border-gray-200">
             <button
