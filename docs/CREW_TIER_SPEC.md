@@ -42,6 +42,31 @@ Enforcement is **two layers**:
 
 Each phase: build on `dev` → CC test → promote. Phase 1's rules redesign is the highest-risk step — spec the exact rule matrix + test it against existing owner accounts BEFORE deploying.
 
+## Multi-membership: a person can own a business AND be a worker in N crews (the "hustler")
+
+The `user ↔ business` relationship is **many-to-many** (this is why memberships is a top-level collection, not a subcollection). One `uid` can simultaneously be:
+- **Owner** of their own business (`businesses/{uid}`) — full owner experience.
+- **Worker** in one or more OTHER businesses (`memberships/{bizUid}_{uid}`, role: worker).
+
+Nothing special is needed — it's just multiple membership rows. Queries:
+- **"My crews" list** = `memberships where memberUid == me && status == 'active'` (+ their own business as owner). Show on a Settings → Team / dashboard widget.
+- **Unified color-coded calendar** — the calendar merges TWO read sources and color-codes each business:
+  1. Own business: `schedules where gardenerUid == myUid` (owner — all jobs).
+  2. Each crew I work in: `schedules where gardenerUid == crewOwnerUid && assignedTo == myUid` (worker — only my assigned jobs).
+  Assign a stable color per `gardenerUid`/business. The role-aware rules already permit exactly these reads (owner reads own; `isActiveWorker` reads assigned-in-others), so this is purely a client-side aggregate + color map. **This is a real differentiator — a worker sees their whole cross-crew day in one place.**
+
+**App context model:** owner functions (Clients, Invoices, Quotes, Settings, Team) always act on the user's OWN business only. For crews they're merely a Worker in, they get ONLY the assigned jobs on the unified calendar (no owner functions for those businesses). No heavy "business switcher" needed for v1 — one unified calendar + owner-tools-scoped-to-own-business.
+
+## Signup / onboarding + adding a member (owner vs worker BRANCH)
+
+Owner and worker onboarding must diverge:
+- **Owner signup (unchanged):** business profile → Stripe Connect (get paid) → card-on-file (free-access). Owner of their own business, solo by default.
+- **Adding a member:** owner → **Settings → Team → Invite** (phone or email) → creates a `memberships` doc (`status:'invited'`, `inviteToken`) + sends an A2P-compliant invite SMS/email with an accept link.
+- **Worker accepting:**
+  - *No account yet* → **lightweight signup** (name + photo + login only — **SKIP Connect / payments / card-on-file entirely**, workers never handle money). On completion the invite token is consumed → membership `active`, role `worker`.
+  - *Already has an account* (the hustler — owns their own business or works elsewhere) → **log in + accept** → membership added → their unified calendar now shows the crew's assigned jobs.
+- **Assignment:** owner sets `schedules.assignedTo = memberUid` when scheduling; owner can reassign or remove a member (membership `removed` + seat-quantity decrement).
+
 ## Phase 1 — Role-aware Firestore rules matrix (REVIEW ARTIFACT — not deployed)
 
 ### ⚠️ This also fixes a latent multi-tenant leak

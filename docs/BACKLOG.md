@@ -33,6 +33,7 @@
 | 19 | Payment page shows contractor logo (trust signal) |
 | 20 | Rate-limit atomicity / per-IP throttle (deeper spam hardening) |
 | 23 | **YardSync Facebook page link on the digital card** — optional social link (facebook.com/YardSyncApp) on `/join/[slug]` + Settings→Card, alongside website, with a contact-visibility toggle; lucide `Facebook` icon, EN/ES. Low priority, own small PR — don't bundle. |
+| 24 | **3-5 selectable business-card templates** — contractor picks a card design (layout/color/typography) in Settings→Card; applies to the live `/join/[slug]` card AND the downloadable social/print assets (`lib/cardTemplate.js`). `cardTemplate` field + picker. EN/ES-safe. Own PR. |
 
 ## TIER 3 — Phase 3 (Community & Visibility)
 
