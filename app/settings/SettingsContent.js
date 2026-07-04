@@ -799,17 +799,22 @@ export default function SettingsPage() {
                     disabled={!settingsEditing}
                     value={form.headshotUrl}
                     onChange={url => setField('headshotUrl', url)}
-                    hint={lang === 'es' ? 'Se muestra en tu tarjeta.' : 'Shown on your card.'}
+                    hint={crewScoped
+                      ? (lang === 'es' ? 'Tu foto de perfil.' : 'Your profile photo.')
+                      : (lang === 'es' ? 'Se muestra en tu tarjeta.' : 'Shown on your card.')}
                   />
-                  <LogoUpload
-                    label={lang === 'es' ? 'Logo del negocio' : 'Business logo'}
-                    disabled={!settingsEditing}
-                    value={form.logoUrl}
-                    onChange={url => setField('logoUrl', url)}
-                    hint={lang === 'es'
-                      ? 'PNG, JPG o WebP. Máx 2MB.'
-                      : 'PNG, JPG, or WebP. Max 2MB.'}
-                  />
+                  {/* Business logo is owner-only — a scoped crew member has no business. */}
+                  {!crewScoped && (
+                    <LogoUpload
+                      label={lang === 'es' ? 'Logo del negocio' : 'Business logo'}
+                      disabled={!settingsEditing}
+                      value={form.logoUrl}
+                      onChange={url => setField('logoUrl', url)}
+                      hint={lang === 'es'
+                        ? 'PNG, JPG o WebP. Máx 2MB.'
+                        : 'PNG, JPG, or WebP. Max 2MB.'}
+                    />
+                  )}
                 </div>
 
                 <Input
@@ -819,13 +824,16 @@ export default function SettingsPage() {
                   placeholder="Marco Rodriguez"
                   disabled={!settingsEditing}
                 />
-                <Input
-                  label={translate('settings', 'business_name')}
-                  value={form.businessName}
-                  onChange={e => setField('businessName', e.target.value)}
-                  placeholder="Rodriguez Lawn Care"
-                  disabled={!settingsEditing}
-                />
+                {/* A scoped crew member has no business of their own — hide it. */}
+                {!crewScoped && (
+                  <Input
+                    label={translate('settings', 'business_name')}
+                    value={form.businessName}
+                    onChange={e => setField('businessName', e.target.value)}
+                    placeholder="Rodriguez Lawn Care"
+                    disabled={!settingsEditing}
+                  />
+                )}
                 <PhoneInput
                   label={translate('settings', 'phone')}
                   value={form.phone}
