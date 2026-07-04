@@ -116,6 +116,18 @@ Enhance 1b's core (do after 1b promotes; they don't change the security model):
    - **Quick win first (in-app, ships now, no push infra):** make the ADDRESS row on the worker job card **tappable → opens the device maps app** (`geo:`/`https://maps.google.com/?q={encoded address}` — the universal link lets the OS pick Google/Apple Maps). Zero new deps; a one-line enhancement to the scoped card in `CalendarContent.js`. This alone delivers the "click the tab and go straight to the address" ask.
    - **Push flow (needs Phase 1c push infra + action buttons):** the morning/next-job push is an **expandable notification with two actions** — **"Mark complete"** (swipe/expand → completes the job via a server route, no app open) and **"Navigate"** (one tap → deep-links straight to maps with the address prefilled). On complete, the **next assigned job auto-surfaces as its own notification**, so the worker walks the whole route from the lock screen. Requires: notification action buttons (Web Push `actions` / native), a lightweight authed **`POST /api/crew/complete`** (worker marks their own assigned job — rules already allow the worker to write `status/completedAt/completedBy`), and next-job resolution (their next `assignedTo` job by serviceDate). Sequenced AFTER the basic morning-digest push (1c #1) lands.
 
+## Phase 1e — Crew member cards + richer job scope (Jay, during the scoped-onboarding test, 2026-07-04)
+
+Product gaps found once the scoped worker experience was verified end-to-end (all not bugs — the scoping is correct; these are the next layer):
+
+1. **Crew member business card.** Scoped Settings is Profile + Team only (no Card tab), so a team member can't generate their own card yet. Give crew members a card. Ties to #2 + #5 below (their card is an owner-lead funnel, not a standalone business).
+2. **Owner's business logo on the crew card — display-only, pre-populated.** The editable *Business logo* tile is correctly removed from a scoped member's Settings; but their card/identity should still *show* the owner's business logo (pulled from the owning business), read-only. Their **headshot uploader stays** so they add their own photo. So: card = owner's business logo (fixed) + member's own headshot.
+3. **Full job scope on the worker card.** Today the crew job card shows service label + address only. It should list **all services/items to perform** for that visit so the worker knows what to bring/prepare. (Denormalize the job's service line-items onto the schedule alongside `serviceLabel`/`serviceAddress` — still no money, just the work.) Reopens the "worker's client-data exposure" open item below — expand from name+address to the task list.
+4. **Assign at creation.** Add an **"Assign to" field in the Add job dialog** (in addition to the existing assign-after-creation on the expanded card). Small, quick follow-up.
+5. **Crew card QR → owner's lead/intake form.** A crew member's business-card QR must route back to the **owner's** lead/intake form (`/join/[owner-slug]/request` or equivalent) so the **owner captures the lead and assigns it out** — the member is a funnel, not a separate merchant. Confirm the wiring routes to the owner, never the member.
+
+> Grouping: #1 + #2 + #5 are one coherent "team member card that funnels leads to the owner" feature. #3 + #4 are worker-calendar UX. #4 is the cheapest — do it first / alongside Phase 1c.
+
 ## Phase 1d / Later
 - **Assign clients to specific team members** (client "ownership" by a member) for a more personable feel — the member always services "their" clients. Bigger (client↔member relationship + scheduling defaults). Backlog.
 
