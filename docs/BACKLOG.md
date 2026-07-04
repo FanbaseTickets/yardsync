@@ -35,6 +35,16 @@
 | 23 | **YardSync Facebook page link on the digital card** — optional social link (facebook.com/YardSyncApp) on `/join/[slug]` + Settings→Card, alongside website, with a contact-visibility toggle; lucide `Facebook` icon, EN/ES. Low priority, own small PR — don't bundle. |
 | 24 | **3-5 selectable business-card templates** — contractor picks a card design (layout/color/typography) in Settings→Card; applies to the live `/join/[slug]` card AND the downloadable social/print assets (`lib/cardTemplate.js`). `cardTemplate` field + picker. EN/ES-safe. Own PR. |
 
+## Cowork-session findings (2026-07, VS-Claude review)
+
+| # | Item |
+|---|------|
+| 25 | ✅ **FIXED** — First-paid activation never wrote `firstPaidInvoiceId` for non-free-access accounts → Verified badge never appeared (repro: fully Stripe-verified account "Frank" w/ 14 paid invoices, badge false until field added manually). Root cause: field only stamped in the `free_until_paid` activation block. Fix: decoupled marker in `payment_intent.succeeded` stamps it on the first paid invoice for ANY account. |
+| 26 | ✅ **FIXED (primary path)** — Invoice "Text" send could hang the modal with no feedback when the Twilio call stalled (invoice doc IS created first, but a hung SMS fetch meant the modal never closed / `loadData` never ran, so the doc looked "not created"). Fix: 15s abort timeout on the SMS fetch in `app/clients/[id]/page.js`. **Follow-up:** same no-timeout `/api/twilio/send` pattern exists at 4 sites in `CalendarContent.js` + 1 in `SmsContent.js` — wrap them (shared `postWithTimeout` helper) for systemic hardening. |
+| 27 | **[MED] Client hard-delete too easy to trigger** — "Remove this client" at the bottom of `app/clients/[id]/page.js` is a permanent delete behind a single "cannot be undone" confirm; a stray click nearly deleted a client. Fix: move behind an overflow menu + require typed-name confirmation, OR implement archive + undo (soft-delete). Repro: open any client → scroll to bottom → the delete is one confirm away. |
+| 28 | **[LOW] Phantom/deleted packages leave clients on invalid packages** — clients assigned to a service that no longer exists (e.g., "Test", "ZTest Big Lot") show "— Keep current package —" in the edit form with NO signal the current package is broken. Fix: detect when `client.packageId`/serviceId no longer resolves to a Service and prompt to reassign. Repro: delete a Service that a client uses → edit that client → no warning. `app/clients/[id]/page.js` edit form. |
+| 29 | **[LOW/UX] Dashboard "$0.00 this month" empty state** — brand-new users see a bold `$0.00` with no context (deflating). Add a friendly empty state, e.g. "Send your first invoice to see earnings here." `app/dashboard/DashboardContent.js`. |
+
 ## TIER 3 — Phase 3 (Community & Visibility)
 
 | # | Item |
