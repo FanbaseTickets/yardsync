@@ -690,6 +690,11 @@ export default function CalendarPage() {
       const finalAddons = buildFinalAddons(selectedAddons, variableInputs)
       await Promise.all(datesToAdd.map(date => addSchedule(user.uid, {
         clientId: selectedClient, clientName: client?.name || '',
+        // Crew denormalization: a Worker sees the job from the schedule alone —
+        // name/address/service, never price — so they never read the clients
+        // collection (which holds basePriceCents = money).
+        serviceAddress: client?.address || '', serviceLabel: client?.packageLabel || '',
+        assignedTo: null,   // owner assigns a crew member later (Crew Team UI)
         serviceDate: toDateStr(date), time: selectedTime,
         status: 'scheduled', recurrence: repeatMode, isRecurring: repeatMode !== 'none', addons: finalAddons,
       })))
