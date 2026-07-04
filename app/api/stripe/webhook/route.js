@@ -699,6 +699,31 @@ export async function POST(request) {
           } catch (actErr) {
             console.error('[webhook] first-paid activation failed (non-fatal):', actErr.message)
           }
+
+          // ── Verified-badge marker (decoupled from free-access activation) ──
+          // Stamp firstPaidInvoiceId on the FIRST paid client invoice for ANY
+          // account. The activation block above only sets it for 'free_until_paid'
+          // accounts; without this, an account that went active by another path
+          // (direct subscription, or predating free-access) never gets the field,
+          // so isVerifiedBusiness() stays false forever despite full Stripe
+          // verification + many paid invoices. We SKIP 'free_until_paid' here —
+          // those belong to the activation block, which retries on decline and
+          // relies on !firstPaidInvoiceId as its guard.
+          try {
+            const gUid2 = invDoc.data.gardenerUid
+            if (gUid2) {
+              const gd = await getDocument('users', gUid2)
+              const g2 = gd?.data
+              if (g2 && !g2.firstPaidInvoiceId && g2.subscriptionStatus !== 'free_until_paid') {
+                await updateDocument('users', gUid2, {
+                  firstPaidInvoiceId: invDoc.id,
+                  firstPaidAt:        g2.firstPaidAt || new Date().toISOString(),
+                  updatedAt:          new Date().toISOString(),
+                })
+                console.log(`[webhook] firstPaidInvoiceId stamped (non-activation) for ${gUid2} via invoice ${invDoc.id}`)
+              }
+            }
+          } catch (e) { console.error('[webhook] firstPaidInvoiceId stamp failed (non-fatal):', e.message) }
         } else {
           console.log('No invoice found for PaymentIntent:', pi.id)
         }
