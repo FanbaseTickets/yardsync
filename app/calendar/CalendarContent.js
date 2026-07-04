@@ -18,7 +18,7 @@ import { validatePhone, formatPhone } from '@/lib/phone'
 import PhoneInput from '@/components/ui/PhoneInput'
 import {
   ChevronLeft, ChevronRight, ChevronDown, Plus, CalendarDays,
-  Trash2, CheckCircle2, RefreshCw, AlertTriangle, Zap, DollarSign, Package, X, GripVertical, Route, CalendarClock
+  Trash2, CheckCircle2, RefreshCw, AlertTriangle, Zap, DollarSign, Package, X, GripVertical, Route, CalendarClock, Navigation
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -1431,10 +1431,23 @@ export default function CalendarPage() {
                         {isOpen && crew && (
                           <div className="px-3 pb-3 pt-1 border-t border-gray-100 space-y-2">
                             {schedule.serviceAddress && (
-                              <div className="bg-gray-50 rounded-lg px-3 py-2">
-                                <p className="text-[10px] text-gray-400 font-medium uppercase mb-0.5">{lang === 'es' ? 'Dirección' : 'Address'}</p>
-                                <p className="text-[12px] text-gray-600">{schedule.serviceAddress}</p>
-                              </div>
+                              // Tappable → opens the phone's maps app (universal link;
+                              // the OS picks Google/Apple Maps). One-tap routing for the
+                              // crew member in the field.
+                              <a
+                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(schedule.serviceAddress)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 hover:bg-brand-50 transition-colors"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[10px] text-gray-400 font-medium uppercase mb-0.5">{lang === 'es' ? 'Dirección' : 'Address'}</p>
+                                  <p className="text-[12px] text-gray-600 truncate">{schedule.serviceAddress}</p>
+                                </div>
+                                <span className="flex items-center gap-1 text-[11px] font-medium text-brand-700 flex-shrink-0">
+                                  <Navigation size={13} /> {lang === 'es' ? 'Ir' : 'Navigate'}
+                                </span>
+                              </a>
                             )}
                             {!done && (
                               <Button icon={CheckCircle2} size="sm" variant="secondary" fullWidth onClick={() => { setExpandedId(null); handleComplete(schedule) }}>
