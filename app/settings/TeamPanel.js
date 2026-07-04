@@ -109,6 +109,13 @@ export default function TeamPanel() {
                       {pending ? <><Clock size={11} /> {es ? 'Invitación pendiente' : 'Invite pending'}</> : <><CheckCircle2 size={11} /> {es ? 'Activo' : 'Active'}</>}
                     </span>
                   </div>
+                  {pending && m.inviteToken && (
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/crew/join?token=${m.inviteToken}`).then(() => toast.success(es ? 'Enlace copiado' : 'Link copied'), () => {}) }}
+                      className="text-[12px] text-brand-700 hover:text-brand-800 font-medium px-2 py-1 rounded-lg hover:bg-brand-50 flex-shrink-0">
+                      {es ? 'Copiar enlace' : 'Copy link'}
+                    </button>
+                  )}
                   {!pending && m.memberUid && (
                     <button onClick={() => remove(m.memberUid, m.inviteName || 'this member')} disabled={removingUid === m.memberUid}
                       className="text-gray-300 hover:text-red-500 p-1.5 disabled:opacity-50" aria-label="remove">
