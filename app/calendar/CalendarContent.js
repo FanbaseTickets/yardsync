@@ -371,8 +371,9 @@ export default function CalendarPage() {
             others.map(m => getWorkerSchedules(m.businessUid, user.uid, toDateStr(monthStart), toDateStr(monthEnd)))
           )).flat()
           merged = [...s, ...crewScheds]
+          console.log(`[calendar] crew merge: ${others.length} crew(s), +${crewScheds.length} assigned job(s)`)
         }
-      } catch {}
+      } catch (e) { console.error('[calendar] crew schedule merge failed:', e?.message || e) }
       setCrewColorMap(colorMap)
       setSchedules(merged)
 

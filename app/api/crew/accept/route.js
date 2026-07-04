@@ -32,6 +32,7 @@ export async function POST(req) {
         businessName: invite.businessName || '',
         memberUid:    caller.uid,
         memberEmail:  caller.email || '',
+        inviteName:   invite.inviteName || '',   // friendly name for the team list + assign dropdown
         role:         invite.role || 'worker',
         status:       'active',
         invitedByUid: invite.invitedByUid || invite.businessUid,

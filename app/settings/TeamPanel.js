@@ -30,8 +30,10 @@ export default function TeamPanel() {
     setLoading(true)
     try {
       const [t, c] = await Promise.all([getTeamMemberships(user.uid), getMyCrews(user.uid)])
-      // Owner membership rows have role 'owner' — the team list is the workers.
-      setTeam(t.filter(m => m.role !== 'owner' && m.status !== 'removed'))
+      // Team = workers who are pending (invited) or active. Hides the retired
+      // invite doc left behind on accept (status 'accepted') so a member never
+      // appears twice, and hides 'removed'.
+      setTeam(t.filter(m => m.role !== 'owner' && (m.status === 'invited' || m.status === 'active')))
       setMyCrews(c.filter(m => m.businessUid !== user.uid))
     } catch { /* rules may not be deployed yet — show empty rather than crash */ }
     finally { setLoading(false) }
