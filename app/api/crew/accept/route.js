@@ -44,6 +44,18 @@ export async function POST(req) {
     // Retire the pending invite doc.
     try { await updateDocument('memberships', invite.id, { status: 'accepted', memberUid: caller.uid, updatedAt: nowIso }) } catch {}
 
+    // A new crew member with NO own Stripe Connect never set up as an owner → flag
+    // crewMode so the app shows them a scoped Worker experience (schedule only). A
+    // hustler who already runs their own business (stripeAccountId set) stays a
+    // full owner. The nav gates on crewMode && !stripeAccountId, so if they later
+    // onboard Connect the full app returns automatically.
+    try {
+      const u = await getDocument('users', caller.uid)
+      if (u?.data && !u.data.stripeAccountId && u.data.crewMode !== true) {
+        await updateDocument('users', caller.uid, { crewMode: true, updatedAt: nowIso })
+      }
+    } catch {}
+
     return NextResponse.json({ ok: true, businessUid: invite.businessUid, businessName: invite.businessName || '' })
   } catch (err) {
     console.error('[crew] accept failed:', err.message)

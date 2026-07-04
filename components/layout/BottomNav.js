@@ -2,22 +2,34 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, CalendarDays, Users, FileText, Wrench, MessageSquare } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, Users, FileText, Wrench, MessageSquare, User } from 'lucide-react'
 import { useLang } from '@/context/LangContext'
+import { useAuth } from '@/context/AuthContext'
 import clsx from 'clsx'
 
 export default function BottomNav() {
   const pathname = usePathname()
-  const { translate } = useLang()
+  const { translate, lang } = useLang()
+  const { profile } = useAuth()
 
-  const NAV_ITEMS = [
-    { href: '/dashboard', label: translate('nav', 'home'),     icon: LayoutDashboard },
-    { href: '/calendar',  label: translate('nav', 'calendar'), icon: CalendarDays    },
-    { href: '/clients',   label: translate('nav', 'clients'),  icon: Users           },
-    { href: '/quotes',    label: translate('nav', 'quotes'),   icon: FileText        },
-    { href: '/services',  label: translate('nav', 'services'), icon: Wrench          },
-    { href: '/sms',       label: translate('nav', 'sms'),      icon: MessageSquare   },
-  ]
+  // A pure crew member (accepted an invite, never set up their own business /
+  // Stripe Connect) gets a scoped app: just their schedule + a minimal account.
+  // No Clients/Quotes/Services/SMS/Dashboard — none of it applies to them.
+  const scoped = profile?.crewMode === true && !profile?.stripeAccountId
+
+  const NAV_ITEMS = scoped
+    ? [
+        { href: '/calendar', label: translate('nav', 'calendar'),      icon: CalendarDays },
+        { href: '/settings', label: lang === 'es' ? 'Cuenta' : 'Account', icon: User      },
+      ]
+    : [
+        { href: '/dashboard', label: translate('nav', 'home'),     icon: LayoutDashboard },
+        { href: '/calendar',  label: translate('nav', 'calendar'), icon: CalendarDays    },
+        { href: '/clients',   label: translate('nav', 'clients'),  icon: Users           },
+        { href: '/quotes',    label: translate('nav', 'quotes'),   icon: FileText        },
+        { href: '/services',  label: translate('nav', 'services'), icon: Wrench          },
+        { href: '/sms',       label: translate('nav', 'sms'),      icon: MessageSquare   },
+      ]
 
   return (
     <nav

@@ -179,13 +179,22 @@ export default function SettingsPage() {
     window.history.replaceState({}, '', url)
   }
 
-  const SETTINGS_TABS = [
-    { key: 'profile', en: 'Profile', es: 'Perfil' },
-    { key: 'card',    en: 'Card',    es: 'Tarjeta' },
-    { key: 'sms',     en: 'SMS',     es: 'SMS' },
-    { key: 'billing', en: 'Billing', es: 'Pagos' },
-    { key: 'team',    en: 'Team',    es: 'Equipo' },
-  ]
+  // A pure crew member (crewMode, no own Stripe Connect) gets a minimal Settings:
+  // just Profile (name/language/logout) + Team (the crews they're on). None of
+  // the owner tabs (Card/SMS/Billing) apply to them.
+  const crewScoped = profile?.crewMode === true && !profile?.stripeAccountId
+  const SETTINGS_TABS = crewScoped
+    ? [
+        { key: 'profile', en: 'Profile', es: 'Perfil' },
+        { key: 'team',    en: 'Team',    es: 'Equipo' },
+      ]
+    : [
+        { key: 'profile', en: 'Profile', es: 'Perfil' },
+        { key: 'card',    en: 'Card',    es: 'Tarjeta' },
+        { key: 'sms',     en: 'SMS',     es: 'SMS' },
+        { key: 'billing', en: 'Billing', es: 'Pagos' },
+        { key: 'team',    en: 'Team',    es: 'Equipo' },
+      ]
 
   const [form,    setForm]    = useState({
     name:           '',

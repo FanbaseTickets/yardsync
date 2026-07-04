@@ -16,6 +16,8 @@ export default function TeamPanel() {
   const { user, profile } = useAuth()
   const { lang } = useLang()
   const es = lang === 'es'
+  // A pure crew member sees only "Crews you're on" — not the owner invite/team.
+  const crewScoped = profile?.crewMode === true && !profile?.stripeAccountId
 
   const [team, setTeam]       = useState([])
   const [myCrews, setMyCrews] = useState([])
@@ -78,6 +80,7 @@ export default function TeamPanel() {
 
   return (
     <div className="space-y-6">
+      {!crewScoped && (<>
       {/* Invite */}
       <div>
         <h3 className="text-[15px] font-semibold text-gray-900 mb-1 flex items-center gap-2"><UserPlus size={16} className="text-brand-600" /> {es ? 'Invitar a un miembro' : 'Invite a crew member'}</h3>
@@ -130,6 +133,8 @@ export default function TeamPanel() {
           </div>
         )}
       </div>
+
+      </>)}
 
       {/* My crews (businesses I work in) */}
       {myCrews.length > 0 && (

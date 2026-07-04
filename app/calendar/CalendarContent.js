@@ -397,7 +397,17 @@ export default function CalendarPage() {
   // unified calendar. Optimistic reload.
   async function assignJob(schedule, memberUid) {
     try {
-      await updateSchedule(schedule.id, { assignedTo: memberUid || null })
+      const c = clientMap[schedule.clientId]
+      const patch = { assignedTo: memberUid || null }
+      // Backfill the denormalized job fields the Worker needs (name/address/
+      // service) — older schedules predate denormalization-on-create, and the
+      // Worker can't read the clients collection to get them.
+      if (c) {
+        if (!schedule.clientName && c.name) patch.clientName = c.name
+        if (!schedule.serviceAddress && c.address) patch.serviceAddress = c.address
+        if (!schedule.serviceLabel && c.packageLabel) patch.serviceLabel = c.packageLabel
+      }
+      await updateSchedule(schedule.id, patch)
       toast.success(memberUid ? (lang === 'es' ? 'Asignado' : 'Assigned') : (lang === 'es' ? 'Sin asignar' : 'Unassigned'))
       loadData()
     } catch { toast.error(translate('common', 'error')) }
