@@ -104,6 +104,18 @@ So workers never read the `clients` collection (which holds `basePriceCents` = m
 ### Safety / rollout plan (this is the risk)
 1. Implement the model + rules on `dev`. 2. **Deploy rules to `yardsync-dev` ONLY**, then run the full OWNER regression via CC (create/edit client, schedule, send invoice, quote, settings, calendar, dashboard) — confirm nothing an owner does is blocked by the tighter rules. 3. Add a Worker test account + verify scoping (sees only assigned jobs, blocked from clients/invoices/money). 4. Only after dev passes → deploy rules to prod (needs Jay's go). **Requires Jay's explicit permission for each rules deploy.**
 
+## Phase 1c — Crew notifications + calendar member-colors (Jay, during the 1b test)
+
+Enhance 1b's core (do after 1b promotes; they don't change the security model):
+
+1. **Morning digest push — "You have X jobs today. Tap to review."** A daily cron (new; mirrors the auto-charge cron pattern + 13:00–14:00 UTC date invariant) sends every user WITH jobs today a morning push → deep-links to the calendar. Applies to **owners AND crew members** (a member's "today" = schedules assigned to them across all crews). Skip 0-job users. Uses `lib/push.js sendPush`.
+2. **New-job-assigned push to the crew member.** When an owner assigns a job (`schedules.assignedTo` → a member), the member gets a push: "New job {today/tomorrow/date} — {serviceLabel}." **Impl note:** assign is currently a client-side `updateSchedule`; to push server-side, move it behind a small `POST /api/crew/assign` (authed owner → set assignedTo + `sendPush(memberUid, …)`). Fire only on a real change (empty/other → this member).
+3. **Owner calendar: color own vs. team jobs.** Extend the color map so a job the owner ASSIGNED to a member renders in **that member's color** (own/unassigned = green); legend gains the members. Owner sees who's doing what at a glance.
+4. **Per-member colors + expandable team actions.** In Settings → Team, clicking a member's name **expands** a panel (mirrors the client "add job" expand) with a **color picker** (sets `memberColor` on the membership, used by #3) + actions (assign, view their jobs, remove). Owner chooses colors per member.
+
+## Phase 1d / Later
+- **Assign clients to specific team members** (client "ownership" by a member) for a more personable feel — the member always services "their" clients. Bigger (client↔member relationship + scheduling defaults). Backlog.
+
 ## Open items for later decision
 - Per-seat dollar amount (e.g., $10–15/mo) — set at Phase 2.
 - Whether a future **Manager** role (can see money + invoice) is added — deferred; the 2-role model ships first.
