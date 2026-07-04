@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { useLang } from '@/context/LangContext'
@@ -17,13 +17,26 @@ export default function CrewJoinContent() {
   const [joined, setJoined] = useState(false)
   const [bizName, setBizName] = useState('')
   const [error, setError]   = useState(null)
+  const autoTried = useRef(false)
 
   // Read + stash the token (so a not-logged-in invitee can return after auth).
+  // Falls back to the stashed token when we land here post-signup without the
+  // ?token query (the login redirect sends them to a bare /crew/join).
   useEffect(() => {
-    const t = new URLSearchParams(window.location.search).get('token')
+    let t = new URLSearchParams(window.location.search).get('token')
+    if (!t) { try { t = sessionStorage.getItem('ys_crew_join_token') } catch {} }
     setToken(t)
     if (t) { try { sessionStorage.setItem('ys_crew_join_token', t) } catch {} }
   }, [])
+
+  // Auto-accept once the invitee is logged in (e.g. straight after signup) so the
+  // whole join is just "name + password". The manual button below is a fallback
+  // if auto-accept errors.
+  useEffect(() => {
+    if (loading || !user || !token || joined || busy || autoTried.current) return
+    autoTried.current = true
+    accept()
+  }, [loading, user, token, joined, busy])
 
   async function accept() {
     if (!token) return

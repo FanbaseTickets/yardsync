@@ -33,11 +33,37 @@ export default function LoginPage() {
   const [failedAttempts, setFailedAttempts] = useState(0)
   const [signupLang, setSignupLang] = useState('en')
   const [termsAccepted, setTermsAccepted] = useState(false)
+  const [crewInvite, setCrewInvite] = useState(null)   // { token, businessName, inviteName, inviteEmail }
 
   const isEs = mode === 'signup' && signupLang === 'es'
 
+  // Crew-invite signup: /crew/join stashed a token for a not-logged-in invitee.
+  // Switch to a SCOPED signup (name + password only — no business name) and
+  // pre-fill from the invite so a brand-new worker (a kid) barely types anything.
+  // Owner signup is untouched when there's no token.
   useEffect(() => {
-    if (!loading && user) router.replace('/dashboard')
+    if (typeof window === 'undefined') return
+    let token = null
+    try { token = sessionStorage.getItem('ys_crew_join_token') } catch {}
+    if (!token) return
+    setMode('signup')
+    fetch(`/api/crew/invite-info?token=${encodeURIComponent(token)}`)
+      .then(r => r.json())
+      .then(info => {
+        if (!info?.ok) return
+        setCrewInvite({ token, ...info })
+        if (info.inviteName)  setName(n => n || info.inviteName)
+        if (info.inviteEmail) setEmail(e => e || info.inviteEmail)
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (loading || !user) return
+    // A crew invitee returns to /crew/join to auto-accept; everyone else → dashboard.
+    let token = null
+    try { token = sessionStorage.getItem('ys_crew_join_token') } catch {}
+    router.replace(token ? '/crew/join' : '/dashboard')
   }, [user, loading, router])
 
   function clearError(field) {
@@ -53,7 +79,7 @@ export default function LoginPage() {
     if (mode === 'signup' && !confirmPassword)            e.confirmPassword = isEs ? 'Confirma tu contraseña' : 'Please confirm your password'
     else if (mode === 'signup' && password !== confirmPassword) e.confirmPassword = isEs ? 'Las contraseñas no coinciden' : "Passwords don't match"
     if (mode === 'signup' && !name)           e.name     = isEs ? 'Tu nombre es requerido' : 'Your name is required'
-    if (mode === 'signup' && !bizName)        e.bizName  = isEs ? 'Nombre del negocio es requerido' : 'Business name is required'
+    if (mode === 'signup' && !crewInvite && !bizName) e.bizName = isEs ? 'Nombre del negocio es requerido' : 'Business name is required'
     if (mode === 'signup' && !termsAccepted)  e.terms    = isEs ? 'Debes aceptar los Términos y la Política de Privacidad' : 'You must accept the Terms and Privacy Policy'
     setErrors(e)
     return Object.keys(e).length === 0
@@ -74,8 +100,10 @@ export default function LoginPage() {
         router.replace('/dashboard')
       } else if (mode === 'signup') {
         if (typeof window !== 'undefined') window.localStorage.setItem('yardsync_lang', signupLang)
-        await signUp(email, password, name, bizName, signupLang)
-        router.replace('/dashboard')
+        // Crew invitee: no business of their own → blank business name; return to
+        // /crew/join to auto-accept. Owner signup keeps its business name + dashboard.
+        await signUp(email, password, name, crewInvite ? '' : bizName, signupLang)
+        router.replace(crewInvite ? '/crew/join' : '/dashboard')
       } else {
         await resetPassword(email)
         toast.success('Reset link sent to your email')
@@ -106,7 +134,7 @@ export default function LoginPage() {
     setGoogleBusy(true)
     try {
       await signInWithGoogle()
-      router.replace('/dashboard')
+      router.replace(crewInvite ? '/crew/join' : '/dashboard')
     } catch (err) {
       toast.error('Google sign-in failed — try again')
     } finally {
@@ -135,7 +163,9 @@ export default function LoginPage() {
         <h1 className="text-3xl font-display text-white tracking-tight">YardSync</h1>
         <p className="text-brand-200 text-sm mt-1">
           {mode === 'login'  ? 'Sign in to your account' :
-           mode === 'signup' ? (isEs ? 'Crea tu cuenta' : 'Create your account') :
+           mode === 'signup' ? (crewInvite
+             ? (isEs ? `Únete al equipo${crewInvite.businessName ? ` de ${crewInvite.businessName}` : ''}` : `Join${crewInvite.businessName ? ` ${crewInvite.businessName}` : ' the crew'}`)
+             : (isEs ? 'Crea tu cuenta' : 'Create your account')) :
                                'Reset your password'}
         </p>
       </div>
@@ -179,6 +209,18 @@ export default function LoginPage() {
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {mode === 'signup' && crewInvite && (
+            <div className="bg-brand-50 border border-brand-100 rounded-xl px-3.5 py-3">
+              <p className="text-[13px] text-brand-800 font-medium">
+                {isEs
+                  ? `Te uniste al equipo${crewInvite.businessName ? ` de ${crewInvite.businessName}` : ''}.`
+                  : `You're joining${crewInvite.businessName ? ` ${crewInvite.businessName}` : ' a crew'} as a team member.`}
+              </p>
+              <p className="text-[12px] text-brand-700/80 mt-0.5">
+                {isEs ? 'Solo crea una contraseña — verás los trabajos que te asignen.' : 'Just set a password — you’ll see the jobs assigned to you.'}
+              </p>
+            </div>
+          )}
           {mode === 'signup' && (
             <>
               {/* Language toggle */}
@@ -206,14 +248,16 @@ export default function LoginPage() {
                 onChange={e => { setName(e.target.value); clearError('name') }}
                 error={errors.name}
               />
-              <Input
-                label={isEs ? 'Nombre del negocio' : 'Business name'}
-                type="text"
-                placeholder="Rodriguez Lawn Care"
-                value={bizName}
-                onChange={e => { setBizName(e.target.value); clearError('bizName') }}
-                error={errors.bizName}
-              />
+              {!crewInvite && (
+                <Input
+                  label={isEs ? 'Nombre del negocio' : 'Business name'}
+                  type="text"
+                  placeholder="Rodriguez Lawn Care"
+                  value={bizName}
+                  onChange={e => { setBizName(e.target.value); clearError('bizName') }}
+                  error={errors.bizName}
+                />
+              )}
             </>
           )}
           <Input

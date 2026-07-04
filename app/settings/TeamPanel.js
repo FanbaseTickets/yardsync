@@ -8,7 +8,8 @@ import { formatCents } from '@/lib/fee'
 import { Button, Input } from '@/components/ui'
 
 const SEAT_PRICE_CENTS = 1500   // $15/seat/mo (display; billed via STRIPE_PRICE_CREW_SEAT)
-import { Users, UserPlus, Trash2, Clock, CheckCircle2 } from 'lucide-react'
+import { Users, UserPlus, Trash2, Clock, CheckCircle2, Briefcase, ArrowRight } from 'lucide-react'
+import Link from 'next/link'
 import toast from 'react-hot-toast'
 
 // Settings → Team. Owner invites crew (Workers), sees pending + active members
@@ -146,6 +147,22 @@ export default function TeamPanel() {
         </p>
       )}
       </>)}
+
+      {/* Hustler on-ramp — a scoped worker can start their OWN business anytime.
+          Onboarding Stripe Connect sets stripeAccountId, which auto-releases the
+          crewMode scope and returns the full owner app (they keep their crews). */}
+      {crewScoped && (
+        <Link href="/onboarding/connect-stripe" className="block">
+          <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-3.5 py-3 hover:border-brand-300 hover:bg-brand-50/40 transition-colors">
+            <div className="w-9 h-9 rounded-lg bg-brand-50 flex items-center justify-center flex-shrink-0"><Briefcase size={17} className="text-brand-700" /></div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-semibold text-gray-900">{es ? 'Empieza tu propio negocio' : 'Start your own business'}</p>
+              <p className="text-[12px] text-gray-500">{es ? 'Cobra a tus propios clientes — sigues en tus equipos.' : 'Invoice your own clients — you stay on your crews too.'}</p>
+            </div>
+            <ArrowRight size={16} className="text-gray-300 flex-shrink-0" />
+          </div>
+        </Link>
+      )}
 
       {/* My crews (businesses I work in) */}
       {myCrews.length > 0 && (
