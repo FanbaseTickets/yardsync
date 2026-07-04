@@ -435,14 +435,21 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
         lang,
       })
       try {
+        // Timeout so a stalled Twilio call can NEVER hang the modal — the invoice
+        // doc is already persisted above, so on timeout we just fall through to
+        // the "Invoice created — couldn't text the link" toast + close + refresh.
+        const ctrl = new AbortController()
+        const timer = setTimeout(() => ctrl.abort(), 15000)
         const smsRes = await fetch('/api/twilio/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ clientPhone: client.phone, message: smsBody, gardenerUid: user?.uid }),
+          signal: ctrl.signal,
         })
+        clearTimeout(timer)
         smsSent = smsRes.ok
       } catch (err) {
-        console.error('Invoice SMS failed (non-fatal):', err)
+        console.error('Invoice SMS failed/timed out (non-fatal):', err)
       }
     }
 
