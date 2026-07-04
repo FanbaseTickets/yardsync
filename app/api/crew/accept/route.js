@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { listCollection, setDocument, updateDocument, getDocument } from '@/lib/firestoreRest'
 import { verifyCallerUid, membershipId } from '@/lib/crew'
+import { syncCrewSeats } from '@/lib/crewBilling'
 
 // POST /api/crew/accept — the invited person (authed) consumes their token and
 // becomes an active Worker. Writes the DETERMINISTIC membership doc the security
@@ -55,6 +56,9 @@ export async function POST(req) {
         await updateDocument('users', caller.uid, { crewMode: true, updatedAt: nowIso })
       }
     } catch {}
+
+    // Bill the owner for the new active seat (+$15/mo, prorated). Non-fatal.
+    await syncCrewSeats(invite.businessUid)
 
     return NextResponse.json({ ok: true, businessUid: invite.businessUid, businessName: invite.businessName || '' })
   } catch (err) {

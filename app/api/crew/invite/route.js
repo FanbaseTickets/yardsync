@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createDocument } from '@/lib/firestoreRest'
+import { createDocument, getDocument } from '@/lib/firestoreRest'
 import { verifyCallerUid, ensureBusiness } from '@/lib/crew'
 import { getBaseUrl } from '@/lib/baseUrl'
 import { sendSms } from '@/lib/sms'
@@ -20,6 +20,14 @@ export async function POST(req) {
     if (!cleanName) return NextResponse.json({ error: 'Name is required', code: 'no_name' }, { status: 400 })
     if (!phone && !email) return NextResponse.json({ error: 'A phone or email is required', code: 'no_contact' }, { status: 400 })
     if (email && !EMAIL_RE.test(email)) return NextResponse.json({ error: 'Invalid email', code: 'bad_email' }, { status: 400 })
+
+    // Gate (Crew Phase 2): crew requires an active subscription — each accepted
+    // member bills as a +$15/mo seat on it (lib/crewBilling.js). Block inviting
+    // without one so seats always have a sub to attach to.
+    const owner = await getDocument('users', caller.uid)
+    if (owner?.data?.subscriptionStatus !== 'active' || !owner?.data?.stripeSubscriptionId) {
+      return NextResponse.json({ error: 'Start your subscription to add crew members', code: 'sub_required' }, { status: 402 })
+    }
 
     const biz = await ensureBusiness(caller.uid)
     const es  = lang === 'es'

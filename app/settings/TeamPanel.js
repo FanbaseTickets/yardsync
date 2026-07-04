@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useLang } from '@/context/LangContext'
 import { getTeamMemberships, getMyCrews } from '@/lib/db'
+import { formatCents } from '@/lib/fee'
 import { Button, Input } from '@/components/ui'
+
+const SEAT_PRICE_CENTS = 1500   // $15/seat/mo (display; billed via STRIPE_PRICE_CREW_SEAT)
 import { Users, UserPlus, Trash2, Clock, CheckCircle2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -134,6 +137,14 @@ export default function TeamPanel() {
         )}
       </div>
 
+      {/* Running seat cost */}
+      {team.filter(m => m.status === 'active').length > 0 && (
+        <p className="text-[12px] text-gray-500">
+          {(() => { const n = team.filter(m => m.status === 'active').length; return es
+            ? `${n} miembro(s) activo(s) × $15/mes = +${formatCents(n * SEAT_PRICE_CENTS)}/mes en tu suscripción.`
+            : `${n} active member(s) × $15/mo = +${formatCents(n * SEAT_PRICE_CENTS)}/mo on your subscription.` })()}
+        </p>
+      )}
       </>)}
 
       {/* My crews (businesses I work in) */}
