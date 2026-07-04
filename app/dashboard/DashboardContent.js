@@ -50,6 +50,12 @@ export default function DashboardPage() {
     ? profile.name.split(' ').find(w => w.length > 1) || profile.name.split(' ')[0]
     : 'there'
 
+  // Crew-scoped members (a worker with no business of their own) never see the
+  // owner dashboard — send them straight to their schedule. A hustler (owns a
+  // business → has stripeAccountId) keeps the full dashboard.
+  const crewScoped = profile?.crewMode === true && !profile?.stripeAccountId
+  useEffect(() => { if (crewScoped) router.replace('/calendar') }, [crewScoped, router])
+
   // Handle Stripe redirect back.
   // Free-access model: connecting Stripe must NOT activate the subscription —
   // activation happens ONLY on the first paid client invoice (server-side, in
@@ -130,10 +136,10 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    if (!user) return
+    if (!user || crewScoped) return
     refreshProfile()
     loadData()
-  }, [user])
+  }, [user, crewScoped])
 
   async function loadData() {
     setLoading(true)
@@ -200,6 +206,9 @@ export default function DashboardPage() {
       return db - da
     })
     .slice(0, 5)
+
+  // Redirecting a scoped crew member — don't paint the owner dashboard.
+  if (crewScoped) return null
 
   return (
     <AppShell>

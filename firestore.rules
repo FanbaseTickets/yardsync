@@ -12,6 +12,21 @@ service cloud.firestore {
     function isOwner(bizUid) {
       return request.auth != null && request.auth.uid == bizUid;
     }
+    // Crew Tier Phase 1b: membership docs use a deterministic id `{bizUid}_{memberUid}`
+    // (written server-side via firestoreRest on invite-accept), so a rule can look up
+    // the caller's membership in a business directly. A Worker gets scoped access to
+    // ONLY the jobs assigned to them in that business.
+    function membershipPath(bizUid) {
+      return /databases/$(database)/documents/memberships/$(bizUid + '_' + request.auth.uid);
+    }
+    function isActiveMember(bizUid) {
+      return request.auth != null
+        && exists(membershipPath(bizUid))
+        && get(membershipPath(bizUid)).data.status == 'active';
+    }
+    function isActiveWorker(bizUid) {
+      return isActiveMember(bizUid) && get(membershipPath(bizUid)).data.role == 'worker';
+    }
     match /users/{uid} {
       allow read, write: if isAdmin() || (request.auth != null && request.auth.uid == uid);
     }
@@ -23,8 +38,21 @@ service cloud.firestore {
       allow create:              if isAdmin() || isOwner(request.resource.data.gardenerUid);
     }
     match /schedules/{doc} {
-      allow read, update, delete: if isAdmin() || isOwner(resource.data.gardenerUid);
-      allow create:              if isAdmin() || isOwner(request.resource.data.gardenerUid);
+      // Owner: full. Worker: read + update ONLY jobs assigned to them, and only
+      // the job-status/photo fields (can't reassign, change the business, or see
+      // money — schedules carry denormalized clientName/serviceAddress/serviceLabel,
+      // never price). Create/delete stay owner-only.
+      allow read:   if isAdmin() || isOwner(resource.data.gardenerUid)
+                       || (isActiveWorker(resource.data.gardenerUid) && resource.data.assignedTo == request.auth.uid);
+      allow create: if isAdmin() || isOwner(request.resource.data.gardenerUid);
+      allow delete: if isAdmin() || isOwner(resource.data.gardenerUid);
+      allow update: if isAdmin() || isOwner(resource.data.gardenerUid)
+                       || (isActiveWorker(resource.data.gardenerUid)
+                            && resource.data.assignedTo == request.auth.uid
+                            && request.resource.data.gardenerUid == resource.data.gardenerUid
+                            && request.resource.data.assignedTo == resource.data.assignedTo
+                            && request.resource.data.diff(resource.data).affectedKeys()
+                                 .hasOnly(['status', 'completedAt', 'completedBy', 'photos', 'updatedAt']));
     }
     match /services/{doc} {
       allow read, update, delete: if isAdmin() || isOwner(resource.data.gardenerUid);
@@ -92,6 +120,21 @@ service cloud.firestore {
       // (name/phone/email + signature IP), so broad-authenticated reads would
       // leak across contractors — admin-only, accessed only via the server.
       allow read, write: if isAdmin();
+    }
+    match /businesses/{bizUid} {
+      // businessId === ownerUid. Owner + active members can read (name/branding);
+      // only the owner (or admin) writes.
+      allow read:  if isAdmin() || isOwner(bizUid) || isActiveMember(bizUid);
+      allow write: if isAdmin() || isOwner(bizUid);
+    }
+    match /memberships/{id} {
+      // Read: the member themselves, the business owner, or admin. Write: SERVER
+      // ONLY (admin via firestoreRest) — invites + accepts go through the Team API
+      // routes so a worker can never self-grant a role or flip their own status.
+      allow read:  if isAdmin()
+                      || (request.auth != null && request.auth.uid == resource.data.memberUid)
+                      || isOwner(resource.data.businessUid);
+      allow write: if isAdmin();
     }
   }
 }

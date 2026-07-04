@@ -13,6 +13,7 @@ import LogoUpload from '@/components/ui/LogoUpload'
 import CardPreview from './CardPreview'
 import CardAssets from './CardAssets'
 import DataExport from './DataExport'
+import TeamPanel from './TeamPanel'
 import { normalizeEsTemplate } from '@/lib/smsTemplate'
 import { isVerifiedBusiness } from '@/lib/verifiedBadge'
 import { startCardCapture } from '@/lib/cardCapture'
@@ -153,7 +154,7 @@ export default function SettingsPage() {
   // (e.g. /settings?tab=billing) land on the right tab.
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get('tab')
-    if (['profile', 'card', 'sms', 'billing'].includes(t)) setActiveTab(t)
+    if (['profile', 'card', 'sms', 'billing', 'team'].includes(t)) setActiveTab(t)
   }, [])
 
   // Returning from an "Update card on file" → confirm + refresh so the new card
@@ -178,12 +179,22 @@ export default function SettingsPage() {
     window.history.replaceState({}, '', url)
   }
 
-  const SETTINGS_TABS = [
-    { key: 'profile', en: 'Profile', es: 'Perfil' },
-    { key: 'card',    en: 'Card',    es: 'Tarjeta' },
-    { key: 'sms',     en: 'SMS',     es: 'SMS' },
-    { key: 'billing', en: 'Billing', es: 'Pagos' },
-  ]
+  // A pure crew member (crewMode, no own Stripe Connect) gets a minimal Settings:
+  // just Profile (name/language/logout) + Team (the crews they're on). None of
+  // the owner tabs (Card/SMS/Billing) apply to them.
+  const crewScoped = profile?.crewMode === true && !profile?.stripeAccountId
+  const SETTINGS_TABS = crewScoped
+    ? [
+        { key: 'profile', en: 'Profile', es: 'Perfil' },
+        { key: 'team',    en: 'Team',    es: 'Equipo' },
+      ]
+    : [
+        { key: 'profile', en: 'Profile', es: 'Perfil' },
+        { key: 'card',    en: 'Card',    es: 'Tarjeta' },
+        { key: 'sms',     en: 'SMS',     es: 'SMS' },
+        { key: 'billing', en: 'Billing', es: 'Pagos' },
+        { key: 'team',    en: 'Team',    es: 'Equipo' },
+      ]
 
   const [form,    setForm]    = useState({
     name:           '',
@@ -788,17 +799,22 @@ export default function SettingsPage() {
                     disabled={!settingsEditing}
                     value={form.headshotUrl}
                     onChange={url => setField('headshotUrl', url)}
-                    hint={lang === 'es' ? 'Se muestra en tu tarjeta.' : 'Shown on your card.'}
+                    hint={crewScoped
+                      ? (lang === 'es' ? 'Tu foto de perfil.' : 'Your profile photo.')
+                      : (lang === 'es' ? 'Se muestra en tu tarjeta.' : 'Shown on your card.')}
                   />
-                  <LogoUpload
-                    label={lang === 'es' ? 'Logo del negocio' : 'Business logo'}
-                    disabled={!settingsEditing}
-                    value={form.logoUrl}
-                    onChange={url => setField('logoUrl', url)}
-                    hint={lang === 'es'
-                      ? 'PNG, JPG o WebP. Máx 2MB.'
-                      : 'PNG, JPG, or WebP. Max 2MB.'}
-                  />
+                  {/* Business logo is owner-only — a scoped crew member has no business. */}
+                  {!crewScoped && (
+                    <LogoUpload
+                      label={lang === 'es' ? 'Logo del negocio' : 'Business logo'}
+                      disabled={!settingsEditing}
+                      value={form.logoUrl}
+                      onChange={url => setField('logoUrl', url)}
+                      hint={lang === 'es'
+                        ? 'PNG, JPG o WebP. Máx 2MB.'
+                        : 'PNG, JPG, or WebP. Max 2MB.'}
+                    />
+                  )}
                 </div>
 
                 <Input
@@ -808,13 +824,16 @@ export default function SettingsPage() {
                   placeholder="Marco Rodriguez"
                   disabled={!settingsEditing}
                 />
-                <Input
-                  label={translate('settings', 'business_name')}
-                  value={form.businessName}
-                  onChange={e => setField('businessName', e.target.value)}
-                  placeholder="Rodriguez Lawn Care"
-                  disabled={!settingsEditing}
-                />
+                {/* A scoped crew member has no business of their own — hide it. */}
+                {!crewScoped && (
+                  <Input
+                    label={translate('settings', 'business_name')}
+                    value={form.businessName}
+                    onChange={e => setField('businessName', e.target.value)}
+                    placeholder="Rodriguez Lawn Care"
+                    disabled={!settingsEditing}
+                  />
+                )}
                 <PhoneInput
                   label={translate('settings', 'phone')}
                   value={form.phone}
@@ -1872,6 +1891,13 @@ export default function SettingsPage() {
             <DataExport lang={lang} />
           </div>
           </>)}
+
+          {/* ── Team tab (Crew Tier) ── */}
+          {activeTab === 'team' && (
+            <div className="px-4 py-4 max-w-lg mx-auto">
+              <TeamPanel />
+            </div>
+          )}
 
           <div className="mt-8 pt-6 border-t border-gray-200">
             <button

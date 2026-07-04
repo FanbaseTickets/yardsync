@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { useLang } from '@/context/LangContext'
 import BottomNav from './BottomNav'
@@ -10,9 +10,22 @@ import { getGardenerProfile, saveGardenerProfile } from '@/lib/db'
 import { Leaf } from 'lucide-react'
 
 export default function AppShell({ children }) {
-  const { user, loading, signingUp, refreshProfile } = useAuth()
+  const { user, loading, signingUp, refreshProfile, profile } = useAuth()
   const { lang } = useLang()
   const router = useRouter()
+  const pathname = usePathname()
+
+  // Scoped crew member (a worker with no business of their own) may only ever be
+  // in the two places their nav exposes — Calendar + Account(/settings) — plus the
+  // join flow. Any other owner route (dashboard/clients/quotes/services/sms) sends
+  // them to /calendar. Central guard so no single page can leak the owner surface.
+  // A hustler (owns a business → has stripeAccountId) is never scoped.
+  const crewScoped = profile?.crewMode === true && !profile?.stripeAccountId
+  useEffect(() => {
+    if (!user || !crewScoped || !pathname) return
+    const allowed = ['/calendar', '/settings', '/account', '/crew'].some(p => pathname === p || pathname.startsWith(p + '/'))
+    if (!allowed) router.replace('/calendar')
+  }, [user, crewScoped, pathname, router])
 
   const [pastDue, setPastDue] = useState(false)
 
@@ -23,6 +36,16 @@ export default function AppShell({ children }) {
   const timeoutRef    = useRef(null)
   const hasChecked    = useRef(false)
   const redirectedRef = useRef(false)
+
+  // Finish a pending crew invite: a brand-new Worker who clicked an invite link
+  // signs up and lands in the app — route them to /crew/join to complete accept.
+  useEffect(() => {
+    if (!user || typeof window === 'undefined') return
+    if (window.location.pathname.startsWith('/crew/join')) return
+    let token = null
+    try { token = sessionStorage.getItem('ys_crew_join_token') } catch {}
+    if (token) router.push(`/crew/join?token=${token}`)
+  }, [user, router])
 
   // Redirect to login if not authenticated.
   //
@@ -258,7 +281,9 @@ export default function AppShell({ children }) {
         )}
         <main className="flex-1 overflow-hidden pb-14">{children}</main>
         <BottomNav />
-        <WelcomeModal />
+        {/* Owner onboarding carousel (pricing, 5.5% fee, Pro Setup) — never for a
+            scoped crew member; it's the wrong flow and leaks owner-only pricing. */}
+        {!crewScoped && <WelcomeModal />}
       </div>
     </div>
   )
