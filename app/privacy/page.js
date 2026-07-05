@@ -26,7 +26,7 @@ export default function PrivacyPage() {
           {es ? '🇺🇸 English' : '🇲🇽 Español'}
         </button>
       </div>
-      <p className="text-sm text-gray-500 mb-4">{es ? 'Última actualización: 30 de junio de 2026' : 'Last updated: June 30, 2026'}</p>
+      <p className="text-sm text-gray-500 mb-4">{es ? 'Última actualización: 5 de julio de 2026' : 'Last updated: July 5, 2026'}</p>
 
       {es && (
         <p className="text-[12px] text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3 mb-8">

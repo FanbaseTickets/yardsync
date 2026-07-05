@@ -200,6 +200,7 @@ export default function CalendarPage() {
   const [saving,          setSaving]          = useState(false)
   const [showPreview,     setShowPreview]     = useState(false)
   const [selectedAddons,  setSelectedAddons]  = useState([])
+  const [assignJobTo,     setAssignJobTo]     = useState('')   // crew member to assign at creation ('' = me/unassigned)
   const [variableInputs,  setVariableInputs]  = useState({})
 
   const [showWalkIn,       setShowWalkIn]       = useState(false)
@@ -741,14 +742,14 @@ export default function CalendarPage() {
         // name/address/service, never price — so they never read the clients
         // collection (which holds basePriceCents = money).
         serviceAddress: client?.address || '', serviceLabel: client?.packageLabel || '',
-        assignedTo: null,   // owner assigns a crew member later (Crew Team UI)
+        assignedTo: assignJobTo || null,   // assign a crew member at creation (or later via the card)
         serviceDate: toDateStr(date), time: selectedTime,
         status: 'scheduled', recurrence: repeatMode, isRecurring: repeatMode !== 'none', addons: finalAddons,
       })))
       toast.success(datesToAdd.length === 1
         ? `${translate('calendar', 'add_job')} ✓`
         : `${datesToAdd.length} ${translate('calendar', 'visits')} ${lang === 'es' ? 'programadas para' : 'scheduled for'} ${client?.name || ''}!`)
-      setShowAddModal(false); loadData()
+      setShowAddModal(false); setAssignJobTo(''); loadData()
     } catch { toast.error(translate('common', 'error')) }
     finally { setSaving(false) }
   }
@@ -1528,7 +1529,7 @@ export default function CalendarPage() {
 
       {/* Add job modal */}
       <Modal
-        open={showAddModal} onClose={() => setShowAddModal(false)}
+        open={showAddModal} onClose={() => { setShowAddModal(false); setAssignJobTo('') }}
         title={`${translate('calendar', 'add_job')} — ${selectedDay ? fmt(selectedDay, 'MMM d') : ''}`}
         footer={<>
           <Button variant="secondary" fullWidth onClick={() => setShowAddModal(false)}>{translate('common', 'cancel')}</Button>
@@ -1567,6 +1568,13 @@ export default function CalendarPage() {
               : undefined}>
             {REPEAT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </Select>
+          {/* Assign to a crew member at creation (owners with a crew). */}
+          {teamMembers.length > 0 && (
+            <Select label={lang === 'es' ? 'Asignar a' : 'Assign to'} value={assignJobTo} onChange={e => setAssignJobTo(e.target.value)}>
+              <option value="">{lang === 'es' ? 'Yo (sin asignar)' : 'Me (unassigned)'}</option>
+              {teamMembers.map(m => <option key={m.id} value={m.memberUid}>{m.inviteName || m.memberEmail || (lang === 'es' ? 'Miembro' : 'Member')}</option>)}
+            </Select>
+          )}
           {repeatMode !== 'none' && (
             <Select label={translate('calendar', 'occurrences')} value={occurrences} onChange={e => setOccurrences(e.target.value)}>
               {OCCURRENCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label} {translate('calendar', 'visits')}</option>)}

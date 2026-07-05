@@ -29,6 +29,7 @@ export default function TeamPanel() {
   const [form, setForm]       = useState({ name: '', phone: '', email: '' })
   const [inviting, setInviting] = useState(false)
   const [removingUid, setRemovingUid] = useState(null)
+  const [leavingBiz, setLeavingBiz] = useState(null)
 
   useEffect(() => { if (user) load() }, [user])
 
@@ -63,6 +64,23 @@ export default function TeamPanel() {
       load()
     } catch { toast.error(es ? 'Algo salió mal' : 'Something went wrong') }
     finally { setInviting(false) }
+  }
+
+  async function leaveCrew(businessUid, label) {
+    if (!businessUid) return
+    if (!window.confirm(es ? `¿Salir del equipo de ${label}?` : `Leave ${label}'s crew?`)) return
+    setLeavingBiz(businessUid)
+    try {
+      const idToken = await user.getIdToken()
+      const res = await fetch('/api/crew/leave', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ businessUid }),
+      })
+      if (!res.ok) { const d = await res.json(); toast.error(d.error || (es ? 'No se pudo salir' : 'Could not leave')); setLeavingBiz(null); return }
+      toast.success(es ? 'Saliste del equipo' : 'You left the crew')
+      load()
+    } catch { toast.error(es ? 'Algo salió mal' : 'Something went wrong') }
+    finally { setLeavingBiz(null) }
   }
 
   async function remove(memberUid, label) {
@@ -172,7 +190,13 @@ export default function TeamPanel() {
             {myCrews.map(m => (
               <div key={m.id} className="flex items-center gap-2 bg-brand-50 border border-brand-100 rounded-xl px-3 py-2.5">
                 <Users size={15} className="text-brand-700 flex-shrink-0" />
-                <span className="text-[14px] text-brand-800 font-medium truncate">{m.businessName || (es ? 'Negocio' : 'Business')}</span>
+                <span className="text-[14px] text-brand-800 font-medium truncate flex-1">{m.businessName || (es ? 'Negocio' : 'Business')}</span>
+                <button
+                  onClick={() => leaveCrew(m.businessUid, m.businessName || (es ? 'este negocio' : 'this business'))}
+                  disabled={leavingBiz === m.businessUid}
+                  className="text-[12px] text-gray-400 hover:text-red-500 font-medium px-2 py-1 rounded-lg hover:bg-white flex-shrink-0 disabled:opacity-50">
+                  {leavingBiz === m.businessUid ? (es ? 'Saliendo…' : 'Leaving…') : (es ? 'Salir' : 'Leave')}
+                </button>
               </div>
             ))}
           </div>
