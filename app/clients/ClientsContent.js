@@ -11,6 +11,7 @@ import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, EmptyState, Skeleton, Modal, Input, Select } from '@/components/ui'
 import { getClients, addClient, getServices, updateClient, addService } from '@/lib/db'
 import { badgePackageType } from '@/lib/clientBadge'
+import { PROPERTY_TYPES, propertyLabel } from '@/lib/propertyType'
 import { formatCents } from '@/lib/fee'
 import { validatePhone, formatPhone } from '@/lib/phone'
 import { isValidEmail, suggestEmailCorrection } from '@/lib/emailHelpers'
@@ -62,6 +63,7 @@ const DEFAULT_FORM = {
   phone:       '',
   email:       '',
   address:     '',
+  propertyType: 'residential',
   serviceId:   '',
   billingMode: 'upfront',
   notes:       '',
@@ -267,6 +269,7 @@ export default function ClientsPage() {
         phone:           formatPhone(form.phone.trim()),
         email:           form.email.trim(),
         address:         form.address.trim(),
+        propertyType:    form.propertyType || 'residential',
         notes:           form.notes.trim(),
         billingMode:     form.billingMode,
         language:        form.language,
@@ -328,6 +331,10 @@ export default function ClientsPage() {
     // Apply status filter
     if (filter === 'active')   list = list.filter(c => c.status === 'active')
     if (filter === 'inactive') list = list.filter(c => c.status !== 'active')
+    // Apply property-type filter
+    if (PROPERTY_TYPES.some(p => p.key === filter)) {
+      list = list.filter(c => (c.propertyType || 'residential') === filter)
+    }
     // Apply sort
     if (filter === 'recent') {
       list = [...list].sort((a, b) => {
@@ -342,6 +349,11 @@ export default function ClientsPage() {
   })()
   const activeCount   = nonLeadClients.filter(c => c.status === 'active').length
   const inactiveCount = nonLeadClients.filter(c => c.status !== 'active').length
+  // Property-type counts (default missing → residential), keyed by type.
+  const propertyCounts = PROPERTY_TYPES.reduce((acc, p) => {
+    acc[p.key] = nonLeadClients.filter(c => (c.propertyType || 'residential') === p.key).length
+    return acc
+  }, {})
 
   // Counts shown on each filter chip (how many clients that chip would display).
   // All/Recent show the full set (Recent is a re-sort, not a filter).
@@ -377,6 +389,7 @@ export default function ClientsPage() {
       phone:       lead.phone ? formatPhone(lead.phone) : '',
       email:       lead.email || '',
       address:     lead.address || '',
+      propertyType: lead.propertyType || 'residential',
       notes:       leadContext,
       language:    lead.language === 'es' ? 'es' : 'en',
     })
@@ -399,6 +412,7 @@ export default function ClientsPage() {
         phone:           formatPhone(form.phone.trim()),
         email:           form.email.trim(),
         address:         form.address.trim(),
+        propertyType:    form.propertyType || 'residential',
         notes:           form.notes.trim(),
         billingMode:     form.billingMode,
         language:        form.language,
@@ -509,6 +523,13 @@ export default function ClientsPage() {
               { value: 'annual',    label: lang === 'es' ? 'Anual' : 'Annual',          count: chipCounts.annual },
               { value: 'weekly',    label: lang === 'es' ? 'Semanal' : 'Weekly',        count: chipCounts.weekly },
               { value: 'biweekly',  label: lang === 'es' ? 'Quincenal' : 'Biweekly',   count: chipCounts.biweekly },
+              // Property-type chips — only when the contractor actually uses 2+
+              // types (otherwise a lone "Residential" chip is noise).
+              ...(Object.values(propertyCounts).filter(n => n > 0).length >= 2
+                ? PROPERTY_TYPES.filter(p => propertyCounts[p.key] > 0).map(p => ({
+                    value: p.key, label: lang === 'es' ? p.es : p.en, count: propertyCounts[p.key],
+                  }))
+                : []),
             ].map(chip => {
               const isLeads  = chip.value === 'leads'
               const selected = filter === chip.value
@@ -700,6 +721,11 @@ export default function ClientsPage() {
                       <div className="flex items-center gap-1 mt-0.5">
                         <MapPin size={10} className="text-gray-300 flex-shrink-0" />
                         <p className="text-[12px] text-gray-400 truncate">{client.address}</p>
+                        {client.propertyType && client.propertyType !== 'residential' && (
+                          <span className="flex-shrink-0 text-[10px] font-semibold text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                            {propertyLabel(client.propertyType, lang === 'es')}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <p className="text-[12px] text-brand-600 font-medium">
@@ -815,6 +841,32 @@ export default function ClientsPage() {
             onChange={e => setField('address', e.target.value)}
             error={errors.address}
           />
+
+          {/* Property type — segmented picker so it's a one-tap choice. */}
+          <div>
+            <label className="block text-[13px] font-medium text-gray-700 mb-1.5">
+              {lang === 'es' ? 'Tipo de propiedad' : 'Property type'}
+            </label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {PROPERTY_TYPES.map(p => {
+                const selected = (form.propertyType || 'residential') === p.key
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => setField('propertyType', p.key)}
+                    className={`text-[12.5px] font-medium py-2 rounded-lg border transition-colors ${
+                      selected
+                        ? 'bg-brand-600 text-white border-brand-600'
+                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    {lang === 'es' ? p.es : p.en}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
           <Select
             label={translate('clients', 'package') + ' *'}

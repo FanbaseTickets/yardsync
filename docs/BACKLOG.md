@@ -35,6 +35,20 @@
 | 23 | **YardSync Facebook page link on the digital card** — optional social link (facebook.com/YardSyncApp) on `/join/[slug]` + Settings→Card, alongside website, with a contact-visibility toggle; lucide `Facebook` icon, EN/ES. Low priority, own small PR — don't bundle. |
 | 24 | **3-5 selectable business-card templates** — contractor picks a card design (layout/color/typography) in Settings→Card; applies to the live `/join/[slug]` card AND the downloadable social/print assets (`lib/cardTemplate.js`). `cardTemplate` field + picker. EN/ES-safe. Own PR. |
 
+## Client data quality (Jay, 2026-07-05)
+
+| # | Item |
+|---|------|
+| 30 | **Property type on lead form + client sheet + filter chip** — add a `propertyType` field (Residential · Commercial · HOA · Other) so the contractor gets a more tailored experience per client. Surface it on: the public lead/intake form (`app/join/[slug]/request`), the Clients Add/Accept modal + client info sheet (`app/clients/[id]`), and add a **filter chip row** entry on `/clients` (mirror the Active/Inactive + New Leads chips, with counts). Zero API cost — pure field + UI. EN/ES. Own small PR. |
+| 31 | **Address autofill + "use my current location" on the lead form** — debounced address **autocomplete** that fills structured components (street/city/state/ZIP) so contractors/clients can't fat-finger the address; plus a **"Use my current location"** button (browser Geolocation → reverse geocode → fills the same fields). Populates through to the Clients page. Provider rec: **Radar** or **Mapbox** (both have generous free tiers that cover autocomplete + reverse geocode; effectively $0/mo at our volume — avoids Google Places' 2025 billing-account requirement). **Needs Jay to pick a provider + supply an API key.** Apply on the public intake form first (`app/join/[slug]/request`), then optionally the in-app Add-client address field. Own PR (has an external dependency + key). |
+
+## Crew tier — follow-on (Jay, 2026-07-05)
+
+| # | Item |
+|---|------|
+| 32 | **Landing page — incorporate the Crew tier.** Spruce up `app/(landing)/page.js` to sell crew: add crew members (Owner + Workers), workers see only their assigned jobs + address + Navigate (no money), per-seat pricing ($15/mo/active member on top of the base), the "hustler" story (own your business AND work others' crews). New section + pricing mention + EN/ES parity. Own PR. |
+| 33 | **Admin/testing comp path for prod** — a clean way to give a dedicated prod TEST account an `active` subscription at **$0** so paid/crew features can be tested live without real charges. Options: (a) small admin action that comps via the existing `YARDSYNC_FREE` 100%-off coupon on a real Stripe sub (idiomatic; seat proration also comps to $0 if the coupon is whole-subscription, not price-restricted), or (b) an internal tooling script that sets `subscriptionStatus:'active'` + a real `stripeSubscriptionId` on a test account. Recurring pain point — testing paid features in prod currently has no free path. |
+
 ## Cowork-session findings (2026-07, VS-Claude review)
 
 | # | Item |

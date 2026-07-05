@@ -128,6 +128,15 @@ Product gaps found once the scoped worker experience was verified end-to-end (al
 
 > Grouping: #1 + #2 + #5 are one coherent "team member card that funnels leads to the owner" feature. #3 + #4 are worker-calendar UX. #4 is the cheapest — do it first / alongside Phase 1c.
 
+### 3-member test findings (Jay/Cowork, 2026-07-05)
+Full 3-member assignment + isolation test PASSED (each member sees only their own job; hustler dual-account keeps full nav + scoped job card; seat billing verified in Stripe at **qty 3 = $45/mo**). Follow-ups found:
+6. **Surface the crew-seat line in Settings → Billing.** Today the "N × $15 = $X/mo" only shows on the Team tab (display estimate); the Billing tab shows just the $39 base and its annual-upgrade math ignores seats. The seat item IS on the Stripe sub (verified) — the app just doesn't render it. Add a real "Crew seats: N × $15 = $X/mo" line to Billing so the contractor sees their true monthly. (Real transparency gap.)
+7. **"Leave crew" for a member (self-removal).** Currently only the owner can remove a member; a member's Team tab is read-only (static "Crews you're on" chip + the "Start your own business" on-ramp). Add a member-initiated "Leave crew" that soft-removes the membership + `syncCrewSeats` (decrement the owner's seat). Recommended — expected UX.
+8. **Multi-assign a job to several members / the whole crew.** Allow "All" / checkbox selection so 2–3 members (or the entire crew) can be put on one job (`assignedTo` → array, or a companion `assignedTeam[]`; keep the single-assign path working). Rules + worker read must treat "assigned to me" as membership in the set.
+9. **Per-member monthly completed-jobs summary (owner-side).** A chart/bar of how many jobs each member completed that month, to inform pay. Reads `schedules` where `assignedTo == member && status == completed` in the month. Pairs with the "how do I pay them" question.
+
+Dev cleanup owed (test data only): stale "Crew Kid" pending invite on cctest's crew; a few leftover assigned jobs (Jul 3/4/10) — sweep with the pre-launch teardown.
+
 ## Phase 1d / Later
 - **Assign clients to specific team members** (client "ownership" by a member) for a more personable feel — the member always services "their" clients. Bigger (client↔member relationship + scheduling defaults). Backlog.
 
