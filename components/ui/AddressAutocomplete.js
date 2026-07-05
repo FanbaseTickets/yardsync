@@ -28,6 +28,7 @@ export default function AddressAutocomplete({
   className = 'form-input',
   maxLength = 200,
   autoComplete = 'street-address',
+  required = false,
 }) {
   const [suggestions, setSuggestions] = useState([])
   const [open, setOpen]       = useState(false)
@@ -53,7 +54,7 @@ export default function AddressAutocomplete({
         type="text" name={name} id={id} value={value}
         onChange={e => onChange(e.target.value)}
         className={className} placeholder={placeholder}
-        autoComplete={autoComplete} maxLength={maxLength}
+        autoComplete={autoComplete} maxLength={maxLength} required={required}
       />
     )
   }
@@ -128,7 +129,7 @@ export default function AddressAutocomplete({
           onChange={handleInput}
           onFocus={() => { if (suggestions.length) setOpen(true) }}
           className={className} placeholder={placeholder}
-          autoComplete="off" maxLength={maxLength}
+          autoComplete="off" maxLength={maxLength} required={required}
         />
         {loading && <Loader2 size={15} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" />}
       </div>

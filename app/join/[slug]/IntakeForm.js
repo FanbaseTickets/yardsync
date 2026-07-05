@@ -52,6 +52,7 @@ const STRINGS = {
     errPhoneInvalid:   "That phone number doesn't look right.",
     errEmailInvalid:   "That email doesn't look right.",
     confirmSkipAddress: "Without an address we can't visit or quote you. Skip anyway?",
+    errAddressRequired: 'Please enter the service address.',
     errRateLimited:    'Please try again in a few minutes.',
     errGeneric:        'Something went wrong. Please try again or call us.',
     confirmThanks:     'Thanks! {businessName} will be in touch.',
@@ -89,6 +90,7 @@ const STRINGS = {
     errPhoneInvalid:   'Ese número de teléfono no parece correcto.',
     errEmailInvalid:   'Ese correo no parece correcto.',
     confirmSkipAddress: 'Sin una dirección no podemos visitarlo ni cotizarle. ¿Omitir de todos modos?',
+    errAddressRequired: 'Por favor ingrese la dirección de servicio.',
     errRateLimited:    'Por favor intente de nuevo en unos minutos.',
     errGeneric:        'Algo salió mal. Intente de nuevo o llámenos.',
     confirmThanks:     '¡Gracias! {businessName} se pondrá en contacto.',
@@ -189,6 +191,8 @@ export default function IntakeForm({ slug, owner, services, initialLang, backLin
     const phoneErr = phoneErrorFor(phone)
     if (phoneErr) e.phone = phoneErr
     if (email && !isValidEmailish(email)) e.email = t.errEmailInvalid
+    // Address is now REQUIRED (parity with the owner's Accept-lead modal).
+    if (!address.trim()) e.address = t.errAddressRequired
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -197,11 +201,6 @@ export default function IntakeForm({ slug, owner, services, initialLang, backLin
     ev?.preventDefault?.()
     if (submitting) return
     if (!validateClientSide()) return
-
-    // Soft-required address — confirm before submitting if empty
-    if (!address.trim()) {
-      if (!window.confirm(t.confirmSkipAddress)) return
-    }
 
     setSubmitting(true)
     setServerError(null)
@@ -341,7 +340,7 @@ export default function IntakeForm({ slug, owner, services, initialLang, backLin
           />
         </Field>
 
-        <Field label={t.address} error={errors.address}>
+        <Field label={t.address + ' *'} error={errors.address}>
           <AddressAutocomplete
             name="address"
             value={address}
@@ -349,6 +348,7 @@ export default function IntakeForm({ slug, owner, services, initialLang, backLin
             placeholder={t.addressPlaceholder}
             es={lang === 'es'}
             maxLength={200}
+            required
           />
         </Field>
 

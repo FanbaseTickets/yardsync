@@ -222,6 +222,7 @@ export async function POST(request) {
         : jsonResponse({ error: 'email_invalid' }, 400)
     }
     const address         = String(body.address || '').trim()
+    if (!address) return jsonResponse({ error: 'address_required' }, 400)
     const note            = String(body.note || '').trim()
     const serviceInterest = String(body.serviceInterest || '').trim()
     // Property type — validate against the known set, default residential.
