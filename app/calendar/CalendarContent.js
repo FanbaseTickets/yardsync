@@ -412,9 +412,28 @@ export default function CalendarPage() {
         if (!schedule.serviceLabel && c.packageLabel) patch.serviceLabel = c.packageLabel
       }
       await updateSchedule(schedule.id, patch)
+      // Notify the newly-assigned member (push, best-effort — non-blocking).
+      if (memberUid) notifyAssigned(memberUid, {
+        scheduleId:     schedule.id,
+        serviceDate:    schedule.serviceDate,
+        serviceLabel:   patch.serviceLabel   || schedule.serviceLabel   || '',
+        serviceAddress: patch.serviceAddress || schedule.serviceAddress || '',
+      })
       toast.success(memberUid ? (lang === 'es' ? 'Asignado' : 'Assigned') : (lang === 'es' ? 'Sin asignar' : 'Unassigned'))
       loadData()
     } catch { toast.error(translate('common', 'error')) }
+  }
+
+  // Fire the new-job push to a crew member (best-effort; the assignment already
+  // succeeded, so a push failure is silent).
+  async function notifyAssigned(memberUid, payload) {
+    try {
+      const idToken = await user.getIdToken()
+      fetch('/api/crew/notify-assigned', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ memberUid, ...payload }),
+      }).catch(() => {})
+    } catch {}
   }
 
   function handleClientSelect(clientId) {
@@ -749,6 +768,13 @@ export default function CalendarPage() {
         serviceDate: toDateStr(date), time: selectedTime,
         status: 'scheduled', recurrence: repeatMode, isRecurring: repeatMode !== 'none', addons: finalAddons,
       })))
+      // Notify the member if the job(s) were assigned to them at creation.
+      if (assignJobTo) notifyAssigned(assignJobTo, {
+        serviceDate:    toDateStr(datesToAdd[0]),
+        serviceLabel:   client?.packageLabel || '',
+        serviceAddress: client?.address || '',
+        count:          datesToAdd.length,
+      })
       toast.success(datesToAdd.length === 1
         ? `${translate('calendar', 'add_job')} ✓`
         : `${datesToAdd.length} ${translate('calendar', 'visits')} ${lang === 'es' ? 'programadas para' : 'scheduled for'} ${client?.name || ''}!`)

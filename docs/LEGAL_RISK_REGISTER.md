@@ -3,9 +3,10 @@
 > Single source of truth for "how exposed are we right now." One row per risk.
 > Maintained by the legal-lead audit. **Not legal advice; residual=yes rows require a human lawyer.**
 > Last full audit: 2026-07-05 (Crew Tier + Geoapify pass). Prior: 2026-06-30 (first whole-surface pass, post-Quotes launch).
+> Market-alignment pass: 2026-07-05 (interim benchmarking of residuals to comparable-product norms — see bottom section).
 >
-> **Status legend:** Addressed-in-language · Partial · Gap
-> **Residual?** yes = language cannot fully close it; a licensed attorney must opine.
+> **Status legend:** Addressed-in-language · Partial · Gap · **Market-aligned (interim)** = language now matches a documented comparable-product norm as an interim posture, still `PENDING LEGAL REVIEW`.
+> **Residual?** yes = language cannot fully close it; a licensed attorney must opine. "Market-aligned (interim)" narrows the gap but does NOT clear a residual=yes row — it only means a diligent non-lawyer has benchmarked us to industry practice.
 
 | # | Area | What it is | Sev | Status | Where addressed | Residual? (lawyer-only question) |
 |---|------|-----------|-----|--------|-----------------|----------------------------------|
