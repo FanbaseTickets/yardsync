@@ -270,6 +270,27 @@ export default function CalendarPage() {
     loadData()
   }, [user, currentDate])
 
+  // Deep-link from a push "Mark complete" action: /calendar?complete=<scheduleId>
+  // marks that assigned job done here (the authenticated app performs the write;
+  // the service worker can't hold the user's auth). One-shot.
+  const completeHandledRef = useRef(false)
+  useEffect(() => {
+    if (completeHandledRef.current || loading || !user) return
+    const cid = searchParams?.get('complete')
+    if (!cid) return
+    const sched = schedules.find(s => s.id === cid)
+    if (!sched) return
+    completeHandledRef.current = true
+    ;(async () => {
+      try {
+        await updateSchedule(cid, { status: 'completed', completedAt: new Date().toISOString(), completedBy: user.uid })
+        toast.success(lang === 'es' ? 'Trabajo completado ✓' : 'Job completed ✓')
+        loadData()
+      } catch { toast.error(translate('common', 'error')) }
+      try { window.history.replaceState({}, '', '/calendar') } catch {}
+    })()
+  }, [loading, schedules, user, searchParams])
+
   // Deep-link: /calendar?client=<id> opens the Add Job modal pre-filled with
   // that client and today's date. Used by the "Schedule visits" CTA on the
   // client detail page so contractors can schedule a visit without manually
