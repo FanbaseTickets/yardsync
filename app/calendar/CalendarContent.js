@@ -779,7 +779,7 @@ export default function CalendarPage() {
     setSaving(true)
     try {
       const finalAddons = buildFinalAddons(selectedAddons, variableInputs)
-      await Promise.all(datesToAdd.map(date => addSchedule(user.uid, {
+      const createdRefs = await Promise.all(datesToAdd.map(date => addSchedule(user.uid, {
         clientId: selectedClient, clientName: client?.name || '',
         // Crew denormalization: a Worker sees the job from the schedule alone —
         // name/address/service, never price — so they never read the clients
@@ -789,12 +789,15 @@ export default function CalendarPage() {
         serviceDate: toDateStr(date), time: selectedTime,
         status: 'scheduled', recurrence: repeatMode, isRecurring: repeatMode !== 'none', addons: finalAddons,
       })))
-      // Notify the member if the job(s) were assigned to them at creation.
+      // Notify the member if the job(s) were assigned to them at creation. Pass the
+      // scheduleId for a SINGLE job so the push carries the Mark-complete action too
+      // (parity with the expanded-card assign); a batch omits it (no single job).
       if (assignJobTo) notifyAssigned(assignJobTo, {
         serviceDate:    toDateStr(datesToAdd[0]),
         serviceLabel:   client?.packageLabel || '',
         serviceAddress: client?.address || '',
         count:          datesToAdd.length,
+        scheduleId:     datesToAdd.length === 1 ? createdRefs[0]?.id : undefined,
       })
       toast.success(datesToAdd.length === 1
         ? `${translate('calendar', 'add_job')} ✓`
