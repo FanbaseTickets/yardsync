@@ -36,6 +36,7 @@ export async function POST(req) {
     const inviteId = await createDocument('memberships', {
       businessUid:  caller.uid,          // businessId === ownerUid
       businessName: biz.name || 'YardSync',
+      businessSlug: owner?.data?.publicSlug || '',   // for the member's crew card URL
       memberUid:    null,                // set on accept
       role:         'worker',
       status:       'invited',

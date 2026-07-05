@@ -31,6 +31,7 @@ export async function POST(req) {
       await setDocument('memberships', memId, {
         businessUid:  invite.businessUid,
         businessName: invite.businessName || '',
+        businessSlug: invite.businessSlug || '',   // for the member's crew card URL
         memberUid:    caller.uid,
         memberEmail:  caller.email || '',
         inviteName:   invite.inviteName || '',   // friendly name for the team list + assign dropdown

@@ -236,18 +236,37 @@ export default function TeamPanel() {
         <div>
           <h3 className="text-[15px] font-semibold text-gray-900 mb-2">{es ? 'Equipos a los que perteneces' : "Crews you're on"}</h3>
           <div className="space-y-2">
-            {myCrews.map(m => (
-              <div key={m.id} className="flex items-center gap-2 bg-brand-50 border border-brand-100 rounded-xl px-3 py-2.5">
-                <Users size={15} className="text-brand-700 flex-shrink-0" />
-                <span className="text-[14px] text-brand-800 font-medium truncate flex-1">{m.businessName || (es ? 'Negocio' : 'Business')}</span>
-                <button
-                  onClick={() => leaveCrew(m.businessUid, m.businessName || (es ? 'este negocio' : 'this business'))}
-                  disabled={leavingBiz === m.businessUid}
-                  className="text-[12px] text-gray-400 hover:text-red-500 font-medium px-2 py-1 rounded-lg hover:bg-white flex-shrink-0 disabled:opacity-50">
-                  {leavingBiz === m.businessUid ? (es ? 'Saliendo…' : 'Leaving…') : (es ? 'Salir' : 'Leave')}
-                </button>
-              </div>
-            ))}
+            {myCrews.map(m => {
+              const cardUrl = m.businessSlug ? `${typeof window !== 'undefined' ? window.location.origin : ''}/join/${m.businessSlug}/team/${user.uid}` : null
+              return (
+                <div key={m.id} className="bg-brand-50 border border-brand-100 rounded-xl">
+                  <div className="flex items-center gap-2 px-3 py-2.5">
+                    <Users size={15} className="text-brand-700 flex-shrink-0" />
+                    <span className="text-[14px] text-brand-800 font-medium truncate flex-1">{m.businessName || (es ? 'Negocio' : 'Business')}</span>
+                    <button
+                      onClick={() => leaveCrew(m.businessUid, m.businessName || (es ? 'este negocio' : 'this business'))}
+                      disabled={leavingBiz === m.businessUid}
+                      className="text-[12px] text-gray-400 hover:text-red-500 font-medium px-2 py-1 rounded-lg hover:bg-white flex-shrink-0 disabled:opacity-50">
+                      {leavingBiz === m.businessUid ? (es ? 'Saliendo…' : 'Leaving…') : (es ? 'Salir' : 'Leave')}
+                    </button>
+                  </div>
+                  {/* Your crew card — leads from it go straight to the owner. */}
+                  {cardUrl && (
+                    <div className="flex items-center gap-2 px-3 pb-2.5 -mt-0.5">
+                      <a href={cardUrl} target="_blank" rel="noopener noreferrer" className="text-[12px] text-brand-700 hover:text-brand-800 font-medium">
+                        {es ? 'Ver mi tarjeta' : 'View my card'}
+                      </a>
+                      <span className="text-gray-300">·</span>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(cardUrl).then(() => toast.success(es ? 'Enlace copiado' : 'Link copied'), () => {})}
+                        className="text-[12px] text-brand-700 hover:text-brand-800 font-medium">
+                        {es ? 'Copiar enlace' : 'Copy link'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
