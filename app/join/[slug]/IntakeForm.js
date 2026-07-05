@@ -23,6 +23,7 @@
 
 import { useState } from 'react'
 import { PROPERTY_TYPES } from '@/lib/propertyType'
+import AddressAutocomplete from '@/components/ui/AddressAutocomplete'
 import { Phone, MessageSquare, BookmarkPlus } from 'lucide-react'
 
 const STRINGS = {
@@ -341,14 +342,12 @@ export default function IntakeForm({ slug, owner, services, initialLang, backLin
         </Field>
 
         <Field label={t.address} error={errors.address}>
-          <input
-            type="text"
+          <AddressAutocomplete
             name="address"
             value={address}
-            onChange={e => setAddress(e.target.value)}
-            className="form-input"
-            autoComplete="street-address"
+            onChange={setAddress}
             placeholder={t.addressPlaceholder}
+            es={lang === 'es'}
             maxLength={200}
           />
         </Field>
