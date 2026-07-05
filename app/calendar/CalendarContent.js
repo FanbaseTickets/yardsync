@@ -42,6 +42,10 @@ function addWeeks(date, n)  { const d = new Date(date); d.setDate(d.getDate() + 
 function addMonths(date, n) { const d = new Date(date); d.setMonth(d.getMonth() + n); return d }
 function addDays(date, n)   { const d = new Date(date); d.setDate(d.getDate() + n); return d }
 
+// Shared color palette for crew jobs (crews I work in) + team-member coloring
+// (my jobs assigned to a member). A member's saved memberColor overrides the default.
+const CREW_PALETTE = ['#6366f1', '#ec4899', '#f59e0b', '#0ea5e9', '#8b5cf6', '#ef4444', '#10b981', '#f97316']
+
 const TIMES = [
   '6:00 AM','6:30 AM','7:00 AM','7:30 AM','8:00 AM','8:30 AM','9:00 AM','9:30 AM',
   '10:00 AM','10:30 AM','11:00 AM','11:30 AM','12:00 PM','12:30 PM',
@@ -366,8 +370,7 @@ export default function CalendarPage() {
       try {
         const others = (await getMyCrews(user.uid)).filter(m => m.businessUid !== user.uid)
         if (others.length) {
-          const palette = ['#6366f1', '#ec4899', '#f59e0b', '#0ea5e9', '#8b5cf6', '#ef4444']
-          others.forEach((m, i) => { colorMap[m.businessUid] = { color: palette[i % palette.length], name: m.businessName || 'Crew' } })
+          others.forEach((m, i) => { colorMap[m.businessUid] = { color: CREW_PALETTE[i % CREW_PALETTE.length], name: m.businessName || 'Crew' } })
           const crewScheds = (await Promise.all(
             others.map(m => getWorkerSchedules(m.businessUid, user.uid, toDateStr(monthStart), toDateStr(monthEnd)))
           )).flat()
@@ -1189,6 +1192,14 @@ export default function CalendarPage() {
   const selectedClientObj     = clients.find(c => c.id === selectedClient)
   const totalJobsThisMonth    = schedules.length
 
+  // Owner calendar member-colors: map each crew member → their color (their saved
+  // memberColor, else a palette default) so the owner sees at a glance who's on
+  // each job. Used to tint the owner's OWN jobs that are assignedTo a member.
+  const memberColorMap = Object.fromEntries(teamMembers.map((m, i) => [
+    m.memberUid,
+    { color: m.memberColor || CREW_PALETTE[i % CREW_PALETTE.length], name: m.inviteName || m.memberEmail || (lang === 'es' ? 'Miembro' : 'Member') },
+  ]))
+
   // ── Reschedule preview derivations ───────────────────────────────────────
   // The set of jobs the current reschedule will move, how many clients will
   // actually be texted (valid phone only), and a live preview of the exact
@@ -1258,6 +1269,17 @@ export default function CalendarPage() {
               {Object.values(crewColorMap).map((c, i) => (
                 <span key={i} className="inline-flex items-center gap-1 text-gray-600"><span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c.color }} /> {c.name}</span>
               ))}
+            </div>
+          )}
+
+          {/* Team-member legend — for owners who assign jobs to their crew. */}
+          {teamMembers.length > 0 && (
+            <div className="flex items-center gap-3 flex-wrap text-[11px]">
+              <span className="inline-flex items-center gap-1 text-gray-600"><span className="w-2.5 h-2.5 rounded-full bg-brand-500" /> {lang === 'es' ? 'Yo' : 'Me'}</span>
+              {teamMembers.map((m, i) => {
+                const c = memberColorMap[m.memberUid]
+                return <span key={m.id} className="inline-flex items-center gap-1 text-gray-600"><span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c.color }} /> {c.name}</span>
+              })}
             </div>
           )}
 
@@ -1368,6 +1390,10 @@ export default function CalendarPage() {
                     // Crew job (assigned to me in someone else's business): no local
                     // client doc — render from the denormalized fields + crew color.
                     const crew = (schedule.gardenerUid && user?.uid && schedule.gardenerUid !== user.uid) ? crewColorMap[schedule.gardenerUid] : null
+                    // My OWN job assigned to a crew member → tint by that member's
+                    // color (owner keeps full controls; this is display-only).
+                    const assignedMember = (!crew && schedule.assignedTo) ? memberColorMap[schedule.assignedTo] : null
+                    const dotStyle = crew ? { backgroundColor: crew.color } : (assignedMember ? { backgroundColor: assignedMember.color } : undefined)
                     return (
                       <div key={schedule.id} data-schedule-id={schedule.id}>
                       <Card padding={false} className={draggingId === schedule.id ? 'opacity-60 ring-2 ring-brand-400' : ''}>
@@ -1389,7 +1415,7 @@ export default function CalendarPage() {
                           onClick={() => setExpandedId(isOpen ? null : schedule.id)}
                           className="flex-1 w-full p-3 flex items-center gap-3 text-left"
                         >
-                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${crew ? '' : (done ? 'bg-brand-500' : 'bg-amber-400')}`} style={crew ? { backgroundColor: crew.color } : undefined} />
+                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${(crew || assignedMember) ? '' : (done ? 'bg-brand-500' : 'bg-amber-400')}`} style={dotStyle} />
                           <div className="flex-1 min-w-0">
                             <p className={`text-[13px] font-medium ${done ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
                               {client?.name || schedule.clientName}
@@ -1401,6 +1427,11 @@ export default function CalendarPage() {
                               {crew && (
                                 <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: crew.color + '22', color: crew.color }}>
                                   {crew.name}
+                                </span>
+                              )}
+                              {assignedMember && (
+                                <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: assignedMember.color + '22', color: assignedMember.color }}>
+                                  {assignedMember.name}
                                 </span>
                               )}
                             </p>

@@ -2,7 +2,7 @@
 
 > Single source of truth for "how exposed are we right now." One row per risk.
 > Maintained by the legal-lead audit. **Not legal advice; residual=yes rows require a human lawyer.**
-> Last full audit: 2026-06-30 (first whole-surface pass, post-Quotes launch).
+> Last full audit: 2026-07-05 (Crew Tier + Geoapify pass). Prior: 2026-06-30 (first whole-surface pass, post-Quotes launch).
 >
 > **Status legend:** Addressed-in-language · Partial · Gap
 > **Residual?** yes = language cannot fully close it; a licensed attorney must opine.
@@ -29,20 +29,39 @@
 | 18 | Arbitration + class waiver | Terms §15: binding AAA arbitration, Bexar County TX, class-action waiver. | Med | Addressed-in-language | Terms §15 | **yes** — enforceability of the arbitration clause + class waiver against *consumers* (clients who e-sign/pay), who never separately assent to the Terms — this is an enforceability opinion only a lawyer can give. |
 | 19 | Early Adopter Pricing Lock | Terms §6 lifetime 5.5% lock w/ forfeiture + grace windows. Flagged for counsel in backlog. | Low | Addressed-in-language | Terms §6 | **yes** — is a "lifetime" price-lock promise enforceable / does it create a durable contractual liability we intend? (already in backlog) |
 | 20 | Client assent to Terms | Clients pay + e-sign but are never presented the Terms/Privacy as a click-through. | Med | Addressed-in-language (2026-06-30) | Pay page (`PayContent.js`) shows "By paying, you agree to Terms & Privacy" w/ links; quote e-sign mandate (`QuoteContent.js`) links Terms + Privacy inside the "I agree" checkbox (affirmative click-through) | **yes** — whether this notice/click-through is legally sufficient to bind the *client* to the MoR disclaimer, non-refundable fee, and arbitration/class-waiver is an enforceability opinion only a lawyer can give (esp. arbitration against consumers — see #18). |
+| 21 | Crew per-seat billing (NEW money mechanic) | $15/mo per active worker, additive to $39/mo base. Monthly base → seats ride the same monthly sub (combined charge); annual base → seats on a separate dedicated MONTHLY sub. Prorated on add/remove; recurring until member removed. Code confirms `SEAT_PRICE_CENTS=1500`, interval-aware sync, dedup, proration. **Was a GAP — no seat-pricing language.** Added Terms §4 crew-seats para this audit; confirms seat price is additive + NOT covered by the §6 Early-Adopter 5.5% lock. | High | Addressed-in-language (new) | Terms §4 (crew-seats para); code `lib/crewBilling.js:62`, `app/api/crew/accept/route.js:61`, `app/api/crew/remove/route.js:24` | **yes** — is a recurring per-seat add-on that auto-fires on invite (no separate second confirmation) + bills monthly even on an annual plan adequately disclosed under ROSCA + state auto-renewal (ARL) rules? Ties to #4/#9. |
+| 22 | Crew/worker as user (NEW access mechanic) | Owner invites workers by phone/email; worker gets a scoped account seeing only assigned jobs (client name + service address + service label) — no money, no client book, no settings. Multi-membership ("hustler") allowed. Invite SMS routes through the A2P Messaging Service with STOP line. Terms §2/§4/§10 now describe worker accounts + put owner responsible for their crew's access/use. Privacy §2/§3 disclose worker-account data + minimal client-data exposure. | Med | Addressed-in-language (new) | Terms §2, §4 (crew-seats), §10 (crew para); Privacy §2, §3; code `app/api/crew/invite/route.js`, `app/api/crew/accept/route.js`, `docs/CREW_TIER_SPEC.md` (rules matrix) | **yes** — is "owner is responsible for their workers' acts/omissions as if their own" enforceable, and does a worker seeing a client's name+address (client never consented to that specific disclosure) create any client-side privacy exposure? Also: crew-invite SMS is a relationship/transactional message — confirm it needs no separate A2P campaign consent. |
+| 23 | Geoapify sub-processor + precise geolocation (NEW subprocessor + data type) | Intake form sends typed address text to Geoapify (autocomplete) and, on optional user-tapped "Use my current location," sends device precise coordinates to Geoapify (reverse geocode). **YardSync stores only the resolved address string — intake form passes no `onResolve`, so raw lat/lng never hits YardSync servers.** Privacy §2/§3/§6/§14 (new) disclose Geoapify, the typed-address + optional precise-location flow, optionality + manual entry, no-coordinate-retention, and link Geoapify's privacy terms. | Med | Addressed-in-language (new) | Privacy §2, §3, §6 (subprocessor list), §14 (new); code `components/ui/AddressAutocomplete.js:68,109`, `app/join/[slug]/IntakeForm.js:344` (no `onResolve`) | **yes** — under TX TDPSA precise geolocation (within 1,750 ft) is **sensitive data requiring opt-in consent**; is the user-initiated button + native browser permission prompt a sufficient "clear affirmative act," or is an explicit in-form consent notice at the point of capture required? Also confirm YardSync's role (facilitator vs controller) for coordinates it never stores. |
+| 24 | Property type field (minor new data point) | Residential/Commercial/HOA/Other on lead + client record. Low-sensitivity business attribute. Added to Privacy §2 data-collected list. | Low | Addressed-in-language (new) | Privacy §2; code `lib/propertyType.js`, `app/api/join/submit/route.js:230` | no |
 
-## Changed this audit (2026-06-30)
+## Changed this audit (2026-07-05 — Crew Tier + Geoapify)
+- **Terms §2** — service description now lists team/crew management with scoped worker accounts + intake address autocomplete/optional device location (EN+ES).
+- **Terms §4** — added **crew-seats** paragraph: $15/mo per active worker, monthly cadence even on annual base, proration, recurring-until-removed, additive to + not part of the 5.5% fee / Early-Adopter lock (EN+ES, `PENDING LEGAL REVIEW`). Closes gap #21.
+- **Terms §10** — added **crew/worker accounts + owner-responsibility** paragraph: worker sees only assigned-job name/address/service, owner responsible for their crew's access/use (EN+ES, `PENDING LEGAL REVIEW`). Closes gap #22 (language portion).
+- **Privacy §2** — added property type, precise-geolocation-via-Geoapify (optional, coordinates not retained), and crew/worker account data to the collected-data list.
+- **Privacy §3** — added Geoapify address-lookup + crew-assignment use purposes.
+- **Privacy §6** — added **Geoapify** to the subprocessor list (Firebase, Stripe, Twilio, Anthropic, Geoapify).
+- **Privacy §14 (new)** — dedicated Geoapify / precise-geolocation section: typed-address + optional device-location flow, optionality + manual entry always available, YardSync stores only resolved address text (no raw coordinates), links Geoapify's privacy terms (EN+ES, `PENDING LEGAL REVIEW`). Closes gap #23 (disclosure portion).
+- **Date bump** — both pages → July 5, 2026.
+- **EN/ES parity** — all new clauses shipped in BOTH languages; no Spanish gap introduced this audit. (Note: legal pages carry the standing "English governs" disclaimer.)
+
+### Prior audit (2026-06-30)
 - **Terms §5** — added 1099-K / tax-responsibility paragraph (EN+ES), `PENDING LEGAL REVIEW`. Closes gap #8.
 - **Pay page** (`app/pay/[paymentIntentId]/PayContent.js`) — recurring consent copy now states variable amount + named cancel method (reply CANCEL / cancel link). Strengthens #4.
 - **Client-card Checkout** (`app/api/stripe/client-card/route.js`) — `custom_text` mandate now states frequency + variable amount + 3-day advance notice + cancel method. Strengthens #4.
 
 ## Prioritized remaining GAPS (language-closable or ops)
-1. **#20 client-facing assent** (Med) — pay + quote-accept surfaces have no click-through to Terms/Privacy. Hand to terms-reviewer: draft a short client-facing "By paying/accepting you agree to YardSync's Terms & Privacy" line + link at both surfaces.
-2. **#15 DPA / CCPA service-provider addendum** (Med) — hand to privacy-reviewer once a rollout state opens; lawyer-gated for adequacy.
-3. **#2 live test refund** (High, ops not legal) — verify 5.5% retention empirically before scaled outreach.
+1. **#23 precise-geolocation consent at point of capture** (Med, product+legal) — TDPSA treats precise geolocation as *sensitive data needing opt-in consent*. Disclosure is now in Privacy §14, but the "Use my current location" button (`AddressAutocomplete.js`) has no inline consent notice beyond the native browser prompt. Recommend a one-line in-form notice at the button ("Sharing your location sends it to our mapping provider, Geoapify") — this is app copy, NOT changed here (out of scope). Lawyer confirms whether required.
+2. **#15 DPA / CCPA service-provider addendum** (Med) — now also must flow down to **Geoapify** (new subprocessor). Hand to privacy-reviewer once a rollout state opens; lawyer-gated for adequacy.
+3. **#20 client-facing assent** (Med) — pay + quote-accept surfaces have a notice/click-through; still lawyer-gated for binding effect on consumers.
+4. **#2 live test refund** (High, ops not legal) — verify 5.5% retention empirically before scaled outreach.
+5. **#21 seat-billing empirical check** (ops) — verified in Stripe at qty 3 = $45/mo (CREW_TIER_SPEC 3-member test). Confirm the annual-base→dedicated-monthly-seat-sub path + proration on one live remove before scaled crew rollout.
 
 ## RESIDUAL — human lawyer required before scaled outreach
-Rows #1, #3, #4, #6, #8, #9, #14, #15, #18, #19, #20 marked residual=yes above. The load-bearing four:
+Rows #1, #3, #4, #6, #8, #9, #14, #15, #18, #19, #20, #21, #22, #23 marked residual=yes above. The load-bearing items:
 - **MoR / money-transmission** (#1) — direct-charge structure sufficiency across TX + rollout states.
 - **Surcharge / fee-inclusive** (#3) — state + card-network legality of the "build the fee into the price" model.
-- **Recurring authorization** (#4, #9) — sufficiency under card-network MIT + state ARL / negative-option law.
-- **Client binding** (#20, #18, #6) — whether our disclaimers actually bind the *client* absent a client-facing assent surface, and arbitration/e-sign enforceability against consumers.
+- **Recurring authorization** (#4, #9, #21) — sufficiency under card-network MIT + state ARL / negative-option law; now also covers the **crew per-seat auto-charge** that fires on invite and bills monthly even on an annual base plan.
+- **Client binding** (#20, #18, #6) — whether our disclaimers actually bind the *client* absent a robust client-facing assent surface, and arbitration/e-sign enforceability against consumers.
+- **Precise geolocation consent** (#23, NEW) — TDPSA classifies precise geolocation as sensitive data needing opt-in consent; does the user-tapped button + native browser prompt qualify, or is an explicit in-form consent notice required? Also confirm YardSync's role for coordinates it never stores (facilitator vs controller).
+- **Worker-as-user liability** (#22, NEW) — enforceability of "owner responsible for its workers' acts/omissions," and any client-side privacy exposure from a worker seeing a client's name + service address that the client never specifically consented to share with a third party.
