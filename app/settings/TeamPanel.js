@@ -69,7 +69,11 @@ export default function TeamPanel() {
         const monthEnd   = `${y}-${pad(mo + 1)}-${pad(new Date(y, mo + 1, 0).getDate())}`
         const scheds = await getSchedules(user.uid, monthStart, monthEnd)
         const stats = {}
-        scheds.forEach(s => { if (s.status === 'completed' && s.assignedTo) stats[s.assignedTo] = (stats[s.assignedTo] || 0) + 1 })
+        scheds.forEach(s => {
+          if (s.status !== 'completed') return
+          const members = (Array.isArray(s.assignedTeam) && s.assignedTeam.length) ? s.assignedTeam : (s.assignedTo ? [s.assignedTo] : [])
+          members.filter(uid => uid !== user.uid).forEach(uid => { stats[uid] = (stats[uid] || 0) + 1 })
+        })
         setMonthStats(stats)
       } catch {}
     } catch { /* rules may not be deployed yet — show empty rather than crash */ }

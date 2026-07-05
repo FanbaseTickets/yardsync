@@ -49,6 +49,19 @@
 | 32 | **Landing page — incorporate the Crew tier.** Spruce up `app/(landing)/page.js` to sell crew: add crew members (Owner + Workers), workers see only their assigned jobs + address + Navigate (no money), per-seat pricing ($15/mo/active member on top of the base), the "hustler" story (own your business AND work others' crews). New section + pricing mention + EN/ES parity. Own PR. |
 | 33 | **Admin/testing comp path for prod** — a clean way to give a dedicated prod TEST account an `active` subscription at **$0** so paid/crew features can be tested live without real charges. Options: (a) small admin action that comps via the existing `YARDSYNC_FREE` 100%-off coupon on a real Stripe sub (idiomatic; seat proration also comps to $0 if the coupon is whole-subscription, not price-restricted), or (b) an internal tooling script that sets `subscriptionStatus:'active'` + a real `stripeSubscriptionId` on a test account. Recurring pain point — testing paid features in prod currently has no free path. |
 
+## Crew UX refinements (Jay, 2026-07-05)
+
+| # | Item |
+|---|------|
+| 34 | **Explicit owner/"Me" chip in the Assign-to row** — multi-assign currently falls to "Unassigned (me)" when no member chips are selected (owner implicitly claims the job). Add an explicit **"Me"/owner chip** alongside the member chips so the owner can be selected the same way (and shown in the assignee set), instead of relying on the implicit fallback. Small UI change in `CalendarContent.js` (Add-job dialog + expanded card); decide owner+members co-assignment semantics. |
+
+## Crew worker-card enrichment (Jay, 2026-07-05)
+
+| # | Item |
+|---|------|
+| 35 | **Crew-facing per-job notes** — a notes field on a job that's visible to the assigned crew member (pets/animals on site, a callback phone number, gate/lock code, etc.). Extends the "what to bring / full job scope" idea ([[CREW_TIER_SPEC]] Phase 1e #3). Denormalize onto the schedule (no money/client-book access) so the worker sees it on their scoped card. |
+| 36 | **Show co-assignees on the worker's job card** — with multi-assign live, a worker can't tell if they're solo, with a teammate, or with the owner (card only shows the business chip). Surface "who else is on this job" on the scoped worker card (e.g. "You + Owner" or teammate names) from the denormalized `assignedTeam`. Pairs with #35. |
+
 ## Cowork-session findings (2026-07, VS-Claude review)
 
 | # | Item |

@@ -204,7 +204,7 @@ export default function CalendarPage() {
   const [saving,          setSaving]          = useState(false)
   const [showPreview,     setShowPreview]     = useState(false)
   const [selectedAddons,  setSelectedAddons]  = useState([])
-  const [assignJobTo,     setAssignJobTo]     = useState('')   // crew member to assign at creation ('' = me/unassigned)
+  const [assignJobTeam,   setAssignJobTeam]   = useState([])   // crew members to assign at creation ([] = me/unassigned)
   const [variableInputs,  setVariableInputs]  = useState({})
 
   const [showWalkIn,       setShowWalkIn]       = useState(false)
@@ -420,29 +420,45 @@ export default function CalendarPage() {
   // Owner assigns one of their own jobs to a crew member (or unassigns → back to
   // the owner). Sets schedules.assignedTo; the member then sees it on their
   // unified calendar. Optimistic reload.
-  async function assignJob(schedule, memberUid) {
+  // The owner can co-assign themselves ("Me" chip); stored as their uid in
+  // assignedTeam. Everywhere we compute crew MEMBERS, filter the owner out.
+  const ownerUid = user?.uid
+  const crewMembersOf = (team) => (team || []).filter(uid => uid && uid !== ownerUid)
+
+  // Assign a job to the owner ("Me") and/or crew members (multi-assign). Writes
+  // the canonical `assignedTeam` array (may include the owner) + keeps `assignedTo`
+  // (single-assign back-compat: the lone crew MEMBER, or null). Notifies only
+  // NEWLY-added crew members (never the owner).
+  async function writeAssignment(schedule, memberUids) {
     try {
+      const team = Array.from(new Set((memberUids || []).filter(Boolean)))
+      const prev = schedule.assignedTeam || (schedule.assignedTo ? [schedule.assignedTo] : [])
+      const mem = crewMembersOf(team)
       const c = clientMap[schedule.clientId]
-      const patch = { assignedTo: memberUid || null }
-      // Backfill the denormalized job fields the Worker needs (name/address/
-      // service) — older schedules predate denormalization-on-create, and the
-      // Worker can't read the clients collection to get them.
+      const patch = { assignedTeam: team, assignedTo: mem.length === 1 ? mem[0] : null }
+      // Backfill denormalized fields (older schedules predate on-create denorm; a
+      // Worker can't read the clients collection).
       if (c) {
         if (!schedule.clientName && c.name) patch.clientName = c.name
         if (!schedule.serviceAddress && c.address) patch.serviceAddress = c.address
         if (!schedule.serviceLabel && c.packageLabel) patch.serviceLabel = c.packageLabel
       }
       await updateSchedule(schedule.id, patch)
-      // Notify the newly-assigned member (push, best-effort — non-blocking).
-      if (memberUid) notifyAssigned(memberUid, {
+      mem.filter(uid => !prev.includes(uid)).forEach(uid => notifyAssigned(uid, {
         scheduleId:     schedule.id,
         serviceDate:    schedule.serviceDate,
         serviceLabel:   patch.serviceLabel   || schedule.serviceLabel   || '',
         serviceAddress: patch.serviceAddress || schedule.serviceAddress || '',
-      })
-      toast.success(memberUid ? (lang === 'es' ? 'Asignado' : 'Assigned') : (lang === 'es' ? 'Sin asignar' : 'Unassigned'))
+      }))
+      toast.success(team.length ? (lang === 'es' ? 'Asignado' : 'Assigned') : (lang === 'es' ? 'Sin asignar' : 'Unassigned'))
       loadData()
     } catch { toast.error(translate('common', 'error')) }
+  }
+
+  // Toggle one member in a schedule's current assignment (expanded-card chips).
+  function toggleAssignee(schedule, memberUid) {
+    const cur = schedule.assignedTeam || (schedule.assignedTo ? [schedule.assignedTo] : [])
+    writeAssignment(schedule, cur.includes(memberUid) ? cur.filter(u => u !== memberUid) : [...cur, memberUid])
   }
 
   // Fire the new-job push to a crew member (best-effort; the assignment already
@@ -785,24 +801,24 @@ export default function CalendarPage() {
         // name/address/service, never price — so they never read the clients
         // collection (which holds basePriceCents = money).
         serviceAddress: client?.address || '', serviceLabel: client?.packageLabel || '',
-        assignedTo: assignJobTo || null,   // assign a crew member at creation (or later via the card)
+        assignedTeam: assignJobTeam,   // owner ("Me") and/or crew member(s)
+        assignedTo: crewMembersOf(assignJobTeam).length === 1 ? crewMembersOf(assignJobTeam)[0] : null,   // single crew member back-compat
         serviceDate: toDateStr(date), time: selectedTime,
         status: 'scheduled', recurrence: repeatMode, isRecurring: repeatMode !== 'none', addons: finalAddons,
       })))
-      // Notify the member if the job(s) were assigned to them at creation. Pass the
-      // scheduleId for a SINGLE job so the push carries the Mark-complete action too
-      // (parity with the expanded-card assign); a batch omits it (no single job).
-      if (assignJobTo) notifyAssigned(assignJobTo, {
+      // Notify each assigned crew member (not the owner). scheduleId only for a
+      // SINGLE job so the push carries Mark-complete too (a batch omits it).
+      crewMembersOf(assignJobTeam).forEach(uid => notifyAssigned(uid, {
         serviceDate:    toDateStr(datesToAdd[0]),
         serviceLabel:   client?.packageLabel || '',
         serviceAddress: client?.address || '',
         count:          datesToAdd.length,
         scheduleId:     datesToAdd.length === 1 ? createdRefs[0]?.id : undefined,
-      })
+      }))
       toast.success(datesToAdd.length === 1
         ? `${translate('calendar', 'add_job')} ✓`
         : `${datesToAdd.length} ${translate('calendar', 'visits')} ${lang === 'es' ? 'programadas para' : 'scheduled for'} ${client?.name || ''}!`)
-      setShowAddModal(false); setAssignJobTo(''); loadData()
+      setShowAddModal(false); setAssignJobTeam([]); loadData()
     } catch { toast.error(translate('common', 'error')) }
     finally { setSaving(false) }
   }
@@ -1442,7 +1458,10 @@ export default function CalendarPage() {
                     const crew = (schedule.gardenerUid && user?.uid && schedule.gardenerUid !== user.uid) ? crewColorMap[schedule.gardenerUid] : null
                     // My OWN job assigned to a crew member → tint by that member's
                     // color (owner keeps full controls; this is display-only).
-                    const assignedMember = (!crew && schedule.assignedTo) ? memberColorMap[schedule.assignedTo] : null
+                    const teamOnJob = !crew ? crewMembersOf(schedule.assignedTeam || (schedule.assignedTo ? [schedule.assignedTo] : [])) : []
+                    const teamCount = teamOnJob.length
+                    const assignedMember = teamCount === 1 ? memberColorMap[teamOnJob[0]] : null
+                    const ownerOnJob = !crew && Array.isArray(schedule.assignedTeam) && schedule.assignedTeam.includes(ownerUid) && teamCount >= 1
                     const dotStyle = crew ? { backgroundColor: crew.color } : (assignedMember ? { backgroundColor: assignedMember.color } : undefined)
                     return (
                       <div key={schedule.id} data-schedule-id={schedule.id}>
@@ -1477,6 +1496,16 @@ export default function CalendarPage() {
                               {crew && (
                                 <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: crew.color + '22', color: crew.color }}>
                                   {crew.name}
+                                </span>
+                              )}
+                              {ownerOnJob && (
+                                <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-brand-100 text-brand-700">
+                                  {lang === 'es' ? 'Yo' : 'Me'}
+                                </span>
+                              )}
+                              {teamCount > 1 && (
+                                <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-600">
+                                  {lang === 'es' ? `Equipo (${teamCount})` : `Team (${teamCount})`}
                                 </span>
                               )}
                               {assignedMember && (
@@ -1546,19 +1575,36 @@ export default function CalendarPage() {
                                 <p className="text-[12px] text-gray-500 italic">{client.notes}</p>
                               </div>
                             )}
-                            {teamMembers.length > 0 && (
-                              <div>
-                                <label className="text-[10px] text-gray-400 font-medium uppercase">{lang === 'es' ? 'Asignar a' : 'Assign to'}</label>
-                                <select
-                                  value={schedule.assignedTo || ''}
-                                  onChange={e => assignJob(schedule, e.target.value)}
-                                  className="w-full mt-1 rounded-lg border border-gray-200 text-[13px] px-2 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-                                >
-                                  <option value="">{lang === 'es' ? 'Sin asignar (yo)' : 'Unassigned (me)'}</option>
-                                  {teamMembers.map(m => <option key={m.id} value={m.memberUid}>{m.inviteName || m.memberEmail || (lang === 'es' ? 'Miembro' : 'Member')}</option>)}
-                                </select>
-                              </div>
-                            )}
+                            {teamMembers.length > 0 && (() => {
+                              const cur = schedule.assignedTeam || (schedule.assignedTo ? [schedule.assignedTo] : [])
+                              const meOn = cur.includes(ownerUid)
+                              const memN = crewMembersOf(cur).length
+                              return (
+                                <div>
+                                  <label className="text-[10px] text-gray-400 font-medium uppercase">{lang === 'es' ? 'Asignar a' : 'Assign to'}</label>
+                                  <div className="flex flex-wrap gap-1.5 mt-1">
+                                    <button type="button" onClick={() => toggleAssignee(schedule, ownerUid)}
+                                      className={`text-[12px] font-medium px-2.5 py-1 rounded-full border transition-colors ${meOn ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                                      {lang === 'es' ? 'Yo' : 'Me'}
+                                    </button>
+                                    {teamMembers.map(m => {
+                                      const on = cur.includes(m.memberUid)
+                                      return (
+                                        <button key={m.id} type="button" onClick={() => toggleAssignee(schedule, m.memberUid)}
+                                          className={`text-[12px] font-medium px-2.5 py-1 rounded-full border transition-colors ${on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                                          {m.inviteName || m.memberEmail || (lang === 'es' ? 'Miembro' : 'Member')}
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
+                                  <p className="text-[10px] text-gray-400 mt-1">
+                                    {cur.length === 0
+                                      ? (lang === 'es' ? 'Sin asignar (yo)' : 'Unassigned (me)')
+                                      : [meOn ? (lang === 'es' ? 'Yo' : 'Me') : null, memN ? `${memN} ${lang === 'es' ? 'del equipo' : 'crew'}` : null].filter(Boolean).join(' + ')}
+                                  </p>
+                                </div>
+                              )
+                            })()}
                             {!done && (
                               <>
                                 <div className="grid grid-cols-2 gap-2">
@@ -1610,7 +1656,7 @@ export default function CalendarPage() {
 
       {/* Add job modal */}
       <Modal
-        open={showAddModal} onClose={() => { setShowAddModal(false); setAssignJobTo('') }}
+        open={showAddModal} onClose={() => { setShowAddModal(false); setAssignJobTeam([]) }}
         title={`${translate('calendar', 'add_job')} — ${selectedDay ? fmt(selectedDay, 'MMM d') : ''}`}
         footer={<>
           <Button variant="secondary" fullWidth onClick={() => setShowAddModal(false)}>{translate('common', 'cancel')}</Button>
@@ -1649,13 +1695,47 @@ export default function CalendarPage() {
               : undefined}>
             {REPEAT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </Select>
-          {/* Assign to a crew member at creation (owners with a crew). */}
-          {teamMembers.length > 0 && (
-            <Select label={lang === 'es' ? 'Asignar a' : 'Assign to'} value={assignJobTo} onChange={e => setAssignJobTo(e.target.value)}>
-              <option value="">{lang === 'es' ? 'Yo (sin asignar)' : 'Me (unassigned)'}</option>
-              {teamMembers.map(m => <option key={m.id} value={m.memberUid}>{m.inviteName || m.memberEmail || (lang === 'es' ? 'Miembro' : 'Member')}</option>)}
-            </Select>
-          )}
+          {/* Assign to Me (owner) and/or crew member(s) — tap to toggle, multi-select. */}
+          {teamMembers.length > 0 && (() => {
+            const memberUids = teamMembers.map(m => m.memberUid)
+            const allMembers = memberUids.length > 0 && memberUids.every(u => assignJobTeam.includes(u))
+            const meOn = assignJobTeam.includes(ownerUid)
+            const memN = crewMembersOf(assignJobTeam).length
+            return (
+              <div>
+                <label className="block text-[13px] font-medium text-gray-700 mb-1.5">{lang === 'es' ? 'Asignar a' : 'Assign to'}</label>
+                <div className="flex flex-wrap gap-1.5">
+                  <button type="button"
+                    onClick={() => setAssignJobTeam(meOn ? assignJobTeam.filter(u => u !== ownerUid) : [...assignJobTeam, ownerUid])}
+                    className={`text-[12.5px] font-medium px-3 py-1.5 rounded-full border transition-colors ${meOn ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                    {lang === 'es' ? 'Yo' : 'Me'}
+                  </button>
+                  {teamMembers.length > 1 && (
+                    <button type="button"
+                      onClick={() => setAssignJobTeam(allMembers ? assignJobTeam.filter(u => !memberUids.includes(u)) : Array.from(new Set([...assignJobTeam, ...memberUids])))}
+                      className={`text-[12.5px] font-medium px-3 py-1.5 rounded-full border transition-colors ${allMembers ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                      {lang === 'es' ? 'Todo el equipo' : 'Whole crew'}
+                    </button>
+                  )}
+                  {teamMembers.map(m => {
+                    const on = assignJobTeam.includes(m.memberUid)
+                    return (
+                      <button key={m.id} type="button"
+                        onClick={() => setAssignJobTeam(on ? assignJobTeam.filter(u => u !== m.memberUid) : [...assignJobTeam, m.memberUid])}
+                        className={`text-[12.5px] font-medium px-3 py-1.5 rounded-full border transition-colors ${on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                        {m.inviteName || m.memberEmail || (lang === 'es' ? 'Miembro' : 'Member')}
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  {assignJobTeam.length === 0
+                    ? (lang === 'es' ? 'Sin asignar (yo)' : 'Unassigned (me)')
+                    : [meOn ? (lang === 'es' ? 'Yo' : 'Me') : null, memN ? `${memN} ${lang === 'es' ? 'del equipo' : 'crew'}` : null].filter(Boolean).join(' + ')}
+                </p>
+              </div>
+            )
+          })()}
           {repeatMode !== 'none' && (
             <Select label={translate('calendar', 'occurrences')} value={occurrences} onChange={e => setOccurrences(e.target.value)}>
               {OCCURRENCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label} {translate('calendar', 'visits')}</option>)}

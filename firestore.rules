@@ -27,6 +27,12 @@ service cloud.firestore {
     function isActiveWorker(bizUid) {
       return isActiveMember(bizUid) && get(membershipPath(bizUid)).data.role == 'worker';
     }
+    // A schedule is "mine" (worker) if I'm the single assignee OR I'm in the
+    // multi-assign team array (guard the array — it's absent on older/single jobs).
+    function assignedToMe(data) {
+      return data.assignedTo == request.auth.uid
+        || (data.keys().hasAny(['assignedTeam']) && (request.auth.uid in data.assignedTeam));
+    }
     match /users/{uid} {
       allow read, write: if isAdmin() || (request.auth != null && request.auth.uid == uid);
     }
@@ -43,12 +49,12 @@ service cloud.firestore {
       // money — schedules carry denormalized clientName/serviceAddress/serviceLabel,
       // never price). Create/delete stay owner-only.
       allow read:   if isAdmin() || isOwner(resource.data.gardenerUid)
-                       || (isActiveWorker(resource.data.gardenerUid) && resource.data.assignedTo == request.auth.uid);
+                       || (isActiveWorker(resource.data.gardenerUid) && assignedToMe(resource.data));
       allow create: if isAdmin() || isOwner(request.resource.data.gardenerUid);
       allow delete: if isAdmin() || isOwner(resource.data.gardenerUid);
       allow update: if isAdmin() || isOwner(resource.data.gardenerUid)
                        || (isActiveWorker(resource.data.gardenerUid)
-                            && resource.data.assignedTo == request.auth.uid
+                            && assignedToMe(resource.data)
                             && request.resource.data.gardenerUid == resource.data.gardenerUid
                             && request.resource.data.assignedTo == resource.data.assignedTo
                             && request.resource.data.diff(resource.data).affectedKeys()
