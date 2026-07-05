@@ -18,7 +18,7 @@ import { normalizeEsTemplate } from '@/lib/smsTemplate'
 import { isVerifiedBusiness } from '@/lib/verifiedBadge'
 import { startCardCapture } from '@/lib/cardCapture'
 import { pushSupported, isPushEnabled, enablePush, disablePush } from '@/lib/pushClient'
-import { saveGardenerProfile, getGardenerProfile, getInvoices } from '@/lib/db'
+import { saveGardenerProfile, getGardenerProfile, getInvoices, getTeamMemberships } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { Bell, Globe, User, Clock, CreditCard, Link2, CheckCircle2, ArrowUpCircle, TrendingUp, Lock, Zap, LogOut, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -195,6 +195,15 @@ export default function SettingsPage() {
         { key: 'billing', en: 'Billing', es: 'Pagos' },
         { key: 'team',    en: 'Team',    es: 'Equipo' },
       ]
+
+  // Active crew-seat count for the Billing summary (each = +$15/mo).
+  const [crewSeatCount, setCrewSeatCount] = useState(0)
+  useEffect(() => {
+    if (!user) return
+    getTeamMemberships(user.uid)
+      .then(t => setCrewSeatCount(t.filter(m => m.role === 'worker' && m.status === 'active').length))
+      .catch(() => {})
+  }, [user])
 
   const [form,    setForm]    = useState({
     name:           '',
@@ -1457,6 +1466,42 @@ export default function SettingsPage() {
                       </span>
                     </p>
                   )}
+                  {/* Charge breakdown — base plan + crew seats + total. Seats
+                      always bill MONTHLY; on an annual base they're a separate
+                      monthly charge (shown as its own line). */}
+                  {(() => {
+                    const isAnnual = profile?.subscriptionPlan === 'annual'
+                    const baseCents = isAnnual ? 39000 : 3900
+                    const seatMonthly = crewSeatCount * 1500
+                    return (
+                      <div className="mt-3 pt-3 border-t border-brand-100 space-y-1">
+                        <div className="flex items-center justify-between text-[12px] text-brand-700">
+                          <span>{isAnnual ? (lang === 'es' ? 'Plan anual' : 'Annual plan') : (lang === 'es' ? 'Plan mensual' : 'Monthly plan')}</span>
+                          <span className="font-semibold">{formatCents(baseCents)}/{isAnnual ? (lang === 'es' ? 'año' : 'yr') : (lang === 'es' ? 'mes' : 'mo')}</span>
+                        </div>
+                        {crewSeatCount > 0 && (
+                          <div className="flex items-center justify-between text-[12px] text-brand-700">
+                            <span>{lang === 'es' ? `Miembros del equipo (${crewSeatCount} × $15)` : `Crew seats (${crewSeatCount} × $15)`}</span>
+                            <span className="font-semibold">{formatCents(seatMonthly)}/{lang === 'es' ? 'mes' : 'mo'}</span>
+                          </div>
+                        )}
+                        {crewSeatCount > 0 && (
+                          isAnnual ? (
+                            <p className="text-[11px] text-brand-600 pt-1">
+                              {lang === 'es'
+                                ? `Tu plan anual se cobra una vez al año; los ${crewSeatCount} asiento(s) del equipo se cobran mensualmente (${formatCents(seatMonthly)}/mes).`
+                                : `Your annual plan is charged once a year; your ${crewSeatCount} crew seat(s) are billed monthly (${formatCents(seatMonthly)}/mo).`}
+                            </p>
+                          ) : (
+                            <div className="flex items-center justify-between text-[13px] text-brand-900 font-semibold pt-1 border-t border-brand-100 mt-1">
+                              <span>{lang === 'es' ? 'Total mensual' : 'Monthly total'}</span>
+                              <span>{formatCents(baseCents + seatMonthly)}/{lang === 'es' ? 'mes' : 'mo'}</span>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    )
+                  })()}
                 </>
               )}
               {(() => {
