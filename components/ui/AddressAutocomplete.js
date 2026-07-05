@@ -3,19 +3,19 @@
 import { useState, useRef, useEffect } from 'react'
 import { MapPin, LocateFixed, Loader2 } from 'lucide-react'
 
-// Radar publishable key (client-safe; restrict by domain in the Radar dashboard).
-// When it's absent the component degrades to a plain text input — so the app
-// works exactly as before until the key is set in Vercel.
-const RADAR_KEY = process.env.NEXT_PUBLIC_RADAR_PUBLISHABLE_KEY
+// Geoapify API key (client-safe; restrict by allowed origins in the Geoapify
+// dashboard). When it's absent the component degrades to a plain text input — so
+// the app works exactly as before until the key is set in Vercel.
+const GEOAPIFY_KEY = process.env.NEXT_PUBLIC_GEOAPIFY_KEY
 
 /**
- * Address field with Radar autocomplete + "use my current location".
+ * Address field with Geoapify autocomplete + "use my current location".
  *
- * Degradation-safe: no NEXT_PUBLIC_RADAR_PUBLISHABLE_KEY → a plain <input> that
- * behaves identically to the raw field it replaces (same name/value/onChange),
- * so the no-JS intake fallback keeps working. With a key it adds a debounced
- * suggestion dropdown (structured, so nothing gets fat-fingered) and a locate
- * button. `onResolve` (optional) receives the structured parts on selection.
+ * Degradation-safe: no NEXT_PUBLIC_GEOAPIFY_KEY → a plain <input> that behaves
+ * identically to the raw field it replaces (same name/value/onChange), so the
+ * no-JS intake fallback keeps working. With a key it adds a debounced suggestion
+ * dropdown (structured, so nothing gets fat-fingered) and a locate button.
+ * `onResolve` (optional) receives the structured parts on selection.
  */
 export default function AddressAutocomplete({
   value,
@@ -46,8 +46,8 @@ export default function AddressAutocomplete({
     return () => document.removeEventListener('mousedown', onDoc)
   }, [])
 
-  // Plain input when Radar isn't configured — identical behavior to before.
-  if (!RADAR_KEY) {
+  // Plain input when Geoapify isn't configured — identical behavior to before.
+  if (!GEOAPIFY_KEY) {
     return (
       <input
         type="text" name={name} id={id} value={value}
@@ -64,13 +64,12 @@ export default function AddressAutocomplete({
     const ctrl = new AbortController()
     abortRef.current = ctrl
     setLoading(true); setError(null)
-    fetch(`https://api.radar.io/v1/search/autocomplete?query=${encodeURIComponent(q)}&country=US&layers=address,street&limit=5`, {
-      headers: { Authorization: RADAR_KEY },
+    fetch(`https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(q)}&filter=countrycode:us&format=json&limit=5&apiKey=${GEOAPIFY_KEY}`, {
       signal: ctrl.signal,
     })
       .then(r => r.json())
       .then(data => {
-        setSuggestions(Array.isArray(data?.addresses) ? data.addresses : [])
+        setSuggestions(Array.isArray(data?.results) ? data.results : [])
         setOpen(true)
       })
       .catch(err => { if (err.name !== 'AbortError') setError(true) })
@@ -86,16 +85,16 @@ export default function AddressAutocomplete({
   }
 
   function pick(a) {
-    const formatted = a.formattedAddress || a.addressLabel || ''
+    const formatted = a.formatted || a.address_line1 || ''
     pickedRef.current = formatted
     onChange(formatted)
     if (onResolve) onResolve({
       formatted,
-      street:   [a.number, a.street].filter(Boolean).join(' ') || a.addressLabel || '',
+      street:   [a.housenumber, a.street].filter(Boolean).join(' ') || a.address_line1 || '',
       city:     a.city || '',
-      state:    a.stateCode || a.state || '',
-      postalCode: a.postalCode || '',
-      lat: a.latitude, lng: a.longitude,
+      state:    a.state_code || a.state || '',
+      postalCode: a.postcode || '',
+      lat: a.lat, lng: a.lon,
     })
     setSuggestions([]); setOpen(false)
   }
@@ -106,12 +105,10 @@ export default function AddressAutocomplete({
     navigator.geolocation.getCurrentPosition(
       pos => {
         const { latitude, longitude } = pos.coords
-        fetch(`https://api.radar.io/v1/geocode/reverse?coordinates=${latitude},${longitude}`, {
-          headers: { Authorization: RADAR_KEY },
-        })
+        fetch(`https://api.geoapify.com/v1/geocode/reverse?lat=${latitude}&lon=${longitude}&format=json&apiKey=${GEOAPIFY_KEY}`)
           .then(r => r.json())
           .then(data => {
-            const a = data?.addresses?.[0]
+            const a = data?.results?.[0]
             if (a) pick(a)
             else setError(true)
           })
@@ -149,14 +146,14 @@ export default function AddressAutocomplete({
       {open && suggestions.length > 0 && (
         <ul className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
           {suggestions.map((a, i) => (
-            <li key={i}>
+            <li key={a.place_id || i}>
               <button
                 type="button"
                 onClick={() => pick(a)}
                 className="w-full flex items-start gap-2 text-left px-3 py-2.5 hover:bg-brand-50 transition-colors"
               >
                 <MapPin size={14} className="text-brand-500 flex-shrink-0 mt-0.5" />
-                <span className="text-[13px] text-gray-700">{a.formattedAddress || a.addressLabel}</span>
+                <span className="text-[13px] text-gray-700">{a.formatted || a.address_line1}</span>
               </button>
             </li>
           ))}
