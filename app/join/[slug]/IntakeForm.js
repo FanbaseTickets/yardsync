@@ -22,6 +22,7 @@
  */
 
 import { useState } from 'react'
+import { PROPERTY_TYPES } from '@/lib/propertyType'
 import { Phone, MessageSquare, BookmarkPlus } from 'lucide-react'
 
 const STRINGS = {
@@ -32,6 +33,7 @@ const STRINGS = {
     fullName:          'Full name',
     phone:             'Phone',
     address:           'Service address',
+    propertyType:      'Property type',
     email:             'Email (optional)',
     serviceInterest:   'Service interest',
     notes:             'Notes (optional)',
@@ -68,6 +70,7 @@ const STRINGS = {
     fullName:          'Nombre completo',
     phone:             'Teléfono',
     address:           'Dirección de servicio',
+    propertyType:      'Tipo de propiedad',
     email:             'Correo electrónico (opcional)',
     serviceInterest:   'Servicio de interés',
     notes:             'Notas (opcional)',
@@ -156,6 +159,7 @@ export default function IntakeForm({ slug, owner, services, initialLang, backLin
   const [name,            setName]            = useState('')
   const [phone,           setPhone]           = useState('')
   const [address,         setAddress]         = useState('')
+  const [propertyType,    setPropertyType]    = useState('residential')
   const [email,           setEmail]           = useState('')
   const [serviceInterest, setServiceInterest] = useState('')
   const [note,            setNote]            = useState('')
@@ -211,6 +215,7 @@ export default function IntakeForm({ slug, owner, services, initialLang, backLin
           phone:            normalizedPhone,
           email:            email.trim() || undefined,
           address:          address.trim() || undefined,
+          propertyType,
           serviceInterest:  serviceInterest || undefined,
           note:             note.trim() || undefined,
           language:         lang,
@@ -346,6 +351,20 @@ export default function IntakeForm({ slug, owner, services, initialLang, backLin
             placeholder={t.addressPlaceholder}
             maxLength={200}
           />
+        </Field>
+
+        {/* Native select so it submits with AND without JS (no-JS fallback). */}
+        <Field label={t.propertyType}>
+          <select
+            name="propertyType"
+            value={propertyType}
+            onChange={e => setPropertyType(e.target.value)}
+            className="form-input"
+          >
+            {PROPERTY_TYPES.map(p => (
+              <option key={p.key} value={p.key}>{lang === 'es' ? p.es : p.en}</option>
+            ))}
+          </select>
         </Field>
 
         <Field label={t.email} error={errors.email}>

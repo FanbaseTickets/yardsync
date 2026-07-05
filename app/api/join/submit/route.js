@@ -80,6 +80,7 @@ function buildLeadEmail({ businessName, lead, clientsUrl }) {
     ['Name / Nombre',        lead.name],
     ['Phone / Teléfono',     lead.phone],
     ['Address / Dirección',  lead.address],
+    ['Property / Propiedad', lead.propertyType && lead.propertyType !== 'residential' ? lead.propertyType : null],
     ['Service / Servicio',   lead.serviceInterest],
     ['Note / Nota',          lead.note],
   ].filter(([, v]) => v)
@@ -223,6 +224,9 @@ export async function POST(request) {
     const address         = String(body.address || '').trim()
     const note            = String(body.note || '').trim()
     const serviceInterest = String(body.serviceInterest || '').trim()
+    // Property type — validate against the known set, default residential.
+    const PROPERTY_KEYS   = ['residential', 'commercial', 'hoa', 'other']
+    const propertyType    = PROPERTY_KEYS.includes(String(body.propertyType || '')) ? body.propertyType : 'residential'
     const language        = body.language === 'es' ? 'es' : 'en'
     const smsConsent      = body.smsConsent === true || body.smsConsent === 'true' || body.smsConsent === 'on'
 
@@ -260,6 +264,7 @@ export async function POST(request) {
       phone:              phoneNormalized,
       email:              email || null,
       address:            address || null,
+      propertyType,
       serviceInterest:    serviceInterest || null,
       note:               note || null,
       source:             'intake',
@@ -307,7 +312,7 @@ export async function POST(request) {
       try {
         const tmpl = buildLeadEmail({
           businessName,
-          lead: { name, phone: phoneNormalized, address, serviceInterest, note },
+          lead: { name, phone: phoneNormalized, address, propertyType, serviceInterest, note },
           clientsUrl,
         })
         await sendClientEmail({

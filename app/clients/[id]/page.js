@@ -10,6 +10,7 @@ import { Card, Badge, Button, Skeleton, Modal, Input, Select } from '@/component
 import { getClient, updateClient, deleteClient, getClientInvoices, getServices, saveInvoice, getMostRecentSchedule } from '@/lib/db'
 import { formatCents, grossUpForFees, calcApplicationFee, isFeeCapped } from '@/lib/fee'
 import { badgePackageType } from '@/lib/clientBadge'
+import { PROPERTY_TYPES, propertyLabel } from '@/lib/propertyType'
 import { buildInvoiceSms } from '@/lib/invoiceSms'
 import { validatePhone } from '@/lib/phone'
 import { Phone, MapPin, Mail, CalendarDays, DollarSign, Pencil, FileText, CheckCircle2, RefreshCw, Clock, ShieldAlert, Sparkles, X } from 'lucide-react'
@@ -127,6 +128,7 @@ export default function ClientDetailPage() {
           phone:       c.phone       || '',
           email:       c.email       || '',
           address:     c.address     || '',
+          propertyType: c.propertyType || 'residential',
           serviceId:   c.serviceId   || '',
           billingMode:      c.billingMode      || 'upfront',
           language:         c.language         || 'en',
@@ -266,6 +268,7 @@ export default function ClientDetailPage() {
         phone:       form.phone.trim(),
         email:       form.email.trim(),
         address:     form.address.trim() || client.address,
+        propertyType:     form.propertyType || 'residential',
         billingMode:      form.billingMode,
         language:         form.language         || 'en',
         status:           form.status,
@@ -713,7 +716,12 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
               >
                 <MapPin size={14} className="text-brand-500 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-[13px] text-brand-600 group-hover:underline">{client.address}</p>
+                  <p className="text-[13px] text-brand-600 group-hover:underline">
+                    {client.address}
+                    <span className="ml-2 text-[10px] font-semibold text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded-full uppercase tracking-wide align-middle">
+                      {propertyLabel(client.propertyType, lang === 'es')}
+                    </span>
+                  </p>
                   <p className="text-[10px] text-gray-400">{translate('calendar_extra', 'open_maps')}</p>
                 </div>
               </a>
@@ -1317,6 +1325,32 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
           />
           <Input label={translate('clients', 'email')}     value={form.email}   onChange={e => setField('email', e.target.value)}   type="email" />
           <Input label={translate('clients', 'address')}   value={form.address} onChange={e => setField('address', e.target.value)} />
+
+          {/* Property type — segmented picker. */}
+          <div>
+            <label className="block text-[13px] font-medium text-gray-700 mb-1.5">
+              {lang === 'es' ? 'Tipo de propiedad' : 'Property type'}
+            </label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {PROPERTY_TYPES.map(p => {
+                const selected = (form.propertyType || 'residential') === p.key
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => setField('propertyType', p.key)}
+                    className={`text-[12.5px] font-medium py-2 rounded-lg border transition-colors ${
+                      selected
+                        ? 'bg-brand-600 text-white border-brand-600'
+                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    {lang === 'es' ? p.es : p.en}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
           {services.length > 0 ? (
             <>
