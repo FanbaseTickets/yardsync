@@ -5,6 +5,9 @@ import { sendAdminEmail, sendClientEmail } from '@/lib/email'
 import { getSubscriptionPeriodEndISO } from '@/lib/stripeHelpers'
 import { getBaseUrl } from '@/lib/baseUrl'
 import { sendPush } from '@/lib/push'
+import { syncCrewSeats } from '@/lib/crewBilling'
+
+const SEAT_PRICE = process.env.STRIPE_PRICE_CREW_SEAT
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-02-25.clover' })
 
@@ -395,11 +398,17 @@ export async function POST(request) {
       /* ── customer.subscription.updated ──────────── */
       case 'customer.subscription.updated': {
         const subscription = event.data.object
+        // The dedicated crew-seat subscription also fires this event — it is NOT
+        // the base plan, so never let it overwrite subscriptionPlan/status.
+        if (subscription.metadata?.yardsync === 'crew_seats') break
         const customerId   = subscription.customer
         const userDoc      = await queryCollection('users', 'stripeCustomerId', customerId)
         if (userDoc) {
-          const priceId = subscription.items.data[0]?.price?.id
+          // Read the plan from the BASE item (ignore any seat item — order isn't
+          // guaranteed, so data[0] could be the seat).
+          const priceId = (subscription.items.data.find(it => it.price?.id !== SEAT_PRICE) || subscription.items.data[0])?.price?.id
           const plan    = priceId === process.env.STRIPE_PRICE_ANNUAL ? 'annual' : 'monthly'
+          const planChanged = userDoc.data?.subscriptionPlan && userDoc.data.subscriptionPlan !== plan
           // Persist cancel_at_period_end + cancel_at so the Settings UI can
           // show a "Subscription ends {date}" banner with a Reactivate
           // button. Without this, the in-app cancellation toast was the
@@ -415,6 +424,12 @@ export async function POST(request) {
             updatedAt:                     new Date().toISOString(),
           })
           console.log(`Subscription updated for ${userDoc.id} (cancel_at_period_end=${subscription.cancel_at_period_end})`)
+          // A base-plan interval change (monthly↔annual) must reshape seat billing
+          // — otherwise seats end up double-billed or unbilled until the next crew
+          // event. Only when the plan actually changed + the sub is active.
+          if (planChanged && subscription.status === 'active') {
+            try { await syncCrewSeats(userDoc.id) } catch (e) { console.error('[webhook] seat reconcile failed (non-fatal):', e.message) }
+          }
         }
         break
       }
