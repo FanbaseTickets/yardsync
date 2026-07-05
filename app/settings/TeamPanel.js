@@ -72,7 +72,7 @@ export default function TeamPanel() {
         scheds.forEach(s => {
           if (s.status !== 'completed') return
           const members = (Array.isArray(s.assignedTeam) && s.assignedTeam.length) ? s.assignedTeam : (s.assignedTo ? [s.assignedTo] : [])
-          members.forEach(uid => { stats[uid] = (stats[uid] || 0) + 1 })
+          members.filter(uid => uid !== user.uid).forEach(uid => { stats[uid] = (stats[uid] || 0) + 1 })
         })
         setMonthStats(stats)
       } catch {}
