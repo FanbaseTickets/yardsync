@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useLang } from '@/context/LangContext'
-import { getTeamMemberships, getMyCrews } from '@/lib/db'
+import { getTeamMemberships, getMyCrews, getSchedules } from '@/lib/db'
 import { formatCents } from '@/lib/fee'
 import { Button, Input } from '@/components/ui'
 
@@ -34,6 +34,7 @@ export default function TeamPanel() {
   const [leavingBiz, setLeavingBiz] = useState(null)
   const [expandedMember, setExpandedMember] = useState(null)
   const [savingColor, setSavingColor] = useState(false)
+  const [monthStats, setMonthStats] = useState({})   // memberUid → jobs completed this month
 
   async function setColor(memberUid, color) {
     setSavingColor(true)
@@ -60,6 +61,17 @@ export default function TeamPanel() {
       // appears twice, and hides 'removed'.
       setTeam(t.filter(m => m.role !== 'owner' && (m.status === 'invited' || m.status === 'active')))
       setMyCrews(c.filter(m => m.businessUid !== user.uid))
+      // Per-member completed-jobs this month (owner-side, to inform pay).
+      try {
+        const now = new Date(), y = now.getFullYear(), mo = now.getMonth()
+        const pad = n => String(n).padStart(2, '0')
+        const monthStart = `${y}-${pad(mo + 1)}-01`
+        const monthEnd   = `${y}-${pad(mo + 1)}-${pad(new Date(y, mo + 1, 0).getDate())}`
+        const scheds = await getSchedules(user.uid, monthStart, monthEnd)
+        const stats = {}
+        scheds.forEach(s => { if (s.status === 'completed' && s.assignedTo) stats[s.assignedTo] = (stats[s.assignedTo] || 0) + 1 })
+        setMonthStats(stats)
+      } catch {}
     } catch { /* rules may not be deployed yet — show empty rather than crash */ }
     finally { setLoading(false) }
   }
@@ -157,7 +169,10 @@ export default function TeamPanel() {
                         <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: dotColor }} />
                         <span className="min-w-0">
                           <span className="block text-[14px] font-medium text-gray-900 truncate">{m.inviteName || m.memberEmail || (es ? 'Miembro' : 'Member')}</span>
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-600"><CheckCircle2 size={11} /> {es ? 'Activo' : 'Active'}</span>
+                          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium">
+                            <span className="inline-flex items-center gap-1 text-green-600"><CheckCircle2 size={11} /> {es ? 'Activo' : 'Active'}</span>
+                            <span className="text-gray-400">· {(monthStats[m.memberUid] || 0)} {es ? 'este mes' : 'this month'}</span>
+                          </span>
                         </span>
                       </button>
                     ) : (
