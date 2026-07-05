@@ -902,6 +902,50 @@ export default function SettingsPage() {
             </Card>
           </section>
 
+          {/* Phone notifications — surfaced in Profile for scoped crew members
+              (they don't have the SMS tab), so they can receive their daily-jobs
+              digest + new-assignment alerts + lock-screen Navigate/Complete. */}
+          {crewScoped && (
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <Bell size={14} className="text-brand-600" />
+                <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                  {lang === 'es' ? 'Notificaciones en el teléfono' : 'Phone notifications'}
+                </p>
+              </div>
+              <Card>
+                <p className="text-[13px] text-gray-700">
+                  {lang === 'es'
+                    ? 'Recibe tus trabajos del día y avisos cuando te asignen un trabajo — con botones para Navegar y Marcar completado.'
+                    : 'Get your jobs for the day and an alert when you’re assigned a job — with Navigate + Mark complete buttons.'}
+                </p>
+                {!pushSupported() ? (
+                  <p className="text-[12px] text-amber-700 mt-3">
+                    {lang === 'es'
+                      ? 'Para activarlas, instala YardSync en tu teléfono (en iPhone: Compartir → Agregar a inicio) y vuelve aquí.'
+                      : 'To turn these on, install YardSync on your phone (on iPhone: Share → Add to Home Screen) and come back here.'}
+                  </p>
+                ) : (
+                  <div className="flex items-center justify-between mt-3">
+                    <span className="text-[13px] font-medium text-gray-700">
+                      {pushEnabled
+                        ? (lang === 'es' ? '✅ Activadas en este dispositivo' : '✅ On for this device')
+                        : (lang === 'es' ? 'Desactivadas' : 'Off')}
+                    </span>
+                    <Button size="sm" loading={pushBusy} onClick={handleTogglePush}>
+                      {pushEnabled ? (lang === 'es' ? 'Desactivar' : 'Turn off') : (lang === 'es' ? 'Activar' : 'Turn on')}
+                    </Button>
+                  </div>
+                )}
+                {pushEnabled && (
+                  <button type="button" onClick={handleTestPush} className="text-[12px] text-brand-600 font-medium hover:text-brand-700 mt-2">
+                    {lang === 'es' ? 'Enviar notificación de prueba' : 'Send a test notification'}
+                  </button>
+                )}
+              </Card>
+            </section>
+          )}
+
           </>)}
 
           {/* ── Card tab ── */}

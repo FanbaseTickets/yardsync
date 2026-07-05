@@ -143,6 +143,13 @@ export default function AddressAutocomplete({
         {locating ? <Loader2 size={13} className="animate-spin" /> : <LocateFixed size={13} />}
         {es ? 'Usar mi ubicación actual' : 'Use my current location'}
       </button>
+      {/* Sensitive-data (precise location) consent notice — the tap is opt-in, the
+          coordinates are used only to fill the address and are not stored. */}
+      <p className="text-[10.5px] text-gray-400 mt-1 leading-snug">
+        {es
+          ? 'Opcional. Al tocarlo, tu ubicación precisa se envía a nuestro proveedor de mapas solo para completar tu dirección; no la guardamos. Siempre puedes escribirla.'
+          : 'Optional. Tapping this sends your precise location to our maps provider only to fill in your address — we don’t store it. You can always type it instead.'}
+      </p>
 
       {open && suggestions.length > 0 && (
         <ul className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
