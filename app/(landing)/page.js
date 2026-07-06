@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 
 const STRINGS = {
   en: {
-    nav: { who: "Who it's for", features: 'Features', pricing: 'Pricing', sms: 'SMS Policy', signin: 'Sign In →' },
+    nav: { who: "Who it's for", features: 'Features', crew: 'Crew', pricing: 'Pricing', sms: 'SMS Policy', signin: 'Sign In →' },
     hero: {
       eyebrow: '🌱 Start free — pay nothing until your first client pays you',
       sub: "Start free — build your card, send invoices, get paid. You pay $0 until money lands in your account; then it's $39/mo. Drag-and-drop routes, one-tap Stripe invoices, bilingual SMS reminders. No upfront cost, no hidden fees.",
@@ -31,6 +31,17 @@ const STRINGS = {
       matCks: ['Per-visit material logging', 'Cost tracking by client', 'Running total dashboard', 'Attach to invoices'],
       invTag: 'INVOICING', invH: 'Send invoices in one tap. See exactly what you keep.', invP: 'Stripe-powered invoicing with a transparent 5.5% flat fee — no hidden processing charges, no monthly minimums. Every invoice shows the service breakdown, materials, total, and exactly what hits your bank.',
       invCks: ['One-tap send', 'Auto-calculated fee', 'Materials included', 'Real-time payment status'],
+    },
+    crew: {
+      lbl: 'New · Crew',
+      h: 'Run a crew? Put your whole team on one app.',
+      s: 'Add your workers for $15/month each. They see only the jobs you assign — the address, what to do, and one-tap navigation. Never your prices, your client list, or your money.',
+      b1h: 'Assign in a tap', b1p: 'Send a job to one worker, several, or the whole crew. Set a default worker per client.',
+      b2h: 'A worker-safe view', b2p: 'Workers get only their schedule — address, job notes (pets, gate code, callback), and Mark complete. No money, ever.',
+      b3h: 'Field-ready notifications', b3p: 'A morning digest of their jobs, an alert when you assign one, and Navigate + Mark complete right from the lock screen.',
+      b4h: 'Own a business AND work a crew', b4p: 'The hustler move: run your own YardSync business and join someone else’s crew — both on one login.',
+      priceNote: '$15/month per active crew member, on top of your plan. Add or remove anyone, anytime.',
+      cta: 'Start free →',
     },
     bili: {
       lbl: 'Bilingual', h: 'The only app that speaks both languages',
@@ -98,7 +109,7 @@ const STRINGS = {
     footer: { privacy: 'Privacy Policy', terms: 'Terms of Service', sms: 'SMS Policy', signin: 'Sign In', rights: 'All rights reserved.' },
   },
   es: {
-    nav: { who: 'Para quién es', features: 'Funciones', pricing: 'Precios', sms: 'Política SMS', signin: 'Iniciar sesión →' },
+    nav: { who: 'Para quién es', features: 'Funciones', crew: 'Equipo', pricing: 'Precios', sms: 'Política SMS', signin: 'Iniciar sesión →' },
     hero: {
       eyebrow: '🌱 Empieza gratis — no pagas nada hasta que tu primer cliente te pague',
       sub: 'Empieza gratis — crea tu tarjeta, envía facturas y cobra. Pagas $0 hasta que el dinero llegue a tu cuenta; después son $39/mes. Rutas con arrastrar y soltar, facturas con un toque, recordatorios bilingües por SMS. Sin costo inicial, sin cargos ocultos.',
@@ -124,6 +135,17 @@ const STRINGS = {
       matCks: ['Registro de materiales por visita', 'Control de costos por cliente', 'Total acumulado en el panel', 'Adjunta a las facturas'],
       invTag: 'FACTURACIÓN', invH: 'Envía facturas con un toque. Ve exactamente lo que te queda.', invP: 'Facturación con Stripe y una tarifa fija y transparente del 5.5% — sin cargos de procesamiento ocultos ni mínimos mensuales. Cada factura muestra el desglose del servicio, los materiales, el total y exactamente lo que llega a tu banco.',
       invCks: ['Envío con un toque', 'Tarifa calculada automáticamente', 'Materiales incluidos', 'Estado de pago en tiempo real'],
+    },
+    crew: {
+      lbl: 'Nuevo · Equipo',
+      h: '¿Tienes equipo? Pon a todo tu personal en una sola app.',
+      s: 'Agrega a tus trabajadores por $15/mes cada uno. Solo ven los trabajos que les asignas — la dirección, qué hacer y navegación con un toque. Nunca tus precios, tu lista de clientes ni tu dinero.',
+      b1h: 'Asigna con un toque', b1p: 'Envía un trabajo a un trabajador, a varios o a todo el equipo. Define un trabajador por cliente.',
+      b2h: 'Una vista segura', b2p: 'Los trabajadores solo ven su horario — dirección, notas del trabajo (perros, código de puerta, número para llamar) y Marcar completado. Sin dinero, nunca.',
+      b3h: 'Listo para el campo', b3p: 'Un resumen matutino de sus trabajos, un aviso cuando les asignas uno, y Navegar + Marcar completado desde la pantalla de bloqueo.',
+      b4h: 'Ten un negocio Y trabaja en un equipo', b4p: 'La jugada del hustler: maneja tu propio negocio de YardSync y únete al equipo de otro — ambos con un solo inicio de sesión.',
+      priceNote: '$15/mes por cada miembro activo del equipo, además de tu plan. Agrega o quita a cualquiera, cuando quieras.',
+      cta: 'Empieza gratis →',
     },
     bili: {
       lbl: 'Bilingüe', h: 'La única app que habla los dos idiomas',
@@ -222,6 +244,7 @@ export default function LandingPage() {
         <div className="lp-nav-r">
           <a href="#who">{t.nav.who}</a>
           <a href="#features">{t.nav.features}</a>
+          <a href="#crew">{t.nav.crew}</a>
           <a href="#pricing">{t.nav.pricing}</a>
           <a href="#sms-consent">{t.nav.sms}</a>
           <button
@@ -341,6 +364,29 @@ export default function LandingPage() {
               <div className="lp-cks">{t.feat.invCks.map((c, i) => <span key={i}>{c}</span>)}</div>
             </div>
             <div className="lp-fph"><div className="lp-phone lp-phone-lg"><img className="lp-phone-screen" src="/landing/app-invoice-summary-v4.png" alt="Invoice summary with fee breakdown" /></div></div>
+          </div>
+        </div>
+      </section>
+
+      {/* CREW TIER */}
+      <section className="lp-feat" id="crew" style={{ background: 'var(--g1, #f7faf9)' }}>
+        <div className="lp-feat-in">
+          <div className="lp-feat-head">
+            <div className="sec-lbl">{t.crew.lbl}</div>
+            <h2 className="sec-h">{t.crew.h}</h2>
+            <p className="sec-s">{t.crew.s}</p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginTop: '28px' }}>
+            {[[t.crew.b1h, t.crew.b1p], [t.crew.b2h, t.crew.b2p], [t.crew.b3h, t.crew.b3p], [t.crew.b4h, t.crew.b4p]].map(([h, p], i) => (
+              <div key={i} style={{ background: '#fff', border: '1px solid var(--g2, #e6e8e7)', borderRadius: '16px', padding: '22px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--g8, #16241d)', marginBottom: '6px' }}>{h}</h3>
+                <p style={{ fontSize: '14px', color: 'var(--g6, #5b6660)', lineHeight: 1.55, margin: 0 }}>{p}</p>
+              </div>
+            ))}
+          </div>
+          <div style={{ textAlign: 'center', marginTop: '26px' }}>
+            <p style={{ fontSize: '14px', color: 'var(--g6, #5b6660)', marginBottom: '14px' }}>{t.crew.priceNote}</p>
+            <a href="/signup" className="lp-btn-y">{t.crew.cta}</a>
           </div>
         </div>
       </section>
