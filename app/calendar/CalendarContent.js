@@ -18,7 +18,7 @@ import { validatePhone, formatPhone } from '@/lib/phone'
 import PhoneInput from '@/components/ui/PhoneInput'
 import {
   ChevronLeft, ChevronRight, ChevronDown, Plus, CalendarDays,
-  Trash2, CheckCircle2, RefreshCw, AlertTriangle, Zap, DollarSign, Package, X, GripVertical, Route, CalendarClock, Navigation
+  Trash2, CheckCircle2, RefreshCw, AlertTriangle, Zap, DollarSign, Package, X, GripVertical, Route, CalendarClock, Navigation, Users
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -426,6 +426,12 @@ export default function CalendarPage() {
   // assignedTeam. Everywhere we compute crew MEMBERS, filter the owner out.
   const ownerUid = user?.uid
   const crewMembersOf = (team) => (team || []).filter(uid => uid && uid !== ownerUid)
+  // Display name for an assignee uid (owner = the owner's name; else the member's).
+  // Denormalized onto the schedule so a scoped worker (who can't read the members)
+  // can show "who else is on this job".
+  const assigneeName = (uid) => uid === ownerUid
+    ? (profile?.name || (lang === 'es' ? 'Dueño' : 'Owner'))
+    : (teamMembers.find(m => m.memberUid === uid)?.inviteName || teamMembers.find(m => m.memberUid === uid)?.memberEmail || (lang === 'es' ? 'Miembro' : 'Member'))
 
   // Assign a job to the owner ("Me") and/or crew members (multi-assign). Writes
   // the canonical `assignedTeam` array (may include the owner) + keeps `assignedTo`
@@ -437,7 +443,11 @@ export default function CalendarPage() {
       const prev = schedule.assignedTeam || (schedule.assignedTo ? [schedule.assignedTo] : [])
       const mem = crewMembersOf(team)
       const c = clientMap[schedule.clientId]
-      const patch = { assignedTeam: team, assignedTo: mem.length === 1 ? mem[0] : null }
+      const patch = {
+        assignedTeam: team,
+        assignedTo: mem.length === 1 ? mem[0] : null,
+        assignedTeamNames: Object.fromEntries(team.map(uid => [uid, assigneeName(uid)])),   // for the worker's co-assignee card
+      }
       // Backfill denormalized fields (older schedules predate on-create denorm; a
       // Worker can't read the clients collection).
       if (c) {
@@ -812,6 +822,7 @@ export default function CalendarPage() {
         serviceAddress: client?.address || '', serviceLabel: client?.packageLabel || '',
         assignedTeam: assignJobTeam,   // owner ("Me") and/or crew member(s)
         assignedTo: crewMembersOf(assignJobTeam).length === 1 ? crewMembersOf(assignJobTeam)[0] : null,   // single crew member back-compat
+        assignedTeamNames: Object.fromEntries(assignJobTeam.map(uid => [uid, assigneeName(uid)])),   // for the worker's co-assignee card
         crewNote: crewNote.trim(),   // worker-visible note (pets/gate code/callback)
         serviceDate: toDateStr(date), time: selectedTime,
         status: 'scheduled', recurrence: repeatMode, isRecurring: repeatMode !== 'none', addons: finalAddons,
@@ -1570,6 +1581,19 @@ export default function CalendarPage() {
                                 </span>
                               </a>
                             )}
+                            {/* Who else is on this job (co-assignees) — so the worker
+                                knows if they're solo, with a teammate, or with the owner. */}
+                            {(() => {
+                              const others = (schedule.assignedTeam || []).filter(uid => uid !== user?.uid)
+                              if (!others.length) return null
+                              const labels = [(lang === 'es' ? 'Tú' : 'You'), ...others.map(uid => schedule.assignedTeamNames?.[uid] || (uid === schedule.gardenerUid ? (lang === 'es' ? 'Dueño' : 'Owner') : (lang === 'es' ? 'Compañero' : 'Teammate')))]
+                              return (
+                                <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                                  <Users size={12} className="text-gray-400 flex-shrink-0" />
+                                  <span>{lang === 'es' ? 'En este trabajo: ' : 'On this job: '}<span className="font-medium text-gray-700">{labels.join(' + ')}</span></span>
+                                </div>
+                              )
+                            })()}
                             {/* Crew note (pets/animals, gate code, callback #) — set by
                                 the owner, denormalized so the worker sees it here. */}
                             {schedule.crewNote && (
