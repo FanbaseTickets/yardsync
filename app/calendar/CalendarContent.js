@@ -1581,6 +1581,19 @@ export default function CalendarPage() {
                                 </span>
                               </a>
                             )}
+                            {/* Full job scope — the package + any add-on items to
+                                perform (labels only, never prices). */}
+                            {(schedule.serviceLabel || (schedule.addons || []).some(a => a.label)) && (
+                              <div className="bg-gray-50 rounded-lg px-3 py-2">
+                                <p className="text-[10px] text-gray-400 font-medium uppercase mb-1">{lang === 'es' ? 'Servicios' : 'Services'}</p>
+                                <ul className="text-[12px] text-gray-700 space-y-0.5">
+                                  {schedule.serviceLabel && <li className="flex gap-1.5"><span className="text-brand-500">•</span>{schedule.serviceLabel}</li>}
+                                  {(schedule.addons || []).filter(a => a.label).map((a, i) => (
+                                    <li key={i} className="flex gap-1.5"><span className="text-brand-500">•</span>{a.label}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
                             {/* Who else is on this job (co-assignees) — so the worker
                                 knows if they're solo, with a teammate, or with the owner. */}
                             {(() => {

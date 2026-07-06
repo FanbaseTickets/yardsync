@@ -68,6 +68,12 @@
 |---|------|
 | 37 | **Multi-device responsive polish** — the app is currently phone-first (fixed `max-w-lg` shell). Make it feel intuitive + native on ALL screen types: desktop/laptop (use the wider viewport instead of a narrow centered column), tablets/iPad, large phones, and **foldables (Z Fold / open-fold aspect ratios)**. Audit AppShell width constraints, the calendar/dashboard/clients grids, modals, and the public `/join` card at `sm/md/lg/xl` breakpoints. A story/epic, not one PR — phase it (start with AppShell + the highest-traffic screens). Keep the PWA install/mobile ergonomics intact. |
 
+## Crew data-hygiene (low)
+
+| # | Item |
+|---|------|
+| 38 | **[LOW] Worker can read addon amounts on the schedule** — `schedule.addons` carries `amountCents`, and an assigned crew member reads the whole schedule doc (base price + client financials are NOT there, so the leak is limited to add-on line amounts, never shown in the worker UI). To fully honor "worker never sees money," store a worker-safe label-only `serviceItems: [label]` for crew-visible jobs and keep priced addons off the worker-readable doc (or compute addon amounts at invoice time). Pre-existing; crew are trusted, so low priority. |
+
 ## Cowork-session findings (2026-07, VS-Claude review)
 
 | # | Item |
