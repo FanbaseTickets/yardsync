@@ -205,6 +205,8 @@ export default function CalendarPage() {
   const [showPreview,     setShowPreview]     = useState(false)
   const [selectedAddons,  setSelectedAddons]  = useState([])
   const [assignJobTeam,   setAssignJobTeam]   = useState([])   // crew members to assign at creation ([] = me/unassigned)
+  const [crewNote,        setCrewNote]        = useState('')   // note for the crew on a new job (pets/gate/callback)
+  const [noteDrafts,      setNoteDrafts]      = useState({})   // per-schedule crew-note edits on the expanded card
   const [variableInputs,  setVariableInputs]  = useState({})
 
   const [showWalkIn,       setShowWalkIn]       = useState(false)
@@ -453,6 +455,13 @@ export default function CalendarPage() {
       toast.success(team.length ? (lang === 'es' ? 'Asignado' : 'Assigned') : (lang === 'es' ? 'Sin asignar' : 'Unassigned'))
       loadData()
     } catch { toast.error(translate('common', 'error')) }
+  }
+
+  // Save the owner's crew note on an existing job (expanded-card editor).
+  async function saveCrewNote(schedule) {
+    const val = (noteDrafts[schedule.id] ?? '').trim()
+    try { await updateSchedule(schedule.id, { crewNote: val }); toast.success(lang === 'es' ? 'Nota guardada' : 'Note saved'); loadData() }
+    catch { toast.error(translate('common', 'error')) }
   }
 
   // Toggle one member in a schedule's current assignment (expanded-card chips).
@@ -803,6 +812,7 @@ export default function CalendarPage() {
         serviceAddress: client?.address || '', serviceLabel: client?.packageLabel || '',
         assignedTeam: assignJobTeam,   // owner ("Me") and/or crew member(s)
         assignedTo: crewMembersOf(assignJobTeam).length === 1 ? crewMembersOf(assignJobTeam)[0] : null,   // single crew member back-compat
+        crewNote: crewNote.trim(),   // worker-visible note (pets/gate code/callback)
         serviceDate: toDateStr(date), time: selectedTime,
         status: 'scheduled', recurrence: repeatMode, isRecurring: repeatMode !== 'none', addons: finalAddons,
       })))
@@ -818,7 +828,7 @@ export default function CalendarPage() {
       toast.success(datesToAdd.length === 1
         ? `${translate('calendar', 'add_job')} ✓`
         : `${datesToAdd.length} ${translate('calendar', 'visits')} ${lang === 'es' ? 'programadas para' : 'scheduled for'} ${client?.name || ''}!`)
-      setShowAddModal(false); setAssignJobTeam([]); loadData()
+      setShowAddModal(false); setAssignJobTeam([]); setCrewNote(''); loadData()
     } catch { toast.error(translate('common', 'error')) }
     finally { setSaving(false) }
   }
@@ -1560,6 +1570,14 @@ export default function CalendarPage() {
                                 </span>
                               </a>
                             )}
+                            {/* Crew note (pets/animals, gate code, callback #) — set by
+                                the owner, denormalized so the worker sees it here. */}
+                            {schedule.crewNote && (
+                              <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                                <p className="text-[10px] text-amber-700 font-medium uppercase mb-0.5">{lang === 'es' ? 'Nota del trabajo' : 'Job note'}</p>
+                                <p className="text-[12px] text-amber-900 whitespace-pre-line">{schedule.crewNote}</p>
+                              </div>
+                            )}
                             {!done && (
                               <Button icon={CheckCircle2} size="sm" variant="secondary" fullWidth onClick={() => { setExpandedId(null); handleComplete(schedule) }}>
                                 {lang === 'es' ? 'Marcar completado' : 'Mark complete'}
@@ -1602,6 +1620,27 @@ export default function CalendarPage() {
                                       ? (lang === 'es' ? 'Sin asignar (yo)' : 'Unassigned (me)')
                                       : [meOn ? (lang === 'es' ? 'Yo' : 'Me') : null, memN ? `${memN} ${lang === 'es' ? 'del equipo' : 'crew'}` : null].filter(Boolean).join(' + ')}
                                   </p>
+                                </div>
+                              )
+                            })()}
+                            {/* Crew note the worker will see (pets/gate code/callback). */}
+                            {teamMembers.length > 0 && (() => {
+                              const draft = noteDrafts[schedule.id] ?? (schedule.crewNote || '')
+                              return (
+                                <div>
+                                  <label className="text-[10px] text-gray-400 font-medium uppercase">{lang === 'es' ? 'Nota para el equipo' : 'Note for the crew'}</label>
+                                  <textarea
+                                    value={draft}
+                                    onChange={e => setNoteDrafts(d => ({ ...d, [schedule.id]: e.target.value }))}
+                                    rows={2} maxLength={300}
+                                    placeholder={lang === 'es' ? 'Perro en el patio · Código de puerta 1234' : 'Dog in the yard · Gate code 1234'}
+                                    className="w-full mt-1 rounded-lg border border-gray-200 text-[12px] px-2 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+                                  />
+                                  {draft.trim() !== (schedule.crewNote || '') && (
+                                    <button onClick={() => saveCrewNote(schedule)} className="text-[11px] text-brand-700 font-medium mt-1 hover:text-brand-800">
+                                      {lang === 'es' ? 'Guardar nota' : 'Save note'}
+                                    </button>
+                                  )}
                                 </div>
                               )
                             })()}
@@ -1656,7 +1695,7 @@ export default function CalendarPage() {
 
       {/* Add job modal */}
       <Modal
-        open={showAddModal} onClose={() => { setShowAddModal(false); setAssignJobTeam([]) }}
+        open={showAddModal} onClose={() => { setShowAddModal(false); setAssignJobTeam([]); setCrewNote('') }}
         title={`${translate('calendar', 'add_job')} — ${selectedDay ? fmt(selectedDay, 'MMM d') : ''}`}
         footer={<>
           <Button variant="secondary" fullWidth onClick={() => setShowAddModal(false)}>{translate('common', 'cancel')}</Button>
@@ -1736,6 +1775,20 @@ export default function CalendarPage() {
               </div>
             )
           })()}
+          {/* Note for the crew — pets/animals, gate code, callback #. Worker-visible. */}
+          {teamMembers.length > 0 && (
+            <div>
+              <label className="block text-[13px] font-medium text-gray-700 mb-1.5">{lang === 'es' ? 'Nota para el equipo (opcional)' : 'Note for the crew (optional)'}</label>
+              <textarea
+                value={crewNote}
+                onChange={e => setCrewNote(e.target.value)}
+                rows={2}
+                maxLength={300}
+                placeholder={lang === 'es' ? 'Perro en el patio · Código de puerta 1234 · Llamar al llegar' : 'Dog in the yard · Gate code 1234 · Call on arrival'}
+                className="w-full rounded-lg border border-gray-200 text-[13px] px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+              />
+            </div>
+          )}
           {repeatMode !== 'none' && (
             <Select label={translate('calendar', 'occurrences')} value={occurrences} onChange={e => setOccurrences(e.target.value)}>
               {OCCURRENCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label} {translate('calendar', 'visits')}</option>)}

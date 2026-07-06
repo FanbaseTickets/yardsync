@@ -62,6 +62,12 @@
 | 35 | **Crew-facing per-job notes** — a notes field on a job that's visible to the assigned crew member (pets/animals on site, a callback phone number, gate/lock code, etc.). Extends the "what to bring / full job scope" idea ([[CREW_TIER_SPEC]] Phase 1e #3). Denormalize onto the schedule (no money/client-book access) so the worker sees it on their scoped card. |
 | 36 | **Show co-assignees on the worker's job card** — with multi-assign live, a worker can't tell if they're solo, with a teammate, or with the owner (card only shows the business chip). Surface "who else is on this job" on the scoped worker card (e.g. "You + Owner" or teammate names) from the denormalized `assignedTeam`. Pairs with #35. |
 
+## Cross-cutting UX (Jay, 2026-07-06)
+
+| # | Item |
+|---|------|
+| 37 | **Multi-device responsive polish** — the app is currently phone-first (fixed `max-w-lg` shell). Make it feel intuitive + native on ALL screen types: desktop/laptop (use the wider viewport instead of a narrow centered column), tablets/iPad, large phones, and **foldables (Z Fold / open-fold aspect ratios)**. Audit AppShell width constraints, the calendar/dashboard/clients grids, modals, and the public `/join` card at `sm/md/lg/xl` breakpoints. A story/epic, not one PR — phase it (start with AppShell + the highest-traffic screens). Keep the PWA install/mobile ergonomics intact. |
+
 ## Cowork-session findings (2026-07, VS-Claude review)
 
 | # | Item |
