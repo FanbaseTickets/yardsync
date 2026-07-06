@@ -7,7 +7,7 @@ import { useLang } from '@/context/LangContext'
 import AppShell from '@/components/layout/AppShell'
 import PageHeader from '@/components/layout/PageHeader'
 import { Card, Badge, Button, Skeleton, Modal, Input, Select } from '@/components/ui'
-import { getClient, updateClient, deleteClient, getClientInvoices, getServices, saveInvoice, getMostRecentSchedule } from '@/lib/db'
+import { getClient, updateClient, deleteClient, getClientInvoices, getServices, saveInvoice, getMostRecentSchedule, getTeamMemberships } from '@/lib/db'
 import { formatCents, grossUpForFees, calcApplicationFee, isFeeCapped } from '@/lib/fee'
 import { badgePackageType } from '@/lib/clientBadge'
 import { PROPERTY_TYPES, propertyLabel } from '@/lib/propertyType'
@@ -64,6 +64,7 @@ export default function ClientDetailPage() {
   const [invoices,      setInvoices]      = useState([])
   const [services,      setServices]      = useState([])
   const [addonServices, setAddonServices] = useState([])
+  const [teamMembers,   setTeamMembers]   = useState([])
   const [loading,       setLoading]       = useState(true)
   const [showEdit,      setShowEdit]      = useState(false)
   const [showDelete,    setShowDelete]    = useState(false)
@@ -113,15 +114,17 @@ export default function ClientDetailPage() {
     if (!user) return
     setLoading(true)
     try {
-      const [c, inv, svc] = await Promise.all([
+      const [c, inv, svc, team] = await Promise.all([
         getClient(id),
         getClientInvoices(user.uid, id),
         getServices(user.uid),
+        getTeamMemberships(user.uid).catch(() => []),
       ])
       setClient(c)
       setInvoices(inv)
       setServices(svc.filter(s => s.serviceType === 'base'))
       setAddonServices(svc.filter(s => s.serviceType === 'addon'))
+      setTeamMembers((team || []).filter(m => m.status === 'active' && m.role === 'worker'))
       if (c) {
         setForm({
           name:        c.name        || '',
@@ -129,6 +132,7 @@ export default function ClientDetailPage() {
           email:       c.email       || '',
           address:     c.address     || '',
           propertyType: c.propertyType || 'residential',
+          defaultAssignee: c.defaultAssignee || '',
           serviceId:   c.serviceId   || '',
           billingMode:      c.billingMode      || 'upfront',
           language:         c.language         || 'en',
@@ -269,6 +273,7 @@ export default function ClientDetailPage() {
         email:       form.email.trim(),
         address:     form.address.trim() || client.address,
         propertyType:     form.propertyType || 'residential',
+        defaultAssignee:  form.defaultAssignee || '',
         billingMode:      form.billingMode,
         language:         form.language         || 'en',
         status:           form.status,
@@ -1351,6 +1356,29 @@ async function handleSendInvoice(channels = 'both', opts = {}) {
               })}
             </div>
           </div>
+
+          {/* Phase 1d: default crew member — jobs scheduled for this client
+              pre-assign to them. Only for owners with a crew. */}
+          {teamMembers.length > 0 && (
+            <div>
+              <label className="block text-[13px] font-medium text-gray-700 mb-1.5">
+                {lang === 'es' ? 'Miembro asignado por defecto' : 'Default crew member'}
+              </label>
+              <select
+                value={form.defaultAssignee || ''}
+                onChange={e => setField('defaultAssignee', e.target.value)}
+                className="w-full rounded-lg border border-gray-200 text-[13px] px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="">{lang === 'es' ? 'Ninguno (yo)' : 'None (me)'}</option>
+                {teamMembers.map(m => (
+                  <option key={m.id} value={m.memberUid}>{m.inviteName || m.memberEmail || (lang === 'es' ? 'Miembro' : 'Member')}</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-gray-400 mt-1">
+                {lang === 'es' ? 'Los trabajos nuevos para este cliente se asignan a esta persona.' : 'New jobs for this client pre-assign to this person.'}
+              </p>
+            </div>
+          )}
 
           {services.length > 0 ? (
             <>

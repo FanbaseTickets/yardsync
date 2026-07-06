@@ -502,6 +502,10 @@ export default function CalendarPage() {
     } else {
       setRepeatMode('none')
     }
+    // Phase 1d: pre-select the client's default crew member (if that member is
+    // still active), so jobs for "their" clients auto-assign to them.
+    const da = client?.defaultAssignee
+    setAssignJobTeam(da && teamMembers.some(m => m.memberUid === da) ? [da] : [])
   }
 
   function openAddModal() {
