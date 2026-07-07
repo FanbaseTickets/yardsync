@@ -98,6 +98,7 @@ export default function CardPreview({
   showContactPhone,
   showContactEmail,
   cardStatusBadge,
+  cardTemplate = 'classic',
   offersFreeEstimate,
   publicSlug,
   verified = false,
@@ -164,59 +165,48 @@ export default function CardPreview({
         <div className="h-1.5" style={{ backgroundColor: accent }} />
 
         <div className="px-4 py-4 flex flex-col items-center">
-          {/* Avatar — mirror the real card: headshot preferred, then logo, then initials */}
-          {headshotUrl ? (
-            <img
-              src={headshotUrl}
-              alt=""
-              className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md"
-            />
-          ) : logoUrl ? (
-            <img
-              src={logoUrl}
-              alt=""
-              className="w-16 h-16 rounded-full object-contain bg-white border-2 border-white shadow-md p-1"
-            />
-          ) : (
-            <div
-              className="w-16 h-16 rounded-full flex items-center justify-center text-lg font-bold text-white shadow-md"
-              style={{ backgroundColor: accent }}
-            >
-              {getInitials(businessName)}
-            </div>
-          )}
-
-          {/* When both exist, the logo rides as a small badge under the headshot
-              (mirrors the real /join card + the downloadable assets). */}
-          {headshotUrl && logoUrl && (
-            <img
-              src={logoUrl}
-              alt=""
-              className="mt-1.5 w-9 h-9 rounded-md object-contain bg-white border border-gray-200 p-1 shadow-sm"
-            />
-          )}
-
-          {/* Name + tagline */}
-          <h3
-            className="mt-2 text-[15px] font-bold text-gray-900 text-center leading-tight"
-            style={{ fontFamily: 'var(--font-dm-serif), "DM Serif Display", serif' }}
-          >
-            {businessName || (lang === 'es' ? 'Tu negocio' : 'Your business')}
-          </h3>
-          {verified && (
-            <div className="flex justify-center mt-0.5">
-              <VerifiedBadge
-                label={lang === 'es' ? 'Negocio verificado' : 'Verified business'}
-                className="text-brand-700 text-[10px]"
-                size={11}
-              />
-            </div>
-          )}
-          {tagline && (
-            <p className="text-[11px] text-center mt-0.5" style={{ color: accent }}>
-              {tagline}
-            </p>
-          )}
+          {(() => {
+            const nameStr = businessName || (lang === 'es' ? 'Tu negocio' : 'Your business')
+            const avatar = (cls) => headshotUrl
+              ? <img src={headshotUrl} alt="" className={`${cls} rounded-full object-cover border-2 border-white shadow-md`} />
+              : logoUrl
+                ? <img src={logoUrl} alt="" className={`${cls} rounded-full object-contain bg-white border-2 border-white shadow-md p-1`} />
+                : <div className={`${cls} rounded-full flex items-center justify-center font-bold text-white shadow-md`} style={{ backgroundColor: accent }}>{getInitials(businessName)}</div>
+            const badge = verified && (
+              <div className="flex justify-center mt-0.5"><VerifiedBadge label={lang === 'es' ? 'Negocio verificado' : 'Verified business'} className="text-brand-700 text-[10px]" size={11} /></div>
+            )
+            if (cardTemplate === 'photo') {
+              return (
+                <div className="w-full rounded-2xl overflow-hidden mb-1" style={{ backgroundColor: accent }}>
+                  <div className="flex flex-col items-center px-3 pt-4 pb-3">
+                    {avatar('w-16 h-16 text-lg')}
+                    <h3 className="mt-1.5 text-[15px] font-bold text-white text-center leading-tight" style={{ fontFamily: 'var(--font-dm-serif), "DM Serif Display", serif' }}>{nameStr}</h3>
+                    {verified && <div className="flex justify-center mt-0.5"><VerifiedBadge label={lang === 'es' ? 'Verificado' : 'Verified'} className="text-white text-[10px]" size={11} /></div>}
+                    {tagline && <p className="text-[11px] text-center mt-0.5 text-white/90">{tagline}</p>}
+                  </div>
+                </div>
+              )
+            }
+            if (cardTemplate === 'minimal') {
+              return (
+                <div className="text-center">
+                  <h3 className="text-[15px] font-semibold text-gray-900 leading-tight">{nameStr}</h3>
+                  <div className="w-8 h-0.5 mx-auto my-1.5" style={{ backgroundColor: accent }} />
+                  {badge}
+                  {tagline && <p className="text-[11px] text-center text-gray-500">{tagline}</p>}
+                </div>
+              )
+            }
+            return (
+              <>
+                {avatar('w-16 h-16 text-lg')}
+                {headshotUrl && logoUrl && <img src={logoUrl} alt="" className="mt-1.5 w-9 h-9 rounded-md object-contain bg-white border border-gray-200 p-1 shadow-sm" />}
+                <h3 className="mt-2 text-[15px] font-bold text-gray-900 text-center leading-tight" style={{ fontFamily: 'var(--font-dm-serif), "DM Serif Display", serif' }}>{nameStr}</h3>
+                {badge}
+                {tagline && <p className="text-[11px] text-center mt-0.5" style={{ color: accent }}>{tagline}</p>}
+              </>
+            )
+          })()}
 
           {/* Status badges */}
           {(showBadge || showFreeEstimate) && (

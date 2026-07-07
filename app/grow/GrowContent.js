@@ -9,7 +9,7 @@
  */
 
 import { useState } from 'react'
-import { Share2, Copy, Calendar, MessageSquare, CreditCard, QrCode, Check } from 'lucide-react'
+import { Share2, Copy, Calendar, MessageSquare, CreditCard, QrCode, Check, Facebook } from 'lucide-react'
 
 const STRINGS = {
   en: {
@@ -174,10 +174,15 @@ export default function GrowContent({ qrSvg, growUrl, homeUrl, initialLang, foun
           )}
         </div>
 
-        {/* Powered-by mark */}
-        <div className="mt-6 flex items-center justify-center gap-1.5 text-xs text-gray-400">
-          <img src="/logo-mark-green.png" alt="" className="w-3 h-3" />
-          <span>{t.poweredBy} <strong className="text-brand-600">YardSync</strong></span>
+        {/* Powered-by mark + YardSync Facebook */}
+        <div className="mt-6 flex flex-col items-center gap-2 text-xs text-gray-400">
+          <div className="flex items-center justify-center gap-1.5">
+            <img src="/logo-mark-green.png" alt="" className="w-3 h-3" />
+            <span>{t.poweredBy} <strong className="text-brand-600">YardSync</strong></span>
+          </div>
+          <a href="https://facebook.com/YardSyncApp" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-brand-700 hover:text-brand-800 font-medium">
+            <Facebook size={13} /> {lang === 'es' ? 'YardSync en Facebook' : 'YardSync on Facebook'}
+          </a>
         </div>
       </div>
     </main>

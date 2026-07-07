@@ -66,7 +66,10 @@ export default function CrewMemberCard({ business, member, requestUrl, qrSvg, in
 
             {qrSvg && (
               <div className="mt-5 flex flex-col items-center">
-                <div className="w-40 h-40 p-2 bg-white rounded-xl border border-gray-100" dangerouslySetInnerHTML={{ __html: qrSvg }} />
+                {/* No fixed w/h box — let the QR SVG render at its natural size
+                    (mirrors the working owner card) so it can't overflow a smaller
+                    box and overlap the caption. */}
+                <div className="p-3 bg-white rounded-xl border border-gray-100 [&>svg]:block" dangerouslySetInnerHTML={{ __html: qrSvg }} />
                 <p className="text-[12px] text-gray-600 font-medium mt-3">{es ? 'Escanee para solicitar' : 'Scan to request'}</p>
               </div>
             )}

@@ -62,6 +62,42 @@
 | 35 | **Crew-facing per-job notes** — a notes field on a job that's visible to the assigned crew member (pets/animals on site, a callback phone number, gate/lock code, etc.). Extends the "what to bring / full job scope" idea ([[CREW_TIER_SPEC]] Phase 1e #3). Denormalize onto the schedule (no money/client-book access) so the worker sees it on their scoped card. |
 | 36 | **Show co-assignees on the worker's job card** — with multi-assign live, a worker can't tell if they're solo, with a teammate, or with the owner (card only shows the business chip). Surface "who else is on this job" on the scoped worker card (e.g. "You + Owner" or teammate names) from the denormalized `assignedTeam`. Pairs with #35. |
 
+## Cross-cutting UX (Jay, 2026-07-06)
+
+| # | Item |
+|---|------|
+| 37 | **Multi-device responsive polish** — the app is currently phone-first (fixed `max-w-lg` shell). Make it feel intuitive + native on ALL screen types: desktop/laptop (use the wider viewport instead of a narrow centered column), tablets/iPad, large phones, and **foldables (Z Fold / open-fold aspect ratios)**. Audit AppShell width constraints, the calendar/dashboard/clients grids, modals, and the public `/join` card at `sm/md/lg/xl` breakpoints. A story/epic, not one PR — phase it (start with AppShell + the highest-traffic screens). Keep the PWA install/mobile ergonomics intact. |
+
+## Crew data-hygiene (low)
+
+| # | Item |
+|---|------|
+| 38 | **[LOW] Worker can read addon amounts on the schedule** — `schedule.addons` carries `amountCents`, and an assigned crew member reads the whole schedule doc (base price + client financials are NOT there, so the leak is limited to add-on line amounts, never shown in the worker UI). To fully honor "worker never sees money," store a worker-safe label-only `serviceItems: [label]` for crew-visible jobs and keep priced addons off the worker-readable doc (or compute addon amounts at invoice time). Pre-existing; crew are trusted, so low priority. |
+
+## Billing workflow (Jay, 2026-07-06)
+
+| # | Item |
+|---|------|
+| 39 | **Auto-invoice on job completion for post-visit clients** — when a contractor marks a job **complete** and the client's billing model is **post-visit** (invoice after the job, not paid upfront), automatically **trigger + send the invoice at that moment** (no separate manual send). Gate on the client's `billingMode`/pay-after flag; reuse the existing invoice-create + send path (respect the free-access card-required gate + `on_behalf_of` branding + 5.5% fee). Should also fire for a **crew member** completing the job (owner-owned invoice), so the money side still runs owner-only. Confirm no double-invoice if the job was already invoiced. |
+
+## Crew account lifecycle
+
+| # | Item |
+|---|------|
+| 40 | **In-app revert: business → crew-only** — the crew→business conversion is now gated behind explicit confirm (bug fixed), but there's still no in-app way to UNDO a conversion. Add a support/settings action (or admin path) to move a mistakenly-converted account back to crew-only + clean up orphaned Stripe Connect artifacts. Backend/data operation; not fully self-serve if a Stripe account exists. |
+
+## Card templates — follow-on
+
+| # | Item |
+|---|------|
+| 41 | **Apply the card template to the downloadable assets** — #24 shipped 3 distinct layouts (Classic/Photo/Minimal) for the LIVE `/join` card + settings preview + picker. The downloadable social/print assets (`lib/cardTemplate.js` / `CardAssets`) still render one layout; extend them to match the contractor's chosen `cardTemplate` so print/social match the live card. Canvas layout work. |
+
+## Adversarial-QA follow-ups (2026-07-06)
+
+| # | Item |
+|---|------|
+| 42 | **Sweep negative/oversized guards across ALL money inputs** — Finding 2 fixed the Services base + add-on price (`min="0"` + submit validation). Apply the same to the remaining money entry points: **walk-in price**, **quote line amounts**, **invoice line amounts**, per-client price override, and the variable add-on input. `min="0"` on the number inputs + reject `< 0` on submit (client + server). |
+
 ## Cowork-session findings (2026-07, VS-Claude review)
 
 | # | Item |

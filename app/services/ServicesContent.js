@@ -129,12 +129,13 @@ export default function ServicesPage() {
   function validate() {
     const e = {}
     if (!form.label.trim()) e.label = translate('services', 'service_name') + ' *'
+    const priceInvalid = !form.priceCents || isNaN(parseFloat(form.priceCents)) || parseFloat(form.priceCents) < 0
     if (form.serviceType === 'base') {
       if (!form.description.trim()) e.description = translate('services', 'description') + ' *'
-      if (!form.priceCents || isNaN(parseFloat(form.priceCents))) e.priceCents = translate('services', 'base_price') + ' *'
+      if (priceInvalid) e.priceCents = translate('services', 'base_price') + ' *'
     }
     if (form.serviceType === 'addon' && form.pricingType === 'fixed') {
-      if (!form.priceCents || isNaN(parseFloat(form.priceCents))) e.priceCents = translate('services', 'price') + ' *'
+      if (priceInvalid) e.priceCents = translate('services', 'price') + ' *'
     }
     setErrors(e)
     return Object.keys(e).length === 0
@@ -175,6 +176,10 @@ export default function ServicesPage() {
   }
 
   async function handleDelete(service) {
+    // Confirm before a destructive, billing-relevant delete (no undo).
+    if (!window.confirm(lang === 'es'
+      ? `¿Eliminar "${service.label}"? No se puede deshacer.`
+      : `Delete "${service.label}"? This can't be undone.`)) return
     setDeleting(service.id)
     try {
       await deleteService(service.id)
@@ -449,6 +454,8 @@ export default function ServicesPage() {
                 label={translate('services', 'base_price') + ' *'}
                 placeholder="65"
                 type="number"
+                min="0"
+                step="0.01"
                 prefix="$"
                 value={form.priceCents}
                 onChange={e => setField('priceCents', e.target.value)}
@@ -480,6 +487,8 @@ export default function ServicesPage() {
                   label={translate('services', 'price') + ' *'}
                   placeholder="45"
                   type="number"
+                  min="0"
+                  step="0.01"
                   prefix="$"
                   value={form.priceCents}
                   onChange={e => setField('priceCents', e.target.value)}

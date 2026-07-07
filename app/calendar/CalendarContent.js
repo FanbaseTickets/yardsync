@@ -18,7 +18,7 @@ import { validatePhone, formatPhone } from '@/lib/phone'
 import PhoneInput from '@/components/ui/PhoneInput'
 import {
   ChevronLeft, ChevronRight, ChevronDown, Plus, CalendarDays,
-  Trash2, CheckCircle2, RefreshCw, AlertTriangle, Zap, DollarSign, Package, X, GripVertical, Route, CalendarClock, Navigation
+  Trash2, CheckCircle2, RefreshCw, AlertTriangle, Zap, DollarSign, Package, X, GripVertical, Route, CalendarClock, Navigation, Users
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -205,6 +205,8 @@ export default function CalendarPage() {
   const [showPreview,     setShowPreview]     = useState(false)
   const [selectedAddons,  setSelectedAddons]  = useState([])
   const [assignJobTeam,   setAssignJobTeam]   = useState([])   // crew members to assign at creation ([] = me/unassigned)
+  const [crewNote,        setCrewNote]        = useState('')   // note for the crew on a new job (pets/gate/callback)
+  const [noteDrafts,      setNoteDrafts]      = useState({})   // per-schedule crew-note edits on the expanded card
   const [variableInputs,  setVariableInputs]  = useState({})
 
   const [showWalkIn,       setShowWalkIn]       = useState(false)
@@ -424,6 +426,14 @@ export default function CalendarPage() {
   // assignedTeam. Everywhere we compute crew MEMBERS, filter the owner out.
   const ownerUid = user?.uid
   const crewMembersOf = (team) => (team || []).filter(uid => uid && uid !== ownerUid)
+  // Scoped crew member (no own business): hide owner-only actions (Add job / Walk-in).
+  const scopedWorker = profile?.crewMode === true && !profile?.stripeAccountId
+  // Display name for an assignee uid (owner = the owner's name; else the member's).
+  // Denormalized onto the schedule so a scoped worker (who can't read the members)
+  // can show "who else is on this job".
+  const assigneeName = (uid) => uid === ownerUid
+    ? (profile?.name || (lang === 'es' ? 'Dueño' : 'Owner'))
+    : (teamMembers.find(m => m.memberUid === uid)?.inviteName || teamMembers.find(m => m.memberUid === uid)?.memberEmail || (lang === 'es' ? 'Miembro' : 'Member'))
 
   // Assign a job to the owner ("Me") and/or crew members (multi-assign). Writes
   // the canonical `assignedTeam` array (may include the owner) + keeps `assignedTo`
@@ -435,7 +445,11 @@ export default function CalendarPage() {
       const prev = schedule.assignedTeam || (schedule.assignedTo ? [schedule.assignedTo] : [])
       const mem = crewMembersOf(team)
       const c = clientMap[schedule.clientId]
-      const patch = { assignedTeam: team, assignedTo: mem.length === 1 ? mem[0] : null }
+      const patch = {
+        assignedTeam: team,
+        assignedTo: mem.length === 1 ? mem[0] : null,
+        assignedTeamNames: Object.fromEntries(team.map(uid => [uid, assigneeName(uid)])),   // for the worker's co-assignee card
+      }
       // Backfill denormalized fields (older schedules predate on-create denorm; a
       // Worker can't read the clients collection).
       if (c) {
@@ -453,6 +467,13 @@ export default function CalendarPage() {
       toast.success(team.length ? (lang === 'es' ? 'Asignado' : 'Assigned') : (lang === 'es' ? 'Sin asignar' : 'Unassigned'))
       loadData()
     } catch { toast.error(translate('common', 'error')) }
+  }
+
+  // Save the owner's crew note on an existing job (expanded-card editor).
+  async function saveCrewNote(schedule) {
+    const val = (noteDrafts[schedule.id] ?? '').trim()
+    try { await updateSchedule(schedule.id, { crewNote: val }); toast.success(lang === 'es' ? 'Nota guardada' : 'Note saved'); loadData() }
+    catch { toast.error(translate('common', 'error')) }
   }
 
   // Toggle one member in a schedule's current assignment (expanded-card chips).
@@ -483,6 +504,10 @@ export default function CalendarPage() {
     } else {
       setRepeatMode('none')
     }
+    // Phase 1d: pre-select the client's default crew member (if that member is
+    // still active), so jobs for "their" clients auto-assign to them.
+    const da = client?.defaultAssignee
+    setAssignJobTeam(da && teamMembers.some(m => m.memberUid === da) ? [da] : [])
   }
 
   function openAddModal() {
@@ -803,6 +828,8 @@ export default function CalendarPage() {
         serviceAddress: client?.address || '', serviceLabel: client?.packageLabel || '',
         assignedTeam: assignJobTeam,   // owner ("Me") and/or crew member(s)
         assignedTo: crewMembersOf(assignJobTeam).length === 1 ? crewMembersOf(assignJobTeam)[0] : null,   // single crew member back-compat
+        assignedTeamNames: Object.fromEntries(assignJobTeam.map(uid => [uid, assigneeName(uid)])),   // for the worker's co-assignee card
+        crewNote: crewNote.trim(),   // worker-visible note (pets/gate code/callback)
         serviceDate: toDateStr(date), time: selectedTime,
         status: 'scheduled', recurrence: repeatMode, isRecurring: repeatMode !== 'none', addons: finalAddons,
       })))
@@ -818,7 +845,7 @@ export default function CalendarPage() {
       toast.success(datesToAdd.length === 1
         ? `${translate('calendar', 'add_job')} ✓`
         : `${datesToAdd.length} ${translate('calendar', 'visits')} ${lang === 'es' ? 'programadas para' : 'scheduled for'} ${client?.name || ''}!`)
-      setShowAddModal(false); setAssignJobTeam([]); loadData()
+      setShowAddModal(false); setAssignJobTeam([]); setCrewNote(''); loadData()
     } catch { toast.error(translate('common', 'error')) }
     finally { setSaving(false) }
   }
@@ -1386,14 +1413,16 @@ export default function CalendarPage() {
             <div className="animate-fade-up">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-[14px] font-semibold text-gray-800">{formatDateLocalized(selectedDay, 'EEEE, MMMM d', lang)}</h3>
-                <div className="flex items-center gap-2">
-                  <Button icon={Zap} size="sm" variant="secondary" onClick={openWalkInModal}>
-                    {lang === 'es' ? 'Ocasional' : 'Walk-in'}
-                  </Button>
-                  <Button icon={Plus} size="sm" onClick={openAddModal} disabled={clients.length === 0}>
-                    {translate('calendar', 'add_job')}
-                  </Button>
-                </div>
+                {!scopedWorker && (
+                  <div className="flex items-center gap-2">
+                    <Button icon={Zap} size="sm" variant="secondary" onClick={openWalkInModal}>
+                      {lang === 'es' ? 'Ocasional' : 'Walk-in'}
+                    </Button>
+                    <Button icon={Plus} size="sm" onClick={openAddModal} disabled={clients.length === 0}>
+                      {translate('calendar', 'add_job')}
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-1.5 mb-3 overflow-x-auto -mx-1 px-1 pb-1">
@@ -1560,6 +1589,40 @@ export default function CalendarPage() {
                                 </span>
                               </a>
                             )}
+                            {/* Full job scope — the package + any add-on items to
+                                perform (labels only, never prices). */}
+                            {(schedule.serviceLabel || (schedule.addons || []).some(a => a.label)) && (
+                              <div className="bg-gray-50 rounded-lg px-3 py-2">
+                                <p className="text-[10px] text-gray-400 font-medium uppercase mb-1">{lang === 'es' ? 'Servicios' : 'Services'}</p>
+                                <ul className="text-[12px] text-gray-700 space-y-0.5">
+                                  {schedule.serviceLabel && <li className="flex gap-1.5"><span className="text-brand-500">•</span>{schedule.serviceLabel}</li>}
+                                  {(schedule.addons || []).filter(a => a.label).map((a, i) => (
+                                    <li key={i} className="flex gap-1.5"><span className="text-brand-500">•</span>{a.label}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            {/* Who else is on this job (co-assignees) — so the worker
+                                knows if they're solo, with a teammate, or with the owner. */}
+                            {(() => {
+                              const others = (schedule.assignedTeam || []).filter(uid => uid !== user?.uid)
+                              if (!others.length) return null
+                              const labels = [(lang === 'es' ? 'Tú' : 'You'), ...others.map(uid => schedule.assignedTeamNames?.[uid] || (uid === schedule.gardenerUid ? (lang === 'es' ? 'Dueño' : 'Owner') : (lang === 'es' ? 'Compañero' : 'Teammate')))]
+                              return (
+                                <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                                  <Users size={12} className="text-gray-400 flex-shrink-0" />
+                                  <span>{lang === 'es' ? 'En este trabajo: ' : 'On this job: '}<span className="font-medium text-gray-700">{labels.join(' + ')}</span></span>
+                                </div>
+                              )
+                            })()}
+                            {/* Crew note (pets/animals, gate code, callback #) — set by
+                                the owner, denormalized so the worker sees it here. */}
+                            {schedule.crewNote && (
+                              <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                                <p className="text-[10px] text-amber-700 font-medium uppercase mb-0.5">{lang === 'es' ? 'Nota del trabajo' : 'Job note'}</p>
+                                <p className="text-[12px] text-amber-900 whitespace-pre-line">{schedule.crewNote}</p>
+                              </div>
+                            )}
                             {!done && (
                               <Button icon={CheckCircle2} size="sm" variant="secondary" fullWidth onClick={() => { setExpandedId(null); handleComplete(schedule) }}>
                                 {lang === 'es' ? 'Marcar completado' : 'Mark complete'}
@@ -1602,6 +1665,27 @@ export default function CalendarPage() {
                                       ? (lang === 'es' ? 'Sin asignar (yo)' : 'Unassigned (me)')
                                       : [meOn ? (lang === 'es' ? 'Yo' : 'Me') : null, memN ? `${memN} ${lang === 'es' ? 'del equipo' : 'crew'}` : null].filter(Boolean).join(' + ')}
                                   </p>
+                                </div>
+                              )
+                            })()}
+                            {/* Crew note the worker will see (pets/gate code/callback). */}
+                            {teamMembers.length > 0 && (() => {
+                              const draft = noteDrafts[schedule.id] ?? (schedule.crewNote || '')
+                              return (
+                                <div>
+                                  <label className="text-[10px] text-gray-400 font-medium uppercase">{lang === 'es' ? 'Nota para el equipo' : 'Note for the crew'}</label>
+                                  <textarea
+                                    value={draft}
+                                    onChange={e => setNoteDrafts(d => ({ ...d, [schedule.id]: e.target.value }))}
+                                    rows={2} maxLength={300}
+                                    placeholder={lang === 'es' ? 'Perro en el patio · Código de puerta 1234' : 'Dog in the yard · Gate code 1234'}
+                                    className="w-full mt-1 rounded-lg border border-gray-200 text-[12px] px-2 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+                                  />
+                                  {draft.trim() !== (schedule.crewNote || '') && (
+                                    <button onClick={() => saveCrewNote(schedule)} className="text-[11px] text-brand-700 font-medium mt-1 hover:text-brand-800">
+                                      {lang === 'es' ? 'Guardar nota' : 'Save note'}
+                                    </button>
+                                  )}
                                 </div>
                               )
                             })()}
@@ -1656,7 +1740,7 @@ export default function CalendarPage() {
 
       {/* Add job modal */}
       <Modal
-        open={showAddModal} onClose={() => { setShowAddModal(false); setAssignJobTeam([]) }}
+        open={showAddModal} onClose={() => { setShowAddModal(false); setAssignJobTeam([]); setCrewNote('') }}
         title={`${translate('calendar', 'add_job')} — ${selectedDay ? fmt(selectedDay, 'MMM d') : ''}`}
         footer={<>
           <Button variant="secondary" fullWidth onClick={() => setShowAddModal(false)}>{translate('common', 'cancel')}</Button>
@@ -1736,6 +1820,20 @@ export default function CalendarPage() {
               </div>
             )
           })()}
+          {/* Note for the crew — pets/animals, gate code, callback #. Worker-visible. */}
+          {teamMembers.length > 0 && (
+            <div>
+              <label className="block text-[13px] font-medium text-gray-700 mb-1.5">{lang === 'es' ? 'Nota para el equipo (opcional)' : 'Note for the crew (optional)'}</label>
+              <textarea
+                value={crewNote}
+                onChange={e => setCrewNote(e.target.value)}
+                rows={2}
+                maxLength={300}
+                placeholder={lang === 'es' ? 'Perro en el patio · Código de puerta 1234 · Llamar al llegar' : 'Dog in the yard · Gate code 1234 · Call on arrival'}
+                className="w-full rounded-lg border border-gray-200 text-[13px] px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+              />
+            </div>
+          )}
           {repeatMode !== 'none' && (
             <Select label={translate('calendar', 'occurrences')} value={occurrences} onChange={e => setOccurrences(e.target.value)}>
               {OCCURRENCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label} {translate('calendar', 'visits')}</option>)}

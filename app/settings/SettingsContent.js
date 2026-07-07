@@ -196,6 +196,12 @@ export default function SettingsPage() {
         { key: 'team',    en: 'Team',    es: 'Equipo' },
       ]
 
+  // Clamp the active tab to the account's ALLOWED set — one source of truth for
+  // chip visibility AND content visibility. A scoped crew member can't force-
+  // render an owner-only tab (Card/SMS/Billing) via ?tab= — it falls back to
+  // Profile. (Security: the ?tab= param must not bypass scoping.)
+  const effectiveTab = SETTINGS_TABS.some(t => t.key === activeTab) ? activeTab : 'profile'
+
   // Active crew-seat count for the Billing summary (each = +$15/mo).
   const [crewSeatCount, setCrewSeatCount] = useState(0)
   useEffect(() => {
@@ -223,7 +229,10 @@ export default function SettingsPage() {
     serviceArea:          '',          // free-text "San Antonio & NE suburbs"
     showContactPhone:     true,        // show phone + Call/Text on card (default ON)
     showContactEmail:     false,       // show email on card (default OFF — opt-in)
+    facebookUrl:          '',          // contractor's own Facebook page (optional)
+    showFacebook:         false,       // show the Facebook link on the card
     cardStatusBadge:      'booking',   // 'booking' | 'none' — Now booking pill
+    cardTemplate:         'classic',   // 'classic' | 'photo' | 'minimal' — card layout
     offersFreeEstimate:   false,       // show a "Free estimate" badge on the card
     upfrontDeadlineHours: 24,          // global default for upfront billing (1-168, default 24)
   })
@@ -287,7 +296,10 @@ export default function SettingsPage() {
         serviceArea:          profile.serviceArea          || '',
         showContactPhone:     profile.showContactPhone !== false,        // default ON
         showContactEmail:     profile.showContactEmail === true,         // default OFF
+        facebookUrl:          profile.facebookUrl          || '',
+        showFacebook:         profile.showFacebook === true,
         cardStatusBadge:      profile.cardStatusBadge      || 'booking', // 'booking' | 'none'
+        cardTemplate:         profile.cardTemplate         || 'classic',
         offersFreeEstimate:   profile.offersFreeEstimate === true,
         upfrontDeadlineHours: profile.upfrontDeadlineHours || 24,
       })
@@ -751,7 +763,7 @@ export default function SettingsPage() {
                 type="button"
                 onClick={() => selectTab(t.key)}
                 className={`flex-1 text-[13px] font-medium py-2 rounded-lg transition-colors ${
-                  activeTab === t.key ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  effectiveTab ===t.key ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
                 {lang === 'es' ? t.es : t.en}
@@ -787,7 +799,7 @@ export default function SettingsPage() {
           </div>
 
           {/* ── Profile tab ── */}
-          {activeTab === 'profile' && (<>
+          {effectiveTab ==='profile' && (<>
           {/* Profile */}
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -949,7 +961,7 @@ export default function SettingsPage() {
           </>)}
 
           {/* ── Card tab ── */}
-          {activeTab === 'card' && (<>
+          {effectiveTab ==='card' && (<>
           {/* YardSync Card — public business card + intake URL */}
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -1146,6 +1158,7 @@ export default function SettingsPage() {
                       showContactPhone={form.showContactPhone}
                       showContactEmail={form.showContactEmail}
                       cardStatusBadge={form.cardStatusBadge}
+                      cardTemplate={form.cardTemplate}
                       offersFreeEstimate={form.offersFreeEstimate}
                       publicSlug={profile.publicSlug}
                       verified={isVerifiedBusiness(profile)}
@@ -1167,6 +1180,26 @@ export default function SettingsPage() {
 
                   {/* Public-profile fields used by /join page + the card */}
                   <div className="space-y-3 pt-3 border-t border-gray-100">
+                    {/* Card design template */}
+                    <div>
+                      <label className="text-[12px] font-medium text-gray-700 block mb-1">{lang === 'es' ? 'Diseño de tarjeta' : 'Card design'}</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { key: 'classic', en: 'Classic', es: 'Clásico', d: lang === 'es' ? 'Centrado' : 'Centered' },
+                          { key: 'photo',   en: 'Photo',   es: 'Foto',    d: lang === 'es' ? 'Foto grande' : 'Photo hero' },
+                          { key: 'minimal', en: 'Minimal', es: 'Mínimo',  d: lang === 'es' ? 'Simple' : 'Clean' },
+                        ].map(tpl => {
+                          const sel = (form.cardTemplate || 'classic') === tpl.key
+                          return (
+                            <button key={tpl.key} type="button" disabled={!settingsEditing} onClick={() => setField('cardTemplate', tpl.key)}
+                              className={`flex flex-col items-center py-2.5 rounded-lg border transition-colors disabled:opacity-60 ${sel ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                              <span className="text-[12.5px] font-semibold">{lang === 'es' ? tpl.es : tpl.en}</span>
+                              <span className={`text-[10px] ${sel ? 'text-white/80' : 'text-gray-400'}`}>{tpl.d}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
                     <Input
                       label={lang === 'es' ? 'Eslogan' : 'Tagline'}
                       value={form.tagline}
@@ -1202,6 +1235,23 @@ export default function SettingsPage() {
                       maxLength={100}
                       disabled={!settingsEditing}
                     />
+                    {/* Contractor's own Facebook page (optional) — shown on the card. */}
+                    <div>
+                      <Input
+                        label="Facebook"
+                        value={form.facebookUrl}
+                        onChange={e => setField('facebookUrl', e.target.value)}
+                        placeholder="facebook.com/YourBusiness"
+                        maxLength={200}
+                        disabled={!settingsEditing}
+                      />
+                      {form.facebookUrl.trim() && (
+                        <label className="flex items-center gap-2 mt-1.5 text-[12px] text-gray-600 cursor-pointer">
+                          <input type="checkbox" checked={form.showFacebook} onChange={e => setField('showFacebook', e.target.checked)} disabled={!settingsEditing} className="w-4 h-4 accent-brand-600" />
+                          {lang === 'es' ? 'Mostrar Facebook en mi tarjeta' : 'Show Facebook on my card'}
+                        </label>
+                      )}
+                    </div>
                     <div>
                       <label className="text-[12px] font-medium text-gray-700 block mb-1">
                         {lang === 'es' ? 'Color de marca' : 'Brand accent color'}
@@ -1314,7 +1364,7 @@ export default function SettingsPage() {
           </>)}
 
           {/* ── SMS tab ── */}
-          {activeTab === 'sms' && (<>
+          {effectiveTab ==='sms' && (<>
           {/* Phone push notifications — secondary to SMS, never a replacement */}
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -1454,7 +1504,7 @@ export default function SettingsPage() {
           </>)}
 
           {/* ── Billing tab ── (Subscription · Payment Reminders · Volume Rewards · Stripe Connect) */}
-          {activeTab === 'billing' && (<>
+          {effectiveTab ==='billing' && (<>
           {/* Subscription */}
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -1982,7 +2032,7 @@ export default function SettingsPage() {
           </>)}
 
           {/* ── Team tab (Crew Tier) ── */}
-          {activeTab === 'team' && (
+          {effectiveTab ==='team' && (
             <div className="px-4 py-4 max-w-lg mx-auto">
               <TeamPanel />
             </div>
