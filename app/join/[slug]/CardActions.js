@@ -61,6 +61,16 @@ export default function CardActions({ slug, owner, services, qrSvg, initialLang 
   const accent     = owner.accentColor || '#0F6E56'
   const showPhone  = owner.showContactPhone !== false && !!owner.phone
   const showEmail  = owner.showContactEmail === true && !!owner.email
+  const template   = owner.cardTemplate || 'classic'   // 'classic' | 'photo' | 'minimal'
+
+  // Avatar element at a given size — reused across the 3 layouts.
+  const avatarEl = (sizeCls, textCls, border = 'border-4 border-white') => (
+    owner.headshotURL
+      ? <img src={owner.headshotURL} alt={owner.businessName} className={`${sizeCls} rounded-full object-cover ${border} shadow-lg`} />
+      : owner.logoURL
+        ? <img src={owner.logoURL} alt={owner.businessName} className={`${sizeCls} rounded-full object-contain bg-white ${border} shadow-lg p-2`} />
+        : <div className={`${sizeCls} rounded-full flex items-center justify-center font-bold text-white shadow-lg ${textCls}`} style={{ backgroundColor: accent }}>{getInitials(owner.businessName)}</div>
+  )
   const showBadge  = owner.cardStatusBadge !== 'none'
   const showFreeEstimate = owner.offersFreeEstimate === true
   const phoneDigits = stripPhone(owner.phone)
@@ -101,57 +111,66 @@ export default function CardActions({ slug, owner, services, qrSvg, initialLang 
           </div>
         </div>
 
-        {/* ── Hero (avatar + logo) ─────────────────────────────────────── */}
-        <div className="flex flex-col items-center mb-4">
-          {owner.headshotURL ? (
-            <img
-              src={owner.headshotURL}
-              alt={owner.businessName}
-              className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
-            />
-          ) : owner.logoURL ? (
-            <img
-              src={owner.logoURL}
-              alt={owner.businessName}
-              className="w-24 h-24 rounded-full object-contain bg-white border-4 border-white shadow-lg p-2"
-            />
-          ) : (
-            <div
-              className="w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold text-white shadow-lg"
-              style={{ backgroundColor: accent }}
-            >
-              {getInitials(owner.businessName)}
+        {/* ── Hero — varies by card template ───────────────────────────── */}
+        {template === 'photo' ? (
+          /* PHOTO: bold accent hero card, large avatar, name in white. */
+          <div className="rounded-3xl overflow-hidden mb-5 shadow-sm" style={{ backgroundColor: accent }}>
+            <div className="flex flex-col items-center px-5 pt-8 pb-6">
+              {avatarEl('w-28 h-28', 'text-4xl', 'border-4 border-white/70')}
+              <h1 className="mt-3 text-2xl font-bold text-white text-center" style={{ fontFamily: 'var(--font-dm-serif), "DM Serif Display", serif' }}>
+                {owner.businessName}
+              </h1>
+              {owner.verified && (
+                <div className="flex justify-center mt-1.5">
+                  <VerifiedBadge
+                    label={lang === 'es' ? 'Negocio verificado' : 'Verified business'}
+                    title={lang === 'es' ? 'Identidad y pagos verificados con Stripe' : 'Identity & payments verified through Stripe'}
+                    className="text-white text-[12px]"
+                  />
+                </div>
+              )}
+              {owner.tagline && <p className="text-sm text-center mt-1.5 text-white/90">{owner.tagline}</p>}
             </div>
-          )}
-          {owner.headshotURL && owner.logoURL && (
-            <img
-              src={owner.logoURL}
-              alt=""
-              className="mt-2 w-14 h-14 rounded-lg object-contain bg-white border border-gray-200 p-1.5 shadow-sm"
-            />
-          )}
-        </div>
-
-        {/* ── Business name + tagline ─────────────────────────────────── */}
-        <h1
-          className="text-3xl font-bold text-gray-900 text-center mb-1"
-          style={{ fontFamily: 'var(--font-dm-serif), "DM Serif Display", serif' }}
-        >
-          {owner.businessName}
-        </h1>
-        {owner.verified && (
-          <div className="flex justify-center mb-1.5">
-            <VerifiedBadge
-              label={lang === 'es' ? 'Negocio verificado' : 'Verified business'}
-              title={lang === 'es' ? 'Identidad y pagos verificados con Stripe' : 'Identity & payments verified through Stripe'}
-              className="text-brand-700 text-[12px]"
-            />
           </div>
-        )}
-        {owner.tagline && (
-          <p className="text-sm text-center mb-4" style={{ color: accent }}>
-            {owner.tagline}
-          </p>
+        ) : template === 'minimal' ? (
+          /* MINIMAL: text-first, no big avatar, clean sans, thin accent rule. */
+          <div className="text-center mb-5 pt-2">
+            <h1 className="text-2xl font-semibold text-gray-900">{owner.businessName}</h1>
+            <div className="w-10 h-0.5 mx-auto my-2.5" style={{ backgroundColor: accent }} />
+            {owner.verified && (
+              <div className="flex justify-center mb-1">
+                <VerifiedBadge
+                  label={lang === 'es' ? 'Negocio verificado' : 'Verified business'}
+                  title={lang === 'es' ? 'Identidad y pagos verificados con Stripe' : 'Identity & payments verified through Stripe'}
+                  className="text-brand-700 text-[12px]"
+                />
+              </div>
+            )}
+            {owner.tagline && <p className="text-sm text-gray-500">{owner.tagline}</p>}
+          </div>
+        ) : (
+          /* CLASSIC: centered round avatar + serif name. */
+          <>
+            <div className="flex flex-col items-center mb-4">
+              {avatarEl('w-24 h-24', 'text-3xl')}
+              {owner.headshotURL && owner.logoURL && (
+                <img src={owner.logoURL} alt="" className="mt-2 w-14 h-14 rounded-lg object-contain bg-white border border-gray-200 p-1.5 shadow-sm" />
+              )}
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 text-center mb-1" style={{ fontFamily: 'var(--font-dm-serif), "DM Serif Display", serif' }}>
+              {owner.businessName}
+            </h1>
+            {owner.verified && (
+              <div className="flex justify-center mb-1.5">
+                <VerifiedBadge
+                  label={lang === 'es' ? 'Negocio verificado' : 'Verified business'}
+                  title={lang === 'es' ? 'Identidad y pagos verificados con Stripe' : 'Identity & payments verified through Stripe'}
+                  className="text-brand-700 text-[12px]"
+                />
+              </div>
+            )}
+            {owner.tagline && <p className="text-sm text-center mb-4" style={{ color: accent }}>{owner.tagline}</p>}
+          </>
         )}
 
         {/* ── Status badges (Now booking + Free estimate) ─────────────────── */}

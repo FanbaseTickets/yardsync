@@ -86,6 +86,12 @@
 |---|------|
 | 40 | **In-app revert: business → crew-only** — the crew→business conversion is now gated behind explicit confirm (bug fixed), but there's still no in-app way to UNDO a conversion. Add a support/settings action (or admin path) to move a mistakenly-converted account back to crew-only + clean up orphaned Stripe Connect artifacts. Backend/data operation; not fully self-serve if a Stripe account exists. |
 
+## Card templates — follow-on
+
+| # | Item |
+|---|------|
+| 41 | **Apply the card template to the downloadable assets** — #24 shipped 3 distinct layouts (Classic/Photo/Minimal) for the LIVE `/join` card + settings preview + picker. The downloadable social/print assets (`lib/cardTemplate.js` / `CardAssets`) still render one layout; extend them to match the contractor's chosen `cardTemplate` so print/social match the live card. Canvas layout work. |
+
 ## Cowork-session findings (2026-07, VS-Claude review)
 
 | # | Item |

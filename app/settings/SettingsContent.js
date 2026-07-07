@@ -226,6 +226,7 @@ export default function SettingsPage() {
     facebookUrl:          '',          // contractor's own Facebook page (optional)
     showFacebook:         false,       // show the Facebook link on the card
     cardStatusBadge:      'booking',   // 'booking' | 'none' — Now booking pill
+    cardTemplate:         'classic',   // 'classic' | 'photo' | 'minimal' — card layout
     offersFreeEstimate:   false,       // show a "Free estimate" badge on the card
     upfrontDeadlineHours: 24,          // global default for upfront billing (1-168, default 24)
   })
@@ -292,6 +293,7 @@ export default function SettingsPage() {
         facebookUrl:          profile.facebookUrl          || '',
         showFacebook:         profile.showFacebook === true,
         cardStatusBadge:      profile.cardStatusBadge      || 'booking', // 'booking' | 'none'
+        cardTemplate:         profile.cardTemplate         || 'classic',
         offersFreeEstimate:   profile.offersFreeEstimate === true,
         upfrontDeadlineHours: profile.upfrontDeadlineHours || 24,
       })
@@ -1150,6 +1152,7 @@ export default function SettingsPage() {
                       showContactPhone={form.showContactPhone}
                       showContactEmail={form.showContactEmail}
                       cardStatusBadge={form.cardStatusBadge}
+                      cardTemplate={form.cardTemplate}
                       offersFreeEstimate={form.offersFreeEstimate}
                       publicSlug={profile.publicSlug}
                       verified={isVerifiedBusiness(profile)}
@@ -1171,6 +1174,26 @@ export default function SettingsPage() {
 
                   {/* Public-profile fields used by /join page + the card */}
                   <div className="space-y-3 pt-3 border-t border-gray-100">
+                    {/* Card design template */}
+                    <div>
+                      <label className="text-[12px] font-medium text-gray-700 block mb-1">{lang === 'es' ? 'Diseño de tarjeta' : 'Card design'}</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { key: 'classic', en: 'Classic', es: 'Clásico', d: lang === 'es' ? 'Centrado' : 'Centered' },
+                          { key: 'photo',   en: 'Photo',   es: 'Foto',    d: lang === 'es' ? 'Foto grande' : 'Photo hero' },
+                          { key: 'minimal', en: 'Minimal', es: 'Mínimo',  d: lang === 'es' ? 'Simple' : 'Clean' },
+                        ].map(tpl => {
+                          const sel = (form.cardTemplate || 'classic') === tpl.key
+                          return (
+                            <button key={tpl.key} type="button" disabled={!settingsEditing} onClick={() => setField('cardTemplate', tpl.key)}
+                              className={`flex flex-col items-center py-2.5 rounded-lg border transition-colors disabled:opacity-60 ${sel ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                              <span className="text-[12.5px] font-semibold">{lang === 'es' ? tpl.es : tpl.en}</span>
+                              <span className={`text-[10px] ${sel ? 'text-white/80' : 'text-gray-400'}`}>{tpl.d}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
                     <Input
                       label={lang === 'es' ? 'Eslogan' : 'Tagline'}
                       value={form.tagline}
