@@ -80,6 +80,12 @@
 |---|------|
 | 39 | **Auto-invoice on job completion for post-visit clients** — when a contractor marks a job **complete** and the client's billing model is **post-visit** (invoice after the job, not paid upfront), automatically **trigger + send the invoice at that moment** (no separate manual send). Gate on the client's `billingMode`/pay-after flag; reuse the existing invoice-create + send path (respect the free-access card-required gate + `on_behalf_of` branding + 5.5% fee). Should also fire for a **crew member** completing the job (owner-owned invoice), so the money side still runs owner-only. Confirm no double-invoice if the job was already invoiced. |
 
+## Crew account lifecycle
+
+| # | Item |
+|---|------|
+| 40 | **In-app revert: business → crew-only** — the crew→business conversion is now gated behind explicit confirm (bug fixed), but there's still no in-app way to UNDO a conversion. Add a support/settings action (or admin path) to move a mistakenly-converted account back to crew-only + clean up orphaned Stripe Connect artifacts. Backend/data operation; not fully self-serve if a Stripe account exists. |
+
 ## Cowork-session findings (2026-07, VS-Claude review)
 
 | # | Item |
