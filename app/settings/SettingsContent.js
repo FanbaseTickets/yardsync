@@ -223,6 +223,8 @@ export default function SettingsPage() {
     serviceArea:          '',          // free-text "San Antonio & NE suburbs"
     showContactPhone:     true,        // show phone + Call/Text on card (default ON)
     showContactEmail:     false,       // show email on card (default OFF — opt-in)
+    facebookUrl:          '',          // contractor's own Facebook page (optional)
+    showFacebook:         false,       // show the Facebook link on the card
     cardStatusBadge:      'booking',   // 'booking' | 'none' — Now booking pill
     offersFreeEstimate:   false,       // show a "Free estimate" badge on the card
     upfrontDeadlineHours: 24,          // global default for upfront billing (1-168, default 24)
@@ -287,6 +289,8 @@ export default function SettingsPage() {
         serviceArea:          profile.serviceArea          || '',
         showContactPhone:     profile.showContactPhone !== false,        // default ON
         showContactEmail:     profile.showContactEmail === true,         // default OFF
+        facebookUrl:          profile.facebookUrl          || '',
+        showFacebook:         profile.showFacebook === true,
         cardStatusBadge:      profile.cardStatusBadge      || 'booking', // 'booking' | 'none'
         offersFreeEstimate:   profile.offersFreeEstimate === true,
         upfrontDeadlineHours: profile.upfrontDeadlineHours || 24,
@@ -1202,6 +1206,23 @@ export default function SettingsPage() {
                       maxLength={100}
                       disabled={!settingsEditing}
                     />
+                    {/* Contractor's own Facebook page (optional) — shown on the card. */}
+                    <div>
+                      <Input
+                        label="Facebook"
+                        value={form.facebookUrl}
+                        onChange={e => setField('facebookUrl', e.target.value)}
+                        placeholder="facebook.com/YourBusiness"
+                        maxLength={200}
+                        disabled={!settingsEditing}
+                      />
+                      {form.facebookUrl.trim() && (
+                        <label className="flex items-center gap-2 mt-1.5 text-[12px] text-gray-600 cursor-pointer">
+                          <input type="checkbox" checked={form.showFacebook} onChange={e => setField('showFacebook', e.target.checked)} disabled={!settingsEditing} className="w-4 h-4 accent-brand-600" />
+                          {lang === 'es' ? 'Mostrar Facebook en mi tarjeta' : 'Show Facebook on my card'}
+                        </label>
+                      )}
+                    </div>
                     <div>
                       <label className="text-[12px] font-medium text-gray-700 block mb-1">
                         {lang === 'es' ? 'Color de marca' : 'Brand accent color'}

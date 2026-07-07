@@ -14,7 +14,7 @@
  */
 
 import { useState } from 'react'
-import { Phone, MessageSquare, BookmarkPlus, ArrowRight } from 'lucide-react'
+import { Phone, MessageSquare, BookmarkPlus, ArrowRight, Facebook } from 'lucide-react'
 import VerifiedBadge from '@/components/VerifiedBadge'
 
 const STRINGS = {
@@ -242,6 +242,18 @@ export default function CardActions({ slug, owner, services, qrSvg, initialLang 
             </a>
           )}
         </div>
+
+        {/* Contractor's Facebook (optional) */}
+        {owner.facebookUrl && (
+          <a
+            href={owner.facebookUrl.startsWith('http') ? owner.facebookUrl : `https://${owner.facebookUrl}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 w-full inline-flex items-center justify-center gap-1.5 text-[13px] font-medium text-brand-700 hover:text-brand-800"
+          >
+            <Facebook size={15} /> Facebook
+          </a>
+        )}
 
         {/* ── QR code ──────────────────────────────────────────────────── */}
         {qrSvg && (

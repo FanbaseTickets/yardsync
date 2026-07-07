@@ -142,6 +142,7 @@ export default async function CardPage({ params }) {
         accentColor,
         showContactPhone:  owner.showContactPhone !== false,
         showContactEmail:  owner.showContactEmail === true,
+        facebookUrl:       owner.showFacebook === true ? (owner.facebookUrl || '') : '',
         cardStatusBadge:   owner.cardStatusBadge  || 'booking',
         offersFreeEstimate: owner.offersFreeEstimate === true,
         verified:          isVerifiedBusiness(owner),

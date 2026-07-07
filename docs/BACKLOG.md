@@ -74,6 +74,12 @@
 |---|------|
 | 38 | **[LOW] Worker can read addon amounts on the schedule** — `schedule.addons` carries `amountCents`, and an assigned crew member reads the whole schedule doc (base price + client financials are NOT there, so the leak is limited to add-on line amounts, never shown in the worker UI). To fully honor "worker never sees money," store a worker-safe label-only `serviceItems: [label]` for crew-visible jobs and keep priced addons off the worker-readable doc (or compute addon amounts at invoice time). Pre-existing; crew are trusted, so low priority. |
 
+## Billing workflow (Jay, 2026-07-06)
+
+| # | Item |
+|---|------|
+| 39 | **Auto-invoice on job completion for post-visit clients** — when a contractor marks a job **complete** and the client's billing model is **post-visit** (invoice after the job, not paid upfront), automatically **trigger + send the invoice at that moment** (no separate manual send). Gate on the client's `billingMode`/pay-after flag; reuse the existing invoice-create + send path (respect the free-access card-required gate + `on_behalf_of` branding + 5.5% fee). Should also fire for a **crew member** completing the job (owner-owned invoice), so the money side still runs owner-only. Confirm no double-invoice if the job was already invoiced. |
+
 ## Cowork-session findings (2026-07, VS-Claude review)
 
 | # | Item |
