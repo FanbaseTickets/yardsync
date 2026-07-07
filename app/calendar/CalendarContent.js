@@ -426,6 +426,8 @@ export default function CalendarPage() {
   // assignedTeam. Everywhere we compute crew MEMBERS, filter the owner out.
   const ownerUid = user?.uid
   const crewMembersOf = (team) => (team || []).filter(uid => uid && uid !== ownerUid)
+  // Scoped crew member (no own business): hide owner-only actions (Add job / Walk-in).
+  const scopedWorker = profile?.crewMode === true && !profile?.stripeAccountId
   // Display name for an assignee uid (owner = the owner's name; else the member's).
   // Denormalized onto the schedule so a scoped worker (who can't read the members)
   // can show "who else is on this job".
@@ -1411,14 +1413,16 @@ export default function CalendarPage() {
             <div className="animate-fade-up">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-[14px] font-semibold text-gray-800">{formatDateLocalized(selectedDay, 'EEEE, MMMM d', lang)}</h3>
-                <div className="flex items-center gap-2">
-                  <Button icon={Zap} size="sm" variant="secondary" onClick={openWalkInModal}>
-                    {lang === 'es' ? 'Ocasional' : 'Walk-in'}
-                  </Button>
-                  <Button icon={Plus} size="sm" onClick={openAddModal} disabled={clients.length === 0}>
-                    {translate('calendar', 'add_job')}
-                  </Button>
-                </div>
+                {!scopedWorker && (
+                  <div className="flex items-center gap-2">
+                    <Button icon={Zap} size="sm" variant="secondary" onClick={openWalkInModal}>
+                      {lang === 'es' ? 'Ocasional' : 'Walk-in'}
+                    </Button>
+                    <Button icon={Plus} size="sm" onClick={openAddModal} disabled={clients.length === 0}>
+                      {translate('calendar', 'add_job')}
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-1.5 mb-3 overflow-x-auto -mx-1 px-1 pb-1">

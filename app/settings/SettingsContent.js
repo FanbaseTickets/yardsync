@@ -196,6 +196,12 @@ export default function SettingsPage() {
         { key: 'team',    en: 'Team',    es: 'Equipo' },
       ]
 
+  // Clamp the active tab to the account's ALLOWED set — one source of truth for
+  // chip visibility AND content visibility. A scoped crew member can't force-
+  // render an owner-only tab (Card/SMS/Billing) via ?tab= — it falls back to
+  // Profile. (Security: the ?tab= param must not bypass scoping.)
+  const effectiveTab = SETTINGS_TABS.some(t => t.key === activeTab) ? activeTab : 'profile'
+
   // Active crew-seat count for the Billing summary (each = +$15/mo).
   const [crewSeatCount, setCrewSeatCount] = useState(0)
   useEffect(() => {
@@ -757,7 +763,7 @@ export default function SettingsPage() {
                 type="button"
                 onClick={() => selectTab(t.key)}
                 className={`flex-1 text-[13px] font-medium py-2 rounded-lg transition-colors ${
-                  activeTab === t.key ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  effectiveTab ===t.key ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
                 {lang === 'es' ? t.es : t.en}
@@ -793,7 +799,7 @@ export default function SettingsPage() {
           </div>
 
           {/* ── Profile tab ── */}
-          {activeTab === 'profile' && (<>
+          {effectiveTab ==='profile' && (<>
           {/* Profile */}
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -955,7 +961,7 @@ export default function SettingsPage() {
           </>)}
 
           {/* ── Card tab ── */}
-          {activeTab === 'card' && (<>
+          {effectiveTab ==='card' && (<>
           {/* YardSync Card — public business card + intake URL */}
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -1358,7 +1364,7 @@ export default function SettingsPage() {
           </>)}
 
           {/* ── SMS tab ── */}
-          {activeTab === 'sms' && (<>
+          {effectiveTab ==='sms' && (<>
           {/* Phone push notifications — secondary to SMS, never a replacement */}
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -1498,7 +1504,7 @@ export default function SettingsPage() {
           </>)}
 
           {/* ── Billing tab ── (Subscription · Payment Reminders · Volume Rewards · Stripe Connect) */}
-          {activeTab === 'billing' && (<>
+          {effectiveTab ==='billing' && (<>
           {/* Subscription */}
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -2026,7 +2032,7 @@ export default function SettingsPage() {
           </>)}
 
           {/* ── Team tab (Crew Tier) ── */}
-          {activeTab === 'team' && (
+          {effectiveTab ==='team' && (
             <div className="px-4 py-4 max-w-lg mx-auto">
               <TeamPanel />
             </div>

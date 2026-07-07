@@ -92,6 +92,12 @@
 |---|------|
 | 41 | **Apply the card template to the downloadable assets** — #24 shipped 3 distinct layouts (Classic/Photo/Minimal) for the LIVE `/join` card + settings preview + picker. The downloadable social/print assets (`lib/cardTemplate.js` / `CardAssets`) still render one layout; extend them to match the contractor's chosen `cardTemplate` so print/social match the live card. Canvas layout work. |
 
+## Adversarial-QA follow-ups (2026-07-06)
+
+| # | Item |
+|---|------|
+| 42 | **Sweep negative/oversized guards across ALL money inputs** — Finding 2 fixed the Services base + add-on price (`min="0"` + submit validation). Apply the same to the remaining money entry points: **walk-in price**, **quote line amounts**, **invoice line amounts**, per-client price override, and the variable add-on input. `min="0"` on the number inputs + reject `< 0` on submit (client + server). |
+
 ## Cowork-session findings (2026-07, VS-Claude review)
 
 | # | Item |
